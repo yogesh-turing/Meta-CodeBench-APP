@@ -1,4 +1,4 @@
-const { getNextRecurrences } = require('./model_a');
+const { getNextRecurrences } = require(process.env.TARGET_FILE)
 
 describe('getNextRecurrences', () => {
 
