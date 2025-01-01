@@ -6,7 +6,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "jest"
+    "test": "jest ./tasks/304032/index.test.js"
   },
   "jest": {
     "testMatch": [
