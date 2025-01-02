@@ -4,62 +4,52 @@ function currencyAmountInWords(amount) {
     }
 
     if (amount === 0 || amount === -0) {
-        return "Zero";
+        return "Zero Dollars";
     }
 
     const units = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
-    const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    const teens = ["Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const tens = ["", "Ten", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
     const thousands = ["", "Thousand", "Million", "Billion", "Trillion"];
 
     function convertToWords(num) {
         if (num === 0) return "";
-        let word = "";
+        if (num < 10) return units[num];
+        if (num < 20) return teens[num - 11];
+        if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? " " + units[num % 10] : "");
+        if (num < 1000) return units[Math.floor(num / 100)] + " Hundred" + (num % 100 !== 0 ? " " + convertToWords(num % 100) : "");
 
-        for (let i = 0; num > 0; i++) {
-            if (num % 1000 !== 0) {
-                word = convertHundreds(num % 1000) + thousands[i] + " " + word;
+        for (let i = 0, unit = 1000; i < thousands.length; i++, unit *= 1000) {
+            if (num < unit * 1000) {
+                return convertToWords(Math.floor(num / unit)) + " " + thousands[i] + (num % unit !== 0 ? " " + convertToWords(num % unit) : "");
             }
-            num = Math.floor(num / 1000);
         }
-
-        return word.trim();
-    }
-
-    function convertHundreds(num) {
-        let word = "";
-        if (num > 99) {
-            word += units[Math.floor(num / 100)] + " Hundred ";
-            num %= 100;
-        }
-        if (num > 19) {
-            word += tens[Math.floor(num / 10)] + " ";
-            num %= 10;
-        }
-        if (num > 9) {
-            word += teens[num - 10] + " ";
-        } else if (num > 0) {
-            word += units[num] + " ";
-        }
-        return word;
-    }
-
-    function convertFractionalPart(num) {
-        if (num === 0) return "";
-        const cents = convertHundreds(Math.round(num * 100));
-        return cents + (Math.round(num * 100) === 1 ? "Cent" : "Cents");
     }
 
     let integerPart = Math.floor(Math.abs(amount));
-    let fractionalPart = Math.abs(amount) - integerPart;
+    let fractionalPart = Math.round((Math.abs(amount) - integerPart) * 100);
 
-    let output = convertToWords(integerPart);
-    if (fractionalPart > 0) {
-        output += (output.length > 1 ? " and " : "") + convertFractionalPart(fractionalPart);
+    let integerWords = convertToWords(integerPart);
+    let fractionalWords = fractionalPart > 0 ? convertToWords(fractionalPart) : "";
+
+    let output = "";
+    if (amount < 0) {
+        output += "Negative ";
     }
 
-    if (amount < 0) {
-        output = "Negative " + output;
+    if (integerPart > 0) {
+        output += integerWords + (integerPart === 1 ? " Dollar" : " Dollars");
+    }
+
+    if (fractionalPart > 0) {
+        if (integerPart > 0) {
+            output += " and ";
+        }
+        output += fractionalWords + (fractionalPart === 1 ? " Cent" : " Cents");
+    }
+
+    if (integerPart === 0 && fractionalPart > 0) {
+        output = fractionalWords + (fractionalPart === 1 ? " Cent" : " Cents");
     }
 
     return output;
@@ -68,5 +58,3 @@ function currencyAmountInWords(amount) {
 module.exports = {
     currencyAmountInWords
 };
-
-console.log(currencyAmountInWords(1000000.01)); // Zero

@@ -1,15 +1,15 @@
 function currencyAmountInWords(amount) {
-    if (!amount || typeof amount !== "number" || isNaN(amount)) {
-        return ""
-    }
-    // TODO - add more validations
-    let output = "";
+    if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+    return "";
+}
 
-    // TODO - implement the code
-    return output
-   
+let output = "";
+
+// TODO - implement the code
+return output
+
 }
 
 module.exports = {
-    currencyAmountInWords
+currencyAmountInWords
 };

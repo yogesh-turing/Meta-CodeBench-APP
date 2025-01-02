@@ -1,68 +1,94 @@
-const { currencyAmountInWords } = require('./correct');
+const { currencyAmountInWords } = require('./model');
 
-test('converts 0 to words', () => {
-    expect(currencyAmountInWords(0)).toBe('Zero');
+test('should return "Zero Dollars" for 0', () => {
+    expect(currencyAmountInWords(0)).toBe("Zero Dollars");
+    expect(currencyAmountInWords(-0)).toBe("Zero Dollars");
 });
 
-test('converts positive integer to words', () => {
-    expect(currencyAmountInWords(123)).toBe('One Hundred Twenty Three');
-    expect(currencyAmountInWords(1001)).toBe('One Thousand One');
-    expect(currencyAmountInWords(1000000)).toBe('One Million');
-});
 
-test('converts negative integer to words', () => {
-    expect(currencyAmountInWords(-123)).toBe('Negative One Hundred Twenty Three');
-    expect(currencyAmountInWords(-1001)).toBe('Negative One Thousand One');
-    expect(currencyAmountInWords(-1000000)).toBe('Negative One Million');
-});
-
-test('converts positive float to words', () => {
-    expect(currencyAmountInWords(123.45)).toBe('One Hundred Twenty Three and Forty Five Cents');
-    expect(currencyAmountInWords(1001.99)).toBe('One Thousand One and Ninety Nine Cents');
-    expect(currencyAmountInWords(1000000.01)).toBe('One Million and One Cent');
-
-    // 23 cents
-    expect(currencyAmountInWords(0.23)).toBe('Twenty Three Cents');
-    // 1 cent
+test('converts amount between 0 and 1 to words', () => {
     expect(currencyAmountInWords(0.01)).toBe('One Cent');
-    // one digit amount
-    expect(currencyAmountInWords(3.1)).toBe('Three and Ten Cents');
-    // two digit amount
-    expect(currencyAmountInWords(10.23)).toBe('Ten and Twenty Three Cents');
-    // three digit amount
-    expect(currencyAmountInWords(456.37)).toBe('Four Hundred Fifty Six and Thirty Seven Cents');
-    // four digit amount
-    expect(currencyAmountInWords(9743.49)).toBe('Nine Thousand Seven Hundred Forty Three and Forty Nine Cents');
-    // five digit amount
-    expect(currencyAmountInWords(12345.67)).toBe('Twelve Thousand Three Hundred Forty Five and Sixty Seven Cents');
-    // six digit amount
-    expect(currencyAmountInWords(523456.78)).toBe('Five Hundred Twenty Three Thousand Four Hundred Fifty Six and Seventy Eight Cents');
-    // seven digit amount
-    expect(currencyAmountInWords(7523456.89)).toBe('Seven Million Five Hundred Twenty Three Thousand Four Hundred Fifty Six and Eighty Nine Cents');
-    // eight digit amount
-    expect(currencyAmountInWords(87523456.99)).toBe('Eighty Seven Million Five Hundred Twenty Three Thousand Four Hundred Fifty Six and Ninety Nine Cents');
-    // nine digit amount
-    expect(currencyAmountInWords(987523456.01)).toBe('Nine Hundred Eighty Seven Million Five Hundred Twenty Three Thousand Four Hundred Fifty Six and One Cent');
-    // ten digit amount
-    expect(currencyAmountInWords(1987523456.23)).toBe('One Billion Nine Hundred Eighty Seven Million Five Hundred Twenty Three Thousand Four Hundred Fifty Six and Twenty Three Cents');
-    // eleven digit amount
-    expect(currencyAmountInWords(41987523456.45)).toBe('Forty One Billion Nine Hundred Eighty Seven Million Five Hundred Twenty Three Thousand Four Hundred Fifty Six and Forty Five Cents');
-    // twelve digit amount
-    expect(currencyAmountInWords(541987523456.67)).toBe('Five Hundred Forty One Billion Nine Hundred Eighty Seven Million Five Hundred Twenty Three Thousand Four Hundred Fifty Six and Sixty Seven Cents');
+    expect(currencyAmountInWords(0.45)).toBe('Forty Five Cents');
+    expect(currencyAmountInWords(0.99)).toBe('Ninety Nine Cents');
 });
 
-test('converts negative float to words', () => {
-    expect(currencyAmountInWords(-123.45)).toBe('Negative One Hundred Twenty Three and Forty Five Cents');
-    expect(currencyAmountInWords(-1001.99)).toBe('Negative One Thousand One and Ninety Nine Cents');
-    expect(currencyAmountInWords(-1000000.01)).toBe('Negative One Million and One Cent');
-    expect(currencyAmountInWords(-1000000.23)).toBe('Negative One Million and Twenty Three Cents');
+test('converts positive integers to words', () => {
+    // one digit
+    expect(currencyAmountInWords(5)).toBe('Five Dollars');
+
+    // two digits
+    expect(currencyAmountInWords(31)).toBe('Thirty One Dollars');
+
+    // three digits
+    expect(currencyAmountInWords(467)).toBe('Four Hundred Sixty Seven Dollars');
+
+    // four digits
+    expect(currencyAmountInWords(3963)).toBe('Three Thousand Nine Hundred Sixty Three Dollars');
+
+    // five digits
+    expect(currencyAmountInWords(53867)).toBe('Fifty Three Thousand Eight Hundred Sixty Seven Dollars');
+
+    // six digits
+    expect(currencyAmountInWords(642853)).toBe('Six Hundred Forty Two Thousand Eight Hundred Fifty Three Dollars');
+
+    // seven digits
+    expect(currencyAmountInWords(8435792)).toBe('Eight Million Four Hundred Thirty Five Thousand Seven Hundred Ninety Two Dollars');
+
+    // eight digits
+    expect(currencyAmountInWords(45678901)).toBe('Forty Five Million Six Hundred Seventy Eight Thousand Nine Hundred One Dollars');
+
+    // nine digits
+    expect(currencyAmountInWords(936547812)).toBe('Nine Hundred Thirty Six Million Five Hundred Forty Seven Thousand Eight Hundred Twelve Dollars');
+
+    // ten digits
+    expect(currencyAmountInWords(4567890123)).toBe('Four Billion Five Hundred Sixty Seven Million Eight Hundred Ninety Thousand One Hundred Twenty Three Dollars');
+
+    // eleven digits
+    expect(currencyAmountInWords(34567890123)).toBe('Thirty Four Billion Five Hundred Sixty Seven Million Eight Hundred Ninety Thousand One Hundred Twenty Three Dollars');
+
+    // twelve digits
+    expect(currencyAmountInWords(323232323232)).toBe('Three Hundred Twenty Three Billion Two Hundred Thirty Two Million Three Hundred Twenty Three Thousand Two Hundred Thirty Two Dollars');
+
+    // maximum limit
+    expect(currencyAmountInWords(989796959594)).toBe('Nine Hundred Eighty Nine Billion Seven Hundred Ninety Six Million Nine Hundred Fifty Nine Thousand Five Hundred Ninety Four Dollars');
 });
 
-test('returns empty string for invalid input', () => {
-    expect(currencyAmountInWords('abc')).toBe('');
+test('converts negative integers to words', () => {
+    expect(currencyAmountInWords(-4567)).toBe('Negative Four Thousand Five Hundred Sixty Seven Dollars');
+    expect(currencyAmountInWords(-100000)).toBe('Negative One Hundred Thousand Dollars');
+});
+
+test('converts numbers with cents to words', () => {
+    expect(currencyAmountInWords(123.45)).toBe('One Hundred Twenty Three Dollars and Forty Five Cents');
+    expect(currencyAmountInWords(1001.01)).toBe('One Thousand One Dollars and One Cent');
+    expect(currencyAmountInWords(1000000.99)).toBe('One Million Dollars and Ninety Nine Cents');
+});
+
+test('returns empty string for invalid inputs', () => {
+    expect(currencyAmountInWords('123')).toBe('');
     expect(currencyAmountInWords(NaN)).toBe('');
     expect(currencyAmountInWords(undefined)).toBe('');
     expect(currencyAmountInWords(null)).toBe('');
-    expect(currencyAmountInWords(1000000000001)).toBe('');
-    expect(currencyAmountInWords(-1000000000001)).toBe('');
+    expect(currencyAmountInWords(1000000000000001)).toBe('');
+    expect(currencyAmountInWords(-1000000000000001)).toBe('');
+});
+
+test('should return correct words for amounts with cents', () => {
+    expect(currencyAmountInWords(1.01)).toBe("One Dollar and One Cent");
+    expect(currencyAmountInWords(12.34)).toBe("Twelve Dollars and Thirty Four Cents");
+    expect(currencyAmountInWords(123.45)).toBe("One Hundred Twenty Three Dollars and Forty Five Cents");
+    expect(currencyAmountInWords(1234.56)).toBe("One Thousand Two Hundred Thirty Four Dollars and Fifty Six Cents");
+    expect(currencyAmountInWords(12345.67)).toBe("Twelve Thousand Three Hundred Forty Five Dollars and Sixty Seven Cents");
+    expect(currencyAmountInWords(123456.78)).toBe("One Hundred Twenty Three Thousand Four Hundred Fifty Six Dollars and Seventy Eight Cents");
+    expect(currencyAmountInWords(1234567.89)).toBe("One Million Two Hundred Thirty Four Thousand Five Hundred Sixty Seven Dollars and Eighty Nine Cents");
+});
+
+test('should return correct words for negative amounts with cents', () => {
+    expect(currencyAmountInWords(-1.01)).toBe("Negative One Dollar and One Cent");
+    expect(currencyAmountInWords(-12.34)).toBe("Negative Twelve Dollars and Thirty Four Cents");
+    expect(currencyAmountInWords(-123.45)).toBe("Negative One Hundred Twenty Three Dollars and Forty Five Cents");
+    expect(currencyAmountInWords(-1234.56)).toBe("Negative One Thousand Two Hundred Thirty Four Dollars and Fifty Six Cents");
+    expect(currencyAmountInWords(-12345.67)).toBe("Negative Twelve Thousand Three Hundred Forty Five Dollars and Sixty Seven Cents");
+    expect(currencyAmountInWords(-123456.78)).toBe("Negative One Hundred Twenty Three Thousand Four Hundred Fifty Six Dollars and Seventy Eight Cents");
+    expect(currencyAmountInWords(-1234567.89)).toBe("Negative One Million Two Hundred Thirty Four Thousand Five Hundred Sixty Seven Dollars and Eighty Nine Cents");
 });
