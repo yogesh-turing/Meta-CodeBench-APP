@@ -2,17 +2,7 @@ TEST SUMMARY
 ============
 
 304032:
-base       : 2/14 tests passed [FAILED]
+base       : 0/14 tests passed [FAILED]
 correct    : 14/14 tests passed [PASSED]
 incorrect  : 8/14 tests passed [FAILED]
-model_a    : 13/14 tests passed [FAILED]
-model_b    : 8/14 tests passed [FAILED]
-model_c    : 8/14 tests passed [FAILED]
-model_d    : 8/14 tests passed [FAILED]
-model_e    : 8/14 tests passed [FAILED]
-model_f    : 8/14 tests passed [FAILED]
-model_g    : 8/14 tests passed [FAILED]
-model_h    : 8/14 tests passed [FAILED]
-model_i    : 8/14 tests passed [FAILED]
-model_j    : 8/14 tests passed [FAILED]
 

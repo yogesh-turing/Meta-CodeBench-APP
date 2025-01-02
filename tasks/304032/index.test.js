@@ -1,4 +1,4 @@
-const { TaskSchedulingSystem } = require('./incorrect');
+const { TaskSchedulingSystem } = require(process.env.TARGET_FILE);
 
 describe('TaskSchedulingSystem', () => {
     let scheduler;
