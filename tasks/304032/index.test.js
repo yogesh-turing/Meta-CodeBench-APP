@@ -1,124 +1,136 @@
-const { TaskSchedulingSystem } = require('./model_a');
-// const { TaskSchedulingSystem } = require(process.env.TARGET_FILE);
-
-// date plus 6 months
-let  DATE_PLUS_6_MONTHS, DATE_PLUS_1_MONTH;
+const { TaskSchedulingSystem } = require('./incorrect');
 
 describe('TaskSchedulingSystem', () => {
-    let system;
+    let scheduler;
 
     beforeEach(() => {
-        system = new TaskSchedulingSystem(3);
-        // Mock Date to 20th dec 2024
-        jest.useFakeTimers('modern');
-        jest.setSystemTime(new Date('2024-12-20'));
-        DATE_PLUS_6_MONTHS = new Date(new Date().getTime() + 6 * 30 * 24 * 60 * 60 * 1000);
-        DATE_PLUS_1_MONTH = new Date(new Date().getTime() + 1 * 30 * 24 * 60 * 60 * 1000);
+        scheduler = new TaskSchedulingSystem();
     });
 
-    test('TaskSchedulingSystem should throw an error if maxTasks is invalid or not present', () => {
-        expect(() => new TaskSchedulingSystem('')).toThrow(Error);
-        expect(() => new TaskSchedulingSystem(0)).toThrow(Error);
-        expect(() => new TaskSchedulingSystem(-1)).toThrow(Error);
+    describe('addTask', () => {
+        test('should add a valid task', () => {
+            scheduler.addTask('A', 'high', 5);
+            expect(scheduler.tasks).toContain('a');
+            expect(scheduler.priorities.get('a')).toBe('high');
+            expect(scheduler.executionTimes.get('a')).toBe(5);
+            expect(scheduler.groups.get('a')).toBe('default');
+        });
+
+        test('should throw an error for invalid taskId', () => {
+            expect(() => scheduler.addTask('', 'high', 5)).toThrow(Error);
+            expect(() => scheduler.addTask(null, 'high', 5)).toThrow(Error);
+            expect(() => scheduler.addTask(undefined, 'high', 5)).toThrow(Error);
+        });
+
+        test('should throw an error for invalid priority', () => {
+            expect(() => scheduler.addTask('A', 'urgent', 5)).toThrow(Error);
+        });
+
+        test('should throw an error for invalid executionTime', () => {
+            expect(() => scheduler.addTask('A', 'high', -1)).toThrow(Error);
+            expect(() => scheduler.addTask('A', 'high', 0)).toThrow(Error);
+        });
+
+        test('should not add duplicate tasks', () => {
+            scheduler.addTask('A', 'high', 5);
+            scheduler.addTask('A', 'medium', 10);
+            expect(scheduler.tasks.length).toBe(1);
+            expect(scheduler.priorities.get('a')).toBe('high');
+            expect(scheduler.executionTimes.get('a')).toBe(5);
+        });
     });
 
-    test('addTask should throw an error if userId is invalid or not present', () => {
-        expect(() => system.addTask('', DATE_PLUS_6_MONTHS)).toThrow(Error);
-        expect(() => system.addTask(123, DATE_PLUS_6_MONTHS)).toThrow(Error);
-        expect(() => system.addTask(null, DATE_PLUS_6_MONTHS)).toThrow(Error);
-        expect(() => system.addTask(undefined, DATE_PLUS_6_MONTHS)).toThrow(Error);
+    describe('addDependency', () => {
+        test('should add a dependency between tasks', () => {
+            scheduler.addTask('A', 'high', 5);
+            scheduler.addTask('B', 'medium', 3);
+            scheduler.addDependency('A', 'B');
+            expect(scheduler.dependencies.get('a')).toContain('b');
+        });
+
+        test('should throw an error for invalid taskId or dependencyId', () => {
+            expect(() => scheduler.addDependency('', 'B')).toThrow(Error);
+            expect(() => scheduler.addDependency('A', '')).toThrow(Error);
+            expect(() => scheduler.addDependency(null, 'B')).toThrow(Error);
+            expect(() => scheduler.addDependency('A', null)).toThrow(Error);
+        });
+
+        test('should not add a dependency if tasks do not exist', () => {
+            scheduler.addTask('A', 'high', 5);
+            expect(() => scheduler.addDependency('A', 'B')).toThrow(Error);
+            expect(scheduler.dependencies.get('a')).not.toContain('b');
+        });
     });
 
-    test('addTask should throw an error if dueDate is invalid', () => {
-        // dueDate should be in the future
-        expect(() => system.addTask('user1', new Date('2022-12-20'))).toThrow(Error);
-        // dueDate should be a valid date
-        expect(() => system.addTask('user1', '2024-12-20')).toThrow(Error);
-        expect(() => system.addTask('user1', 123)).toThrow(Error);
-    });
+    describe('scheduleTasksWithDependencies', () => {
+        test('should schedule tasks with no dependencies', () => {
+            scheduler.addTask('A', 'high', 5);
+            scheduler.addTask('B', 'medium', 3);
+            const result = scheduler.scheduleTasksWithDependencies();
+            expect(result.scheduledTasks).toEqual(['a', 'b']);
+            expect(result.totalExecutionTime).toBe(8);
+        });
 
-    test('addTask should set due date to 1 month from now if dueDate is not provided', () => {
-        const task = system.addTask('user1');
-        expect(task.dueAt).toEqual(new Date(DATE_PLUS_1_MONTH));
-        system.deleteTask(task.id);
+        test('should schedule tasks with dependencies in correct order', () => {
+            scheduler.addTask('A', 'high', 5);
+            scheduler.addTask('B', 'medium', 3);
+            scheduler.addTask('C', 'low', 2);
+            scheduler.addDependency('B', 'A');
+            scheduler.addDependency('C', 'B');
+            const result = scheduler.scheduleTasksWithDependencies();
+            expect(result.scheduledTasks).toEqual(['a', 'b', 'c']);
+            expect(result.totalExecutionTime).toBe(10);
+        });
 
-        // Add another task
-        const task1 = system.addTask('user1', null);
-        expect(task1.dueAt).toEqual(new Date(DATE_PLUS_1_MONTH));
-        system.deleteTask(task1.id);
+        test('should detect cyclic dependencies and throw an error', () => {
+            scheduler.addTask('A', 'high', 5);
+            scheduler.addTask('B', 'medium', 3);
+            scheduler.addDependency('A', 'B');
+            scheduler.addDependency('B', 'A');
+            expect(() => scheduler.scheduleTasksWithDependencies()).toThrow(Error);
+        });
 
-        // Add another task
-        const task2 = system.addTask('user1', undefined);
-        expect(task2.dueAt).toEqual(new Date(DATE_PLUS_1_MONTH));
-        system.deleteTask(task2.id);
+        test('should handle large sets of tasks and dependencies efficiently', () => {
+            for (let i = 0; i < 100; i++) {
+                scheduler.addTask(`task${i}`, 'medium', 1);
+            }
+            for (let i = 1; i < 100; i++) {
+                scheduler.addDependency(`task${i}`, `task${i - 1}`);
+            }
+            const result = scheduler.scheduleTasksWithDependencies();
+            expect(result.scheduledTasks.length).toBe(100);
+            expect(result.scheduledTasks[0]).toBe('task0');
+            expect(result.scheduledTasks[99]).toBe('task99');
+            expect(result.totalExecutionTime).toBe(100);
+        });
 
-        // Add another task
-        const task3 = system.addTask('user1', '');
-        expect(task3.dueAt).toEqual(new Date(DATE_PLUS_1_MONTH));
-        system.deleteTask(task3.id);
-    });
+        // It should ensure tasks with higher priority should be scheduled before tasks with lower priority, 
+        // even if they have the same dependencies.
+        test('should schedule tasks based on priority', () => {
+            scheduler.addTask('A', 'low', 5);
+            scheduler.addTask('B', 'high', 3);
+            scheduler.addTask('C', 'low', 2);
+            scheduler.addTask('D', 'medium', 1);
+            scheduler.addDependency('B', 'A');
+            scheduler.addDependency('C', 'A');
+            scheduler.addDependency('D', 'A');
+            const result = scheduler.scheduleTasksWithDependencies();
+            expect(result.scheduledTasks).toEqual(['a', 'b', 'd', 'c']);
+            expect(result.totalExecutionTime).toBe(11);
+        });
 
-    test('addTask should add a task if user has not reached maxTasks', () => {
-        const task = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        expect(typeof task.id).toBe('number');
-        expect(task.id).toBeGreaterThan(0);
-        expect(task.user).toBe('user1');
-        expect(task.dueAt).toEqual(new Date(DATE_PLUS_6_MONTHS));
-        expect(task.status).toBe('open');
-    });
-
-    test('addTask should throw an error if user has reached maxTasks', () => {
-        system.addTask('user1', DATE_PLUS_6_MONTHS);
-        system.addTask('user1', DATE_PLUS_6_MONTHS);
-        system.addTask('user1', DATE_PLUS_6_MONTHS);
-        expect(() => system.addTask('user1', DATE_PLUS_6_MONTHS)).toThrow(Error);
-    });
-
-    test('getUser should return user tasks', () => {
-        const task1 = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        const task2 = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        expect(system.getUser('user1')).toEqual([task1, task2]);
-    });
-
-    test('getUser should throw an error if userId is invalid or not present', () => {
-        expect(() => system.getUser('')).toThrow(Error);
-        expect(() => system.getUser('user2')).toThrow(Error);
-    });
-
-    test('getTasks should return all tasks sorted by dueAt in descending order by default', () => {
-        const task1 = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        const task2 = system.addTask('user2', DATE_PLUS_1_MONTH);
-        expect(system.getTasks()).toEqual([task1, task2]);
-    });
-
-    test('getTasks should return all tasks sorted by dueAt in ascending order', () => {
-        const task1 = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        const task2 = system.addTask('user2', DATE_PLUS_1_MONTH);
-        expect(system.getTasks({ field: 'dueAt', direction: 'asc' })).toEqual([task2, task1]);
-    });
-
-    test('deleteTask should remove the task from the tasks list', () => {
-        const task = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        expect(system.deleteTask(task.id)).toBe(true);
-        expect(system.tasks).toHaveLength(0);
-    });
-
-    test('deleteTask should throw an error if taskId is invalid or not present', () => {
-        expect(() => system.deleteTask(999)).toThrow(Error);
-    });
-
-    test('updateTask should update the task status', () => {
-        const task = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        const updatedTask = system.updateTask(task.id, { status: 'completed' });
-        expect(updatedTask.status).toBe('completed');
-    });
-
-    test('updateTask should throw an error if taskId is invalid or not present', () => {
-        expect(() => system.updateTask(999, { status: 'completed' })).toThrow(Error);
-    });
-
-    test('updateTask should throw an error if status is invalid or not present', () => {
-        const task = system.addTask('user1', DATE_PLUS_6_MONTHS);
-        expect(() => system.updateTask(task.id, { status: 'invalid_status' })).toThrow(Error);
+        // It should ensure that tasks within the same group are scheduled together.
+        test('should schedule tasks based on group', () => {
+            scheduler.addTask('A', 'high', 5, 'group1');
+            scheduler.addTask('B', 'medium', 3, 'group2');
+            scheduler.addTask('C', 'low', 2, 'group1');
+            scheduler.addTask('D', 'medium', 1, 'group2');
+            scheduler.addDependency('B', 'A');
+            scheduler.addDependency('C', 'A');
+            scheduler.addDependency('D', 'A');
+            const result = scheduler.scheduleTasksWithDependencies();
+            expect(result.scheduledTasks).toEqual(['a', 'b', 'd', 'c']);
+            expect(result.totalExecutionTime).toBe(11);
+        });
     });
 });

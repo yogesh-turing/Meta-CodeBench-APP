@@ -1,105 +1,113 @@
-const TASK_STATUS = {
-    OPEN: "open",
-    IN_PROGRESS: "in_progress",
-    COMPLETED: "completed"
-}
-
 class TaskSchedulingSystem {
-    tasks = []; // { id: number, user: string, dueAt: date, status: string }
-    users = new Map();
-    constructor(maxTasks) {
-        if (!Number.isInteger(maxTasks) || maxTasks <= 0) {
-            throw new Error("maxTasks must be a positive integer");
-        }
-        this.maxTasks = maxTasks;
+    constructor() {
+        this.tasks = [];
+        this.dependencies = new Map();
+        this.priorities = new Map();
+        this.executionTimes = new Map();
+        this.groups = new Map();
     }
 
-    addTask(userId, dueDate) {
-        if (typeof userId !== 'string' || userId.trim() === '') {
-            throw new Error("Invalid userId");
+    addTask(taskId, priority = 'medium', executionTime = 0, group = 'default') {
+        if (typeof taskId !== 'string' || !taskId.trim()) {
+            throw new Error('taskId must be a non-empty string');
+        }
+        if (!['high', 'medium', 'low'].includes(priority)) {
+            throw new Error('priority must be one of high, medium, or low');
+        }
+        if (typeof executionTime !== 'number' || executionTime <= 0) {
+            throw new Error('executionTime must be a positive number');
         }
 
-        const userTasks = this.tasks.filter(task => task.user === userId && (task.status === TASK_STATUS.OPEN || task.status === TASK_STATUS.IN_PROGRESS));
-        if (userTasks.length >= this.maxTasks) {
-            throw new Error(`User ${userId} has reached the maximum number of tasks`);
+        const normalizedTaskId = taskId.toLowerCase();
+        if (!this.tasks.includes(normalizedTaskId)) {
+            this.tasks.push(normalizedTaskId);
+            this.dependencies.set(normalizedTaskId, []);
+            this.priorities.set(normalizedTaskId, priority);
+            this.executionTimes.set(normalizedTaskId, executionTime);
+            this.groups.set(normalizedTaskId, group);
         }
-
-        const newTask = {
-            id: this.tasks.length + 1,
-            user: userId,
-            dueAt: dueDate,
-            status: TASK_STATUS.OPEN
-        };
-
-        this.tasks.push(newTask);
-        if (!this.users.has(userId)) {
-            this.users.set(userId, []);
-        }
-        this.users.get(userId).push(newTask);
-
-        return newTask;
     }
 
-    getUser(userId) {
-        if (!this.users.has(userId)) {
-            throw new Error(`User ${userId} not found`);
+    addDependency(taskId, dependencyId) {
+        if (typeof taskId !== 'string' || !taskId.trim() || typeof dependencyId !== 'string' || !dependencyId.trim()) {
+            throw new Error('taskId and dependencyId must be non-empty strings');
         }
-        return this.users.get(userId);
+
+        const normalizedTaskId = taskId.toLowerCase();
+        const normalizedDependencyId = dependencyId.toLowerCase();
+
+        if (this.tasks.includes(normalizedTaskId) && this.tasks.includes(normalizedDependencyId)) {
+            this.dependencies.get(normalizedTaskId).push(normalizedDependencyId);
+        }
     }
 
-    getTasks(sortObject = { field: "dueAt", direction: "desc" }) {
-        if (sortObject.direction !== 'asc' && sortObject.direction !== 'desc') {
-            throw new Error('Invalid direction. Direction must be "asc" or "desc"');
-        }
+    scheduleTasksWithDependencies() {
+        const graph = {};
+        const inDegree = {};
+        const priorityMap = { high: 2, medium: 1, low: 0 };
 
-        const sortedTasks = this.tasks.sort((a, b) => {
-            if (sortObject.direction === 'asc') {
-                return a[sortObject.field] > b[sortObject.field] ? 1 : -1;
-            } else {
-                return a[sortObject.field] < b[sortObject.field] ? 1 : -1;
+        this.tasks.forEach(task => {
+            graph[task] = [];
+            inDegree[task] = 0;
+        });
+
+        this.tasks.forEach(task => {
+            const dependencies = this.dependencies.get(task);
+            dependencies.forEach(dependency => {
+                graph[dependency].push(task);
+                inDegree[task]++;
+            });
+        });
+
+        const queue = [];
+        this.tasks.forEach(task => {
+            if (inDegree[task] === 0) {
+                queue.push(task);
             }
         });
 
-        return sortedTasks;
-    }
+        const sortedTasks = [];
+        const visited = new Set();
+        let totalExecutionTime = 0;
 
-    deleteTask(taskId) {
-        const taskIndex = this.tasks.findIndex(task => task.id === taskId);
-        if (taskIndex === -1) {
-            throw new Error(`Task ${taskId} not found`);
-        }
-
-        this.tasks.splice(taskIndex, 1);
-        for (let [userId, tasks] of this.users) {
-            const taskIndex = tasks.findIndex(task => task.id === taskId);
-            if (taskIndex !== -1) {
-                tasks.splice(taskIndex, 1);
+        while (queue.length > 0) {
+            const task = queue.shift();
+            if (visited.has(task)) {
+                continue;
             }
+            visited.add(task);
+
+            const group = this.groups.get(task);
+            const tasksInGroup = this.tasks.filter(t => this.groups.get(t) === group);
+            tasksInGroup.forEach(t => {
+                if (!visited.has(t)) {
+                    queue.push(t);
+                }
+            });
+
+            sortedTasks.push(task);
+            totalExecutionTime += this.executionTimes.get(task);
+
+            graph[task].forEach(neighbor => {
+                inDegree[neighbor]--;
+                if (inDegree[neighbor] === 0) {
+                    queue.push(neighbor);
+                }
+            });
         }
 
-        return true;
-    }
-
-    updateTask(taskId, params) {
-        const taskIndex = this.tasks.findIndex(task => task.id === taskId);
-        if (taskIndex === -1) {
-            throw new Error(`Task ${taskId} not found`);
+        if (sortedTasks.length !== this.tasks.length) {
+            throw new Error('Cyclic dependencies detected');
         }
 
-        if (params.status && !Object.values(TASK_STATUS).includes(params.status)) {
-            throw new Error(`Invalid status ${params.status}`);
-        }
-
-        this.tasks[taskIndex] = { ...this.tasks[taskIndex], ...params };
-
-        for (let [userId, tasks] of this.users) {
-            const taskIndex = tasks.findIndex(task => task.id === taskId);
-            if (taskIndex !== -1) {
-                tasks[taskIndex] = { ...tasks[taskIndex], ...params };
+        sortedTasks.sort((a, b) => {
+            if (this.groups.get(a) === this.groups.get(b)) {
+                return priorityMap[this.priorities.get(b)] - priorityMap[this.priorities.get(a)];
             }
-        }
+            return 0;
+        });
 
-        return this.tasks[taskIndex];
+        return { sortedTasks, totalExecutionTime };
     }
 }
 

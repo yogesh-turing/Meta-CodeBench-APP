@@ -1,101 +1,107 @@
-const TASK_STATUS = {
-    OPEN: "open",
-    IN_PROGRESS: "in_progress",
-    COMPLETED: "completed"
-}
-
 class TaskSchedulingSystem {
-    tasks = []; // { id: number, user: string, dueAt: date, status: string }
-    users = new Map();
-  constructor(maxTasks) {
-    if (!Number.isInteger(maxTasks) || maxTasks <= 0) {
-      throw new Error("maxTasks must be a positive integer");
-    }
-    this.maxTasks = maxTasks;
+  constructor() {
+      this.tasks = [];
+      this.dependencies = new Map();
+      this.priorities = new Map();
+      this.executionTimes = new Map();
+      this.groups = new Map();
   }
 
-  addTask(userId, dueDate) {
-    if (typeof userId !== 'string' || userId.trim() === '') {
-      throw new Error("Invalid userId");
-    }
-
-    if (!this.users.has(userId)) {
-        this.users.set(userId, []);
-    }
-
-    const activeTasks = this.users.get(userId).filter(task => [TASK_STATUS.OPEN, TASK_STATUS.IN_PROGRESS].includes(task.status));
-    if (activeTasks.length >= this.maxTasks) {
-        throw new Error(`User ${userId} has reached the maximum number of tasks`);
-    }
-
-    const task = {
-        id: this.tasks.length + 1,
-        user: userId,
-        dueAt: dueDate,
-        status: TASK_STATUS.OPEN
-    };
-
-    this.tasks.push(task);
-    this.users.get(userId).push(task);
-
-    return task;
+  addTask(taskId, priority = 'medium', executionTime = 0, group = 'default') {
+      if (typeof taskId !== 'string' || !taskId.trim()) {
+          throw new Error('taskId should be a non-empty string');
+      }
+      if (!['high', 'medium', 'low'].includes(priority)) {
+          throw new Error('priority should be one of high, medium, or low');
+      }
+      if (typeof executionTime !== 'number' || executionTime <= 0) {
+          throw new Error('executionTime should be a positive number');
+      }
+      const normalizedTaskId = taskId.toLowerCase();
+      if (!this.tasks.includes(normalizedTaskId)) {
+          this.tasks.push(normalizedTaskId);
+          this.dependencies.set(normalizedTaskId, []);
+          this.priorities.set(normalizedTaskId, priority);
+          this.executionTimes.set(normalizedTaskId, executionTime);
+          this.groups.set(normalizedTaskId, group);
+      }
   }
 
-  getUser(userId) {
-    if (!this.users.has(userId)) {
-        throw new Error(`User ${userId} not found`);
-    }
-    return this.users.get(userId);
+  addDependency(taskId, dependencyId) {
+      if (typeof taskId !== 'string' || !taskId.trim()) {
+          throw new Error('taskId should be a non-empty string');
+      }
+      if (typeof dependencyId !== 'string' || !dependencyId.trim()) {
+          throw new Error('dependencyId should be a non-empty string');
+      }
+      const normalizedTaskId = taskId.toLowerCase();
+      const normalizedDependencyId = dependencyId.toLowerCase();
+      if (this.tasks.includes(normalizedTaskId) && this.tasks.includes(normalizedDependencyId)) {
+          this.dependencies.get(normalizedTaskId).push(normalizedDependencyId);
+      }
   }
 
-  getTasks(sortObject = {field: "dueAt", direction: "desc"}) {
-    if (!['id', 'user', 'dueAt', 'status'].includes(sortObject.field)) {
-        throw new Error('Invalid sort field');
-    }
-    if (!['asc', 'desc'].includes(sortObject.direction)) {
-        throw new Error('Invalid sort direction');
-    }
+  scheduleTasksWithDependencies() {
+      const visited = new Set();
+      const scheduledTasks = [];
+      const groupTasks = {};
+      let totalExecutionTime = 0;
 
-    return this.tasks.sort((a, b) => {
-        if (sortObject.direction === 'asc') {
-            return a[sortObject.field] < b[sortObject.field] ? -1 : 1;
-        } else {
-            return a[sortObject.field] > b[sortObject.field] ? -1 : 1;
-        }
-    });
-  }
+      const dfs = (taskId) => {
+          if (visited.has(taskId)) {
+              throw new Error('Cyclic dependencies detected');
+          }
+          visited.add(taskId);
+          const dependencies = this.dependencies.get(taskId);
+          dependencies.forEach((dependency) => {
+              if (!visited.has(dependency)) {
+                  dfs(dependency);
+              }
+          });
+          visited.delete(taskId);
+          scheduledTasks.push(taskId);
+      };
 
-  deleteTask(taskId) {
-    const taskIndex = this.tasks.findIndex(task => task.id === taskId);
-    if (taskIndex === -1) {
-        throw new Error(`Task ${taskId} not found`);
-    }
+      this.tasks.forEach((taskId) => {
+          if (!visited.has(taskId)) {
+              dfs(taskId);
+          }
+      });
 
-    const task = this.tasks.splice(taskIndex, 1)[0];
-    this.users.get(task.user).splice(this.users.get(task.user).indexOf(task), 1);
+      scheduledTasks.sort((a, b) => {
+          const priorityA = this.priorities.get(a);
+          const priorityB = this.priorities.get(b);
+          if (priorityA === priorityB) {
+              return 0;
+          }
+          if (priorityA === 'high') {
+              return -1;
+          }
+          if (priorityA === 'low') {
+              return 1;
+          }
+          return 0;
+      });
 
-    return true;
-  }
+      scheduledTasks.forEach((taskId) => {
+          const group = this.groups.get(taskId);
+          if (!groupTasks[group]) {
+              groupTasks[group] = [];
+          }
+          groupTasks[group].push(taskId);
+      });
 
-  updateTask(taskId, params) {
-    const taskIndex = this.tasks.findIndex(task => task.id === taskId);
-    if (taskIndex === -1) {
-        throw new Error(`Task ${taskId} not found`);
-    }
+      Object.keys(groupTasks).forEach((group) => {
+          const groupTaskIds = groupTasks[group];
+          groupTaskIds.forEach((taskId) => {
+              totalExecutionTime += this.executionTimes.get(taskId);
+          });
+      });
 
-    if (params.status && !Object.values(TASK_STATUS).includes(params.status)) {
-        throw new Error('Invalid task status');
-    }
-
-    this.tasks[taskIndex] = { ...this.tasks[taskIndex], ...params };
-    const userTasks = this.users.get(this.tasks[taskIndex].user);
-    const taskIndexInUserTasks = userTasks.findIndex(task => task.id === taskId);
-    userTasks[taskIndexInUserTasks] = this.tasks[taskIndex];
-
-    return this.tasks[taskIndex];
+      return { scheduledTasks, totalExecutionTime };
   }
 }
 
 module.exports = {
-    TaskSchedulingSystem
+  TaskSchedulingSystem
 };
