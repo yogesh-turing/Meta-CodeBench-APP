@@ -1,80 +1,88 @@
 class RateLimiter {
-    constructor(maxRequests, timeWindow) {
-      if (!Number.isInteger(maxRequests) || maxRequests <= 0) {
-        throw new Error('maxRequests must be a positive integer');
-      }
-      if (!Number.isInteger(timeWindow) || timeWindow <= 0) {
-        throw new Error('timeWindow must be a positive integer');
-      }
-  
-      this.maxRequests = maxRequests;
-      this.timeWindow = timeWindow;
-      this.userRequests = new Map();
-      this.cleanupInterval = setInterval(() => this.cleanupOldEntries(), timeWindow);
+  constructor(maxRequests, timeWindow, penaltyDuration) {
+    if (!Number.isInteger(maxRequests) || maxRequests < 0) {
+      throw new Error("maxRequests must be a non-negative integer");
     }
-  
-    isRequestAllowed(userId) {
-      if (typeof userId !== 'string' || userId.trim() === '') {
-        throw new Error('Invalid userId');
-      }
-  
-      const currentTime = Date.now();
-      const userTimestamps = this.userRequests.get(userId) || [];
-  
-      // Remove timestamps outside the time window
-      while (userTimestamps.length > 0 && currentTime - userTimestamps[0] >= this.timeWindow) {
-        userTimestamps.shift();
-      }
-  
-      if (userTimestamps.length < this.maxRequests) {
-        userTimestamps.push(currentTime);
-        this.userRequests.set(userId, userTimestamps);
-        return true;
-      }
-  
+    if (!Number.isInteger(timeWindow) || timeWindow <= 0) {
+      throw new Error("timeWindow must be a positive integer");
+    }
+    if (!Number.isInteger(penaltyDuration) || penaltyDuration <= 0) {
+      throw new Error("penaltyDuration must be a positive integer");
+    }
+
+    this.maxRequests = maxRequests;
+    this.timeWindow = timeWindow;
+    this.penaltyDuration = penaltyDuration;
+    this.userRequests = new Map();
+    this.userRoles = new Map();
+    this.roleLimits = {
+      'admin': maxRequests * 2,
+      'premium': maxRequests * 1.5,
+      'basic': maxRequests
+    };
+    this.userPenalties = new Map();
+  }
+
+  setUserRole(userId, role) {
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error("Invalid userId");
+    }
+    if (typeof role !== 'string' || role.trim() === '') {
+      throw new Error("Invalid role");
+    }
+    this.userRoles.set(userId, role);
+  }
+
+  isRequestAllowed(userId) {
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error("Invalid userId");
+    }
+
+    if (this.maxRequests === 0) {
       return false;
     }
-  
-    cleanupOldEntries() {
-      const currentTime = Date.now();
-      for (const [userId, timestamps] of this.userRequests.entries()) {
-        const validTimestamps = timestamps.filter(timestamp => currentTime - timestamp < this.timeWindow);
-        if (validTimestamps.length === 0) {
-          this.userRequests.delete(userId);
-        } else {
-          this.userRequests.set(userId, validTimestamps);
-        }
+
+    const currentTime = Date.now();
+
+    // Check if user is under penalty
+    if (this.userPenalties.has(userId)) {
+      const penaltyEndTime = this.userPenalties.get(userId);
+      if (currentTime < penaltyEndTime) {
+        return false;
       }
+      // Remove expired penalty
+      this.userPenalties.delete(userId);
     }
-  
-    stopCleanup() {
-      clearInterval(this.cleanupInterval);
+
+    // Initialize request timestamps array if not exists
+    if (!this.userRequests.has(userId)) {
+      this.userRequests.set(userId, []);
     }
+
+    // Get user's role limit
+    const userRole = this.userRoles.get(userId) || 'basic';
+    const roleLimit = this.roleLimits[userRole] || this.maxRequests;
+
+    // Clean up expired timestamps
+    const validWindow = currentTime - this.timeWindow;
+    const userTimestamps = this.userRequests.get(userId);
+    const validRequests = userTimestamps.filter(timestamp => timestamp > validWindow);
+    this.userRequests.set(userId, validRequests);
+
+    // Check if user has exceeded their limit
+    if (validRequests.length >= roleLimit) {
+      // Apply penalty
+      this.userPenalties.set(userId, currentTime + this.penaltyDuration);
+      return false;
+    }
+
+    // Add current request timestamp
+    validRequests.push(currentTime);
+    this.userRequests.set(userId, validRequests);
+    return true;
   }
-  
-//   // Usage example
-//   const rateLimiter = new RateLimiter(3, 10000);
-  
-//   const testUserId = "user123";
-  
-//   const intervalId = setInterval(() => {
-//     try {
-//       const allowed = rateLimiter.isRequestAllowed(testUserId);
-//       console.log(allowed ? "Request allowed" : "Request denied");
-//     } catch (error) {
-//       console.error("Error:", error.message);
-//       clearInterval(intervalId);
-//       rateLimiter.stopCleanup();
-//     }
-//   }, 3000);
-  
-//   // Stop the interval after 1 minute
-//   setTimeout(() => {
-//     clearInterval(intervalId);
-//     rateLimiter.stopCleanup();
-//     console.log("Test completed");
-//   }, 60000);
+}
 
 module.exports = {
-    RateLimiter
-  };
+  RateLimiter
+};

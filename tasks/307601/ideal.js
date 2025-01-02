@@ -1,70 +1,70 @@
 class RateLimiter {
-  constructor(maxRequests, timeWindow, penaltyDuration, roleLimits) {
+  constructor(maxRequests, timeWindow, penaltyDuration, roleLimits = {}) {
     if (typeof maxRequests !== 'number' || maxRequests <= 0) {
-      throw new Error('maxRequests must be a positive number');
+      throw new Error("maxRequests must be a positive number");
     }
     if (typeof timeWindow !== 'number' || timeWindow <= 0) {
-      throw new Error('timeWindow must be a positive number');
+      throw new Error("timeWindow must be a positive number");
     }
     if (typeof penaltyDuration !== 'number' || penaltyDuration <= 0) {
-      throw new Error('penaltyDuration must be a positive number');
+      throw new Error("penaltyDuration must be a positive number");
     }
+
     this.maxRequests = maxRequests;
     this.timeWindow = timeWindow;
-    this.userRequests = new Map();
-
-    this.userRoles = new Map();
-    this.roleLimits = roleLimits || {};
     this.penaltyDuration = penaltyDuration;
+    this.userRequests = new Map();
+    this.userRoles = new Map();
+    this.roleLimits = roleLimits;
     this.userPenalties = new Map();
   }
 
   setUserRole(userId, role) {
     if (typeof userId !== 'string' || userId.trim() === '') {
-      throw new Error('Invalid userId');
+      throw new Error("Invalid userId");
     }
     if (typeof role !== 'string' || role.trim() === '') {
-      throw new Error('Invalid role');
+      throw new Error("Invalid role");
     }
     this.userRoles.set(userId, role);
   }
 
   isRequestAllowed(userId) {
     if (typeof userId !== 'string' || userId.trim() === '') {
-      throw new Error('Invalid userId');
+      throw new Error("Invalid userId");
     }
+
     if (this.maxRequests === 0) {
-      return false;
+      return false; // Deny all requests when maxRequests is 0
     }
 
     const currentTime = Date.now();
+
+    // Check if user is under penalty
     if (this.userPenalties.has(userId)) {
-      const penaltyExpiry = this.userPenalties.get(userId);
-      if (currentTime < penaltyExpiry) {
-        return false;
+      const penaltyEndTime = this.userPenalties.get(userId);
+      if (currentTime < penaltyEndTime) {
+        return false; // User is still under penalty
       } else {
-        this.userPenalties.delete(userId);
+        this.userPenalties.delete(userId); // Penalty period is over
       }
     }
 
-    let roleLimit = this.maxRequests;
-    if (this.userRoles.has(userId)) {
-      const role = this.userRoles.get(userId);
-      roleLimit = this.roleLimits[role] || roleLimit;
-    }
+    const userTimestamps = this.userRequests.get(userId) || [];
+    const userRole = this.userRoles.get(userId) || 'default';
+    const roleLimit = this.roleLimits[userRole] || this.maxRequests;
 
-    if (!this.userRequests.has(userId)) {
-      this.userRequests.set(userId, []);
+    // Remove expired timestamps
+    while (userTimestamps.length > 0 && currentTime - userTimestamps[0] >= this.timeWindow) {
+      userTimestamps.shift();
     }
-
-    const userTimestamps = this.userRequests.get(userId);
-    userTimestamps.filter(timestamp => timestamp > currentTime - this.timeWindow);
 
     if (userTimestamps.length < roleLimit) {
       userTimestamps.push(currentTime);
       this.userRequests.set(userId, userTimestamps);
       return true;
     } else {
+      // Apply penalty
       this.userPenalties.set(userId, currentTime + this.penaltyDuration);
       return false;
     }

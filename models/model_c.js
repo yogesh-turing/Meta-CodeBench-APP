@@ -1,60 +1,88 @@
 class RateLimiter {
-    constructor(maxRequests, timeWindow) {
-      if (!Number.isInteger(maxRequests) || maxRequests <= 0) {
-        throw new Error("maxRequests must be a positive integer");
+  constructor(maxRequests, timeWindow, penaltyDuration) {
+      if (!Number.isInteger(maxRequests) || maxRequests < 0) {
+          throw new Error("maxRequests must be a non-negative integer");
       }
       if (!Number.isInteger(timeWindow) || timeWindow <= 0) {
-        throw new Error("timeWindow must be a positive integer");
+          throw new Error("timeWindow must be a positive integer");
       }
-  
+      if (!Number.isInteger(penaltyDuration) || penaltyDuration <= 0) {
+          throw new Error("penaltyDuration must be a positive integer");
+      }
+
       this.maxRequests = maxRequests;
       this.timeWindow = timeWindow;
       this.userRequests = new Map();
-  
-      // Cleanup interval to remove expired timestamps
-      this.cleanupInterval = setInterval(() => this.cleanup(), timeWindow);
-    }
-  
-    isRequestAllowed(userId) {
-      if (typeof userId !== 'string' || userId.trim() === '') {
-        throw new Error("Invalid userId");
-      }
-  
-      const currentTime = Date.now();
-      const userTimestamps = this.userRequests.get(userId) || [];
-      
-      // Remove expired timestamps
-      while (userTimestamps.length > 0 && currentTime - userTimestamps[0] >= this.timeWindow) {
-        userTimestamps.shift();
-      }
-  
-      if (userTimestamps.length < this.maxRequests) {
-        userTimestamps.push(currentTime);
-        this.userRequests.set(userId, userTimestamps);
-        return true;
-      }
-  
-      return false;
-    }
-  
-    cleanup() {
-      const currentTime = Date.now();
-      for (const [userId, timestamps] of this.userRequests.entries()) {
-        const validTimestamps = timestamps.filter(timestamp => currentTime - timestamp < this.timeWindow);
-        if (validTimestamps.length === 0) {
-          this.userRequests.delete(userId);
-        } else {
-          this.userRequests.set(userId, validTimestamps);
-        }
-      }
-    }
-  
-    // Method to stop the cleanup interval when the limiter is no longer needed
-    stop() {
-      clearInterval(this.cleanupInterval);
-    }
+      this.userRoles = new Map();
+      this.roleLimits = {
+          'admin': maxRequests * 2,
+          'premium': maxRequests * 1.5,
+          'basic': maxRequests
+      };
+      this.penaltyDuration = penaltyDuration;
+      this.userPenalties = new Map();
   }
 
-  module.exports = {
-    RateLimiter
-  };
+  setUserRole(userId, role) {
+      if (typeof userId !== 'string' || userId.trim() === '') {
+          throw new Error("Invalid userId");
+      }
+      if (typeof role !== 'string' || role.trim() === '') {
+          throw new Error("Invalid role");
+      }
+      this.userRoles.set(userId, role);
+  }
+
+  isRequestAllowed(userId) {
+      if (typeof userId !== 'string' || userId.trim() === '') {
+          throw new Error("Invalid userId");
+      }
+
+      if (this.maxRequests === 0) {
+          return false;
+      }
+
+      const currentTime = Date.now();
+
+      // Check if user is under penalty
+      if (this.userPenalties.has(userId)) {
+          const penaltyEnd = this.userPenalties.get(userId);
+          if (currentTime < penaltyEnd) {
+              return false;
+          }
+          this.userPenalties.delete(userId);
+      }
+
+      // Initialize user requests if not exists
+      if (!this.userRequests.has(userId)) {
+          this.userRequests.set(userId, []);
+      }
+
+      // Clean up expired timestamps
+      const validWindow = currentTime - this.timeWindow;
+      const userTimestamps = this.userRequests.get(userId).filter(
+          timestamp => timestamp > validWindow
+      );
+      this.userRequests.set(userId, userTimestamps);
+
+      // Get rate limit based on user role
+      const userRole = this.userRoles.get(userId);
+      const rateLimit = userRole ? this.roleLimits[userRole] : this.maxRequests;
+
+      // Check if user has exceeded their rate limit
+      if (userTimestamps.length >= rateLimit) {
+          // Apply penalty
+          this.userPenalties.set(userId, currentTime + this.penaltyDuration);
+          return false;
+      }
+
+      // Add current request timestamp
+      userTimestamps.push(currentTime);
+      this.userRequests.set(userId, userTimestamps);
+      return true;
+  }
+}
+
+module.exports = {
+  RateLimiter
+};

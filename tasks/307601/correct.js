@@ -1,57 +1,72 @@
 class RateLimiter {
-    constructor(maxRequests, timeWindow) {
-      if (maxRequests <= 0 || !Number.isInteger(maxRequests)) {
-        throw new Error("maxRequests must be a positive integer");
+  constructor(maxRequests, timeWindow, penaltyDuration, roleLimits = {}) {
+  if (!Number.isInteger(maxRequests) || maxRequests <= 0) {
+      throw new Error("maxRequests must be a non-negative integer");
       }
-      if (timeWindow <= 0 || !Number.isInteger(timeWindow)) {
-        throw new Error("timeWindow must be a positive integer");
-      }
-      this.maxRequests = maxRequests;
-      this.timeWindow = timeWindow;
-      this.userRequests = new Map();
+    if (typeof timeWindow !== 'number' || timeWindow <= 0) {
+      throw new Error('timeWindow must be a positive number');
     }
-  
-    isRequestAllowed(userId) {
-      if (typeof userId !== 'string' || userId.trim() === '') {
-        throw new Error("Invalid userId");
-      }
-  
-      if (this.maxRequests === 0) {
-        return false; // Deny all requests when maxRequests is 0
-      }
-  
-      const currentTime = Date.now();
-      const userTimestamps = this.userRequests.get(userId) || [];
-  
-      // Remove expired timestamps
-      while (userTimestamps.length > 0 && currentTime - userTimestamps[0] >= this.timeWindow) {
-        userTimestamps.shift();
-      }
-  
-      if (userTimestamps.length < this.maxRequests) {
-        userTimestamps.push(currentTime);
-        this.userRequests.set(userId, userTimestamps);
-        return true;
-      }
-  
+    if (typeof penaltyDuration !== 'number' || penaltyDuration <= 0) {
+      throw new Error('penaltyDuration must be a positive number');
+    }
+    this.maxRequests = maxRequests;
+    this.timeWindow = timeWindow;
+    this.userRequests = new Map();
+    this.userRoles = new Map();
+    this.roleLimits = roleLimits;
+    this.penaltyDuration = penaltyDuration;
+    this.userPenalties = new Map();
+  }
+
+  setUserRole(userId, role) {
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('Invalid userId');
+    }
+    if (typeof role !== 'string' || role.trim() === '') {
+      throw new Error('Invalid role');
+    }
+    this.userRoles.set(userId, role);
+  }
+
+  isRequestAllowed(userId) {
+    if (typeof userId !== 'string' || userId.trim() === '') {
+      throw new Error('Invalid userId');
+    }
+    if (this.maxRequests === 0) {
       return false;
     }
-  
-    cleanup() {
-      const currentTime = Date.now();
-      for (const [userId, timestamps] of this.userRequests.entries()) {
-        // Remove expired timestamps
-        const validTimestamps = timestamps.filter(timestamp => currentTime - timestamp < this.timeWindow);
-        if (validTimestamps.length === 0) {
-          this.userRequests.delete(userId); // If no valid timestamps, delete user entry
-        } else {
-          this.userRequests.set(userId, validTimestamps); // Set remaining valid timestamps
-        }
+
+    const currentTime = Date.now();
+    if (this.userPenalties.has(userId)) {
+      const penaltyTime = this.userPenalties.get(userId);
+      if (currentTime - penaltyTime < this.penaltyDuration) {
+        return false;
+      } else {
+        this.userPenalties.delete(userId);
       }
     }
+
+    if (!this.userRequests.has(userId)) {
+      this.userRequests.set(userId, []);
+    }
+
+    const role = this.userRoles.get(userId) || 'default';
+    const roleLimit = this.roleLimits[role] || this.maxRequests;
+
+    let userTimestamps = this.userRequests.get(userId);
+    userTimestamps = userTimestamps.filter(timestamp => currentTime - timestamp < this.timeWindow);
+
+    if (userTimestamps.length < roleLimit) {
+      userTimestamps.push(currentTime);
+      this.userRequests.set(userId, userTimestamps);
+      return true;
+    } else {
+      this.userPenalties.set(userId, currentTime);
+      return false;
+    }
   }
-  
-    module.exports = {
-      RateLimiter
-    };
-  
+}
+
+module.exports = {
+  RateLimiter
+};

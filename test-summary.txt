@@ -2,7 +2,19 @@ TEST SUMMARY
 ============
 
 307601:
-base       : 8/10 tests passed [FAILED]
-correct    : 10/10 tests passed [PASSED]
-incorrect  : 0/10 tests passed [FAILED]
+base       : 6/12 tests passed [FAILED]
+correct    : 12/12 tests passed [PASSED]
+ideal      : 12/12 tests passed [PASSED]
+incorrect  : 3/12 tests passed [FAILED]
+model      : 12/12 tests passed [PASSED]
+model_a    : 10/12 tests passed [FAILED]
+model_b    : 10/12 tests passed [FAILED]
+model_c    : 10/12 tests passed [FAILED]
+model_d    : 10/12 tests passed [FAILED]
+model_e    : 10/12 tests passed [FAILED]
+model_f    : 10/12 tests passed [FAILED]
+model_g    : 10/12 tests passed [FAILED]
+model_h    : 12/12 tests passed [PASSED]
+model_i    : 12/12 tests passed [PASSED]
+model_j    : 10/12 tests passed [FAILED]
 
