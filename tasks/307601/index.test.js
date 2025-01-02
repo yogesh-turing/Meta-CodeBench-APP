@@ -1,4 +1,4 @@
-const { RateLimiter } = require('./correct');
+const { RateLimiter } = require(process.env.TARGET_FILE);
 
 describe('RateLimiter', function() {
   describe('constructor', function() {
