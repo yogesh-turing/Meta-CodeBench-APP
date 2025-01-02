@@ -1,15 +1,15 @@
-function getNextRecurrences(startDate, frequency, count) {
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    for (let i = 0; i < count; i++) {
-        recurrences.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + frequency);
+function currencyAmountInWords(amount) {
+    if (!amount || typeof amount !== "number" || isNaN(amount)) {
+        return ""
     }
+    // TODO - add more validations
+    let output = "";
 
-    return recurrences;
+    // TODO - implement the code
+    return output
+   
 }
 
 module.exports = {
-    getNextRecurrences
-}
+    currencyAmountInWords
+};

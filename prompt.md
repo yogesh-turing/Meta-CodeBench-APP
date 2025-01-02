@@ -1,34 +1,35 @@
 Base Code:
 ```javascript
 
-function getNextRecurrences(startDate, frequency, count) {
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    for (let i = 0; i < count; i++) {
-        recurrences.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + frequency);
+function currencyAmountInWords(amount) {
+        if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+        return "";
     }
 
-    return recurrences;
+    if (amount === 0 || amount === -0) {
+        return "Zero";
+    }
+    let output = "";
+
+    // TODO - implement the code
+    return output
+   
 }
 
+module.exports = {
+    currencyAmountInWords
+};
 ```
 
 Prompt:
 
-Modify the getNextRecurrences function to include a new parameter, onlyWeekDays. If onlyWeekDays is true, the function should calculate the next recurrences while considering only weekdays (Monday to Friday).
-
-Add a parameter named onlyWeekDays to the function. The default value should be false.
-
-If onlyWeekDays is true, skip any dates on weekends (Saturday or Sunday). Ensure the next recurrence is pushed only if it falls on a weekday.
-
-If onlyWeekDays is false, maintain the original behavior where the function calculates recurrences based on the frequency parameter without considering weekdays.
-
-Ensure edge cases like crossing a weekend when adding frequency are handled properly.
-
-The new function should work for frequencies greater than 5, 15, 30, etc.
-
-Ensure the function throws errors for null, undefined input values, and invalid dates.
-
-Ensure the function throws errors for negative frequency and count values.
+Please help to complete the code, 
+The function `currencyAmountInWords` should accept the amount as input.
+The function should validate amount to number. The function should accept any number positive or negative.
+If the amount is negative function should prepend the amount in word with string Negative.
+e.g. if amount is -1234, the function should return "Negative One Thousand Two Hundred Thirty Four" and 
+if amount is 2345, the function should return "Two Thousand Three Hundred Forty Five"
+The function should be able to handle amount value ion trillions (from -1000000000000 to 1000000000000)
+The function should handle decimal numbers and convert the fractional part to words as well. For example, 1234.56 should be converted to "One Thousand Two Hundred Thirty Four and Fifty Six Cents".
+The output should include the word "and" between the integer and fractional parts. Also make sure to return "Cents" for value other than 1, for 1 return "Cent".
+For amount less than 1 and greater than 0 it should return amount in cents only. e.g. if amount is 0.23 it should return "Twenty Three Cents"

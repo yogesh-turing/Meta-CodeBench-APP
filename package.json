@@ -6,7 +6,7 @@
     "test": "tests"
   },
   "scripts": {
-    "test": "jest"
+    "test": "jest --coverage --coverageReporters=text"
   },
   "jest": {
     "testMatch": [
