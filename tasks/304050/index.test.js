@@ -1,4 +1,4 @@
-const { currencyAmountInWords } = require(process.env.TARGET_FILE);
+const { currencyAmountInWords } = require('./correct');
 
 test('should return "Zero Dollars" for 0', () => {
     expect(currencyAmountInWords(0)).toBe("Zero Dollars");

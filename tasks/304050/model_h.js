@@ -85,3 +85,5 @@ function helper(num, ones, teens, tens) {
 module.exports = {
     currencyAmountInWords
 };
+
+console.log(currencyAmountInWords(12.34));
