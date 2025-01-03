@@ -1,4 +1,4 @@
-const { currencyAmountInWords } = require('./model');
+const { currencyAmountInWords } = require(process.env.TARGET_FILE);
 
 test('should return "Zero Dollars" for 0', () => {
     expect(currencyAmountInWords(0)).toBe("Zero Dollars");

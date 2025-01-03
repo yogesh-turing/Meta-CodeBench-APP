@@ -14,23 +14,25 @@ function currencyAmountInWords(amount) {
 
     function convertGroup(n) {
         let result = "";
+        
         if (n >= 100) {
             result += ones[Math.floor(n / 100)] + " Hundred ";
             n %= 100;
         }
+        
         if (n >= 10 && n <= 19) {
-            result += teens[n - 10];
+            result += teens[n - 10] + " ";
         } else {
             if (n >= 20) {
-                result += tens[Math.floor(n / 10)];
-                if (n % 10 > 0) {
-                    result += " " + ones[n % 10];
-                }
-            } else if (n > 0) {
-                result += ones[n];
+                result += tens[Math.floor(n / 10)] + " ";
+                n %= 10;
+            }
+            if (n > 0) {
+                result += ones[n] + " ";
             }
         }
-        return result.trim();
+        
+        return result;
     }
 
     function convertToWords(num) {
@@ -42,12 +44,7 @@ function currencyAmountInWords(amount) {
         while (num > 0) {
             const group = num % 1000;
             if (group !== 0) {
-                const groupWords = convertGroup(group);
-                if (scaleIndex > 0) {
-                    result = groupWords + " " + scales[scaleIndex] + " " + result;
-                } else {
-                    result = groupWords + " " + result;
-                }
+                result = convertGroup(group) + scales[scaleIndex] + " " + result;
             }
             num = Math.floor(num / 1000);
             scaleIndex++;
@@ -64,24 +61,20 @@ function currencyAmountInWords(amount) {
 
     let result = "";
 
+    // Handle amounts less than 1 dollar
     if (dollars === 0 && cents > 0) {
         const centsInWords = convertToWords(cents);
-        return centsInWords + (cents === 1 ? " Cent" : " Cents");
+        return `${isNegative ? "Negative " : ""}${centsInWords}${cents === 1 ? "Cent" : "Cents"}`;
     }
 
-    if (isNegative) {
-        result += "Negative ";
-    }
-
+    // Convert dollars part
     if (dollars > 0) {
-        result += convertToWords(dollars);
-        result += (dollars === 1 ? " Dollar" : " Dollars");
+        result = `${isNegative ? "Negative " : ""}${convertToWords(dollars)}${dollars === 1 ? "Dollar" : "Dollars"}`;
     }
 
+    // Add cents part if exists
     if (cents > 0) {
-        result += " and ";
-        result += convertToWords(cents);
-        result += (cents === 1 ? " Cent" : " Cents");
+        result += ` and ${convertToWords(cents)}${cents === 1 ? "Cent" : "Cents"}`;
     }
 
     return result;
