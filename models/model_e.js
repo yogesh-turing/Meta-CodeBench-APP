@@ -1,53 +1,86 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
+function currencyAmountInWords(amount) {
+    if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+        return "";
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
+
+    if (amount === 0 || amount === -0) {
+        return "Zero Dollars";
     }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
+
+    const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    const scales = ["", "Thousand", "Million", "Billion", "Trillion", "Quadrillion"];
+
+    function convertGroup(n) {
+        let result = "";
+        
+        if (n >= 100) {
+            result += ones[Math.floor(n / 100)] + " Hundred ";
+            n %= 100;
+        }
+        
+        if (n >= 20) {
+            result += tens[Math.floor(n / 10)] + " ";
+            n %= 10;
+        } else if (n >= 10) {
+            result += teens[n - 10] + " ";
+            return result;
+        }
+        
+        if (n > 0) {
+            result += ones[n] + " ";
+        }
+        
         return result;
     }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-  
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
+
+    function convertToWords(num) {
+        if (num === 0) return "";
+        
+        let result = "";
+        let scaleIndex = 0;
+        
+        while (num > 0) {
+            const group = num % 1000;
+            if (group !== 0) {
+                result = convertGroup(group) + scales[scaleIndex] + " " + result;
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
+            num = Math.floor(num / 1000);
+            scaleIndex++;
         }
+        
+        return result.trim();
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+
+    const isNegative = amount < 0;
+    amount = Math.abs(amount);
+    
+    const dollars = Math.floor(amount);
+    const cents = Math.round((amount - dollars) * 100);
+
+    let result = "";
+
+    // Handle amounts less than 1
+    if (dollars === 0 && cents > 0) {
+        const centsInWords = convertToWords(cents);
+        return `${isNegative ? "Negative " : ""}${centsInWords}${cents === 1 ? "Cent" : "Cents"}`;
+    }
+
+    // Convert dollars part
+    if (dollars > 0) {
+        result = `${isNegative ? "Negative " : ""}${convertToWords(dollars)}${dollars === 1 ? "Dollar" : "Dollars"}`;
+    }
+
+    // Add cents part if exists
+    if (cents > 0) {
+        const centsInWords = convertToWords(cents);
+        result += ` and ${centsInWords}${cents === 1 ? "Cent" : "Cents"}`;
+    }
+
+    return result;
+}
+
+module.exports = {
+    currencyAmountInWords
+};

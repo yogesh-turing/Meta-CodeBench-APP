@@ -1,30 +1,51 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("Null or undefined input values are not allowed");
+function currencyAmountInWords(amount) {
+    if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+        return "";
     }
 
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error("Invalid date");
+    let output = "";
+
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const thousands = ['', 'Thousand', 'Million', 'Billion', 'Trillion', 'Quadrillion'];
+
+    function helper(num) {
+        if (num === 0) return '';
+        if (num < 10) return ones[num];
+        if (num < 20) return teens[num - 10];
+        if (num < 100) return tens[Math.floor(num / 10)] + (num % 10 === 0 ? '' : ' ' + ones[num % 10]);
+        if (num < 1000) return ones[Math.floor(num / 100)] + ' Hundred' + (num % 100 === 0 ? '' : ' ' + helper(num % 100));
+        if (num < 1000000) return helper(Math.floor(num / 1000)) + ' Thousand' + (num % 1000 === 0 ? '' : ' ' + helper(num % 1000));
+        if (num < 1000000000) return helper(Math.floor(num / 1000000)) + ' Million' + (num % 1000000 === 0 ? '' : ' ' + helper(num % 1000000));
+        if (num < 1000000000000) return helper(Math.floor(num / 1000000000)) + ' Billion' + (num % 1000000000 === 0 ? '' : ' ' + helper(num % 1000000000));
+        return helper(Math.floor(num / 1000000000000)) + ' Trillion' + (num % 1000000000000 === 0 ? '' : ' ' + helper(num % 1000000000000));
     }
 
-    if (frequency < 0 || count < 0) {
-        throw new Error("Negative frequency and count values are not allowed");
-    }
+    let absAmount = Math.abs(amount);
+    let integerPart = Math.floor(absAmount);
+    let fractionalPart = Math.round((absAmount - integerPart) * 100);
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || (currentDate.getDay() >= 1 && currentDate.getDay() <= 5)) {
-            recurrences.push(new Date(currentDate));
+    if (integerPart === 0 && fractionalPart === 0) {
+        output = 'Zero Dollars';
+    } else {
+        if (amount < 0) {
+            output += 'Negative ';
         }
-
-        currentDate.setDate(currentDate.getDate() + frequency);
+        if (integerPart > 0) {
+            output += helper(integerPart) + ' ' + (integerPart === 1 ? 'Dollar' : 'Dollars');
+        }
+        if (fractionalPart > 0) {
+            if (integerPart > 0) {
+                output += ' and ';
+            }
+            output += helper(fractionalPart) + ' ' + (fractionalPart === 1 ? 'Cent' : 'Cents');
+        }
     }
 
-    return recurrences;
+    return output;
 }
 
 module.exports = {
-    getNextRecurrences
+    currencyAmountInWords
 };

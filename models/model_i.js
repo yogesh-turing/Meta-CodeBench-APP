@@ -1,51 +1,80 @@
-/**
- * Calculates the next recurrences based on the given start date, frequency, and count.
- * 
- * @param {Date} startDate The start date from which to calculate recurrences.
- * @param {number} frequency The interval in days between each recurrence.
- * @param {number} count The number of recurrences to calculate.
- * @param {boolean} [onlyWeekDays=false] If true, only consider weekdays (Monday to Friday).
- * @returns {Date[]} An array of dates representing the next recurrences.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined.");
-    }
-    if (!(startDate instanceof Date)) {
-        throw new Error("startDate must be a valid Date object.");
-    }
-    if (isNaN(startDate.getTime())) {
-        throw new Error("startDate is an invalid date.");
-    }
-    if (frequency <= 0) {
-        throw new Error("frequency must be a positive number.");
-    }
-    if (count <= 0) {
-        throw new Error("count must be a positive number.");
+function currencyAmountInWords(amount) {
+    if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+        return "";
     }
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+    let output = "";
 
-    while (recurrences.length < count) {
-        // If onlyWeekDays is true, check if the current date is a weekday
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // If it's a weekend, skip to the next day
-            currentDate.setDate(currentDate.getDate() + 1);
-            continue;
+    if (amount < 0) {
+        output += "Negative ";
+        amount = -amount;
+    }
+
+    if (amount === 0) {
+        output += "Zero Dollars";
+    } else {
+        let integerPart = Math.floor(amount);
+        let fractionalPart = Math.floor((amount - integerPart) * 100);
+
+        output += convertToWords(integerPart) + (integerPart === 1 ? " Dollar" : " Dollars");
+
+        if (fractionalPart > 0) {
+            output += " and " + convertToWords(fractionalPart) + (fractionalPart === 1 ? " Cent" : " Cents");
         }
-
-        // Add the current date to the recurrences array
-        recurrences.push(new Date(currentDate));
-
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
     }
 
-    return recurrences;
+    return output;
+}
+
+function convertToWords(num) {
+    let ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    let teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    let tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    let thousands = ['', 'Thousand', 'Million', 'Billion', 'Trillion', 'Quadrillion'];
+
+    let output = '';
+    let i = 0;
+
+    if (num === 0) {
+        return 'Zero';
+    }
+
+    while (num > 0) {
+        if (num % 1000 !== 0) {
+            output = helper(num % 1000, ones, teens, tens) + ' ' + thousands[i] + ' ' + output;
+        }
+        num = Math.floor(num / 1000);
+        i++;
+    }
+
+    return output.trim();
+}
+
+function helper(num, ones, teens, tens) {
+    let output = '';
+
+    if (num >= 100) {
+        output += ones[Math.floor(num / 100)] + ' Hundred';
+        num %= 100;
+    }
+
+    if (num >= 20) {
+        output += ' ' + tens[Math.floor(num / 10)];
+        num %= 10;
+    }
+
+    if (num >= 10) {
+        output += ' ' + teens[num - 10];
+        num = 0;
+    }
+
+    if (num > 0) {
+        output += ' ' + ones[num];
+    }
+
+    return output.trim();
 }
 
 module.exports = {
-    getNextRecurrences
+    currencyAmountInWords
 };

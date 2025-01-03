@@ -3,16 +3,6 @@ TEST SUMMARY
 
 304050:
 base       : 1/8 tests passed [FAILED]
-correct    : 3/8 tests passed [FAILED]
-incorrect  : 0/8 tests passed [FAILED]
-model_a    : 2/8 tests passed [FAILED]
-model_b    : 0/8 tests passed [FAILED]
-model_c    : 2/8 tests passed [FAILED]
-model_d    : 8/8 tests passed [PASSED]
-model_e    : 2/8 tests passed [FAILED]
-model_f    : 8/8 tests passed [PASSED]
-model_g    : 8/8 tests passed [PASSED]
-model_h    : 5/8 tests passed [FAILED]
-model_i    : 4/8 tests passed [FAILED]
-model_j    : 2/8 tests passed [FAILED]
+correct    : 8/8 tests passed [PASSED]
+incorrect  : 1/8 tests passed [FAILED]
 

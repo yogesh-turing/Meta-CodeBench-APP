@@ -1,57 +1,89 @@
-/**
- * Returns an array of next recurrences based on the provided start date and frequency.
- * 
- * @param {Date} startDate The start date for calculating recurrences.
- * @param {number} frequency The frequency of recurrences in days.
- * @param {number} count The number of recurrences to generate.
- * @param {boolean} [onlyWeekDays=false] If true, only include weekdays (Monday to Friday) in the recurrences.
- * @returns {Date[]} An array of dates representing the next recurrences.
- * @throws {Error} If startDate is not a valid date, or if frequency or count is negative.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors accordingly
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
+function currencyAmountInWords(amount) {
+    if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+        return "";
     }
-    if (frequency < 0) {
-        throw new Error('Frequency cannot be negative');
+
+    let output = "";
+    let isNegative = false;
+
+    if (amount < 0) {
+        isNegative = true;
+        amount = Math.abs(amount);
     }
-    if (count < 0) {
-        throw new Error('Count cannot be negative');
+
+    let dollars = Math.floor(amount);
+    let cents = Math.floor((amount - dollars) * 100);
+
+    if (dollars === 0 && cents === 0) {
+        return "Zero Dollars";
     }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-        // If onlyWeekDays is true, skip weekends
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // Adjust the current date to the next weekday
-            currentDate.setDate(currentDate.getDate() + (currentDate.getDay() === 0 ? 1 : 2));
+
+    if (isNegative) {
+        output += "Negative ";
+    }
+
+    if (dollars > 0) {
+        output += convertToWords(dollars) + (dollars === 1 ? " Dollar" : " Dollars");
+    }
+
+    if (cents > 0) {
+        if (dollars > 0) {
+            output += " and ";
         }
-  
-        recurrences.push(new Date(currentDate));
-  
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+        output += convertToWords(cents) + (cents === 1 ? " Cent" : " Cents");
     }
-  
-    return recurrences;
-  }
-  
-  // // Example usage:
-  // const startDate = new Date('2024-03-04'); // Monday
-  // const frequency = 3; // Every 3 days
-  // const count = 5;
-  
-  // // Get recurrences without considering weekdays
-  // const recurrences = getNextRecurrences(startDate, frequency, count);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-10, 2024-03-13, 2024-03-16]
-  
-  // // Get recurrences considering only weekdays
-  // const weekdayRecurrences = getNextRecurrences(startDate, frequency, count, true);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-11, 2024-03-14, 2024-03-18]
-  
-  module.exports = {
-    getNextRecurrences
-  };
+
+    return output;
+}
+
+function convertToWords(num) {
+    let words = "";
+    let ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+    let teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+    let tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    let thousands = ["", "Thousand", "Million", "Billion", "Trillion", "Quadrillion"];
+
+    let i = 0;
+    while (num > 0) {
+        if (num % 1000 !== 0) {
+            words = helper(num % 1000, ones, teens, tens) + " " + thousands[i] + " " + words;
+        }
+        num = Math.floor(num / 1000);
+        i++;
+    }
+
+    return words.trim();
+}
+
+function helper(num, ones, teens, tens) {
+    let words = "";
+    if (num >= 100) {
+        words += ones[Math.floor(num / 100)] + " Hundred";
+        num %= 100;
+        if (num > 0) {
+            words += " ";
+        }
+    }
+
+    if (num >= 20) {
+        words += tens[Math.floor(num / 10)];
+        num %= 10;
+        if (num > 0) {
+            words += " ";
+        }
+    }
+
+    if (num >= 10) {
+        words += teens[num - 10];
+    } else if (num > 0) {
+        words += ones[num];
+    }
+
+    return words;
+}
+
+module.exports = {
+    currencyAmountInWords
+};
+
+console.log(currencyAmountInWords(12.34));

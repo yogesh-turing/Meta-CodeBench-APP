@@ -1,53 +1,83 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
+function currencyAmountInWords(amount) {
+    if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+        return "";
     }
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+    const ones = ['', 'One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine'];
+    const teens = ['Ten', 'Eleven', 'Twelve', 'Thirteen', 'Fourteen', 'Fifteen', 'Sixteen', 'Seventeen', 'Eighteen', 'Nineteen'];
+    const tens = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
+    const scales = ['', 'Thousand', 'Million', 'Billion', 'Trillion', 'Quadrillion'];
 
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function getNextWeekday(date) {
-        do {
-            date.setDate(date.getDate() + 1);
-        } while (!isWeekday(date));
-        return date;
-    }
-
-    for (let i = 0; i < count; i++) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+    function convertGroup(n) {
+        let result = '';
+        
+        if (n >= 100) {
+            result += ones[Math.floor(n / 100)] + ' Hundred ';
+            n %= 100;
         }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate.setDate(currentDate.getDate() + 1);
-                if (isWeekday(currentDate)) {
-                    frequency--;
-                }
-            } while (frequency > 0);
+        
+        if (n >= 10 && n <= 19) {
+            result += teens[n - 10];
         } else {
-            currentDate.setDate(currentDate.getDate() + frequency);
+            result += tens[Math.floor(n / 10)];
+            if (tens[Math.floor(n / 10)] && ones[n % 10]) {
+                result += ' ';
+            }
+            result += ones[n % 10];
         }
-
-        if (onlyWeekDays && !isWeekday(currentDate)) {
-            currentDate = getNextWeekday(currentDate);
-        }
+        
+        return result.trim();
     }
 
-    return recurrences;
+    function convertToWords(num) {
+        if (num === 0) return 'Zero';
+        
+        let result = '';
+        let groupIndex = 0;
+        
+        while (num > 0) {
+            const group = num % 1000;
+            if (group !== 0) {
+                const groupStr = convertGroup(group);
+                if (groupStr) {
+                    result = groupStr + (scales[groupIndex] ? ' ' + scales[groupIndex] + ' ' : ' ') + result;
+                }
+            }
+            num = Math.floor(num / 1000);
+            groupIndex++;
+        }
+        
+        return result.trim();
+    }
+
+    if (amount === 0 || amount === -0) {
+        return "Zero Dollars";
+    }
+
+    const isNegative = amount < 0;
+    amount = Math.abs(amount);
+
+    const dollars = Math.floor(amount);
+    const cents = Math.round((amount - dollars) * 100);
+
+    let result = '';
+
+    if (amount < 1) {
+        const centsInWords = convertToWords(cents);
+        return `${isNegative ? 'Negative ' : ''}${centsInWords} ${cents === 1 ? 'Cent' : 'Cents'}`;
+    }
+
+    const dollarsInWords = convertToWords(dollars);
+    result = `${isNegative ? 'Negative ' : ''}${dollarsInWords} ${dollars === 1 ? 'Dollar' : 'Dollars'}`;
+
+    if (cents > 0) {
+        const centsInWords = convertToWords(cents);
+        result += ` and ${centsInWords} ${cents === 1 ? 'Cent' : 'Cents'}`;
+    }
+
+    return result;
 }
 
 module.exports = {
-    getNextRecurrences
+    currencyAmountInWords
 };
