@@ -1,3 +1,5 @@
+Base Code:
+```javascript
 const sqlite3 = require('sqlite3').verbose();
 const db = new sqlite3.Database(':memory:');
 
@@ -69,3 +71,15 @@ class EmployeeModel {
 }
 
 module.exports = { Employee, EmployeeModel, db };
+```
+
+Prompt:
+Please help to complete the following function
+1. Complete `addEmployee` function:
+    - The function should validate the input parameter employee.
+    - Make sure the employee object is valid, the employee object should have 
+        - name: string with 3 to 20 characters.
+        - email: valid email string.
+        - dob: valid date in the past.
+    - Before inserting an employee into the table, ensure there is no existing entry with the same email address. Email ID should be case-insensitive.
+    - Make sure other values like created_at, created_by, updated_at, updated_by and is_active are set correctly. Use the string "System" for created_by and updated_by. 
