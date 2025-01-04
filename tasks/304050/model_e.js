@@ -1,53 +1,139 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
+const TRAVEL_COST_PER_KM = 10;
+const TRAVEL_TIME_PER_KM_IN_MINUTES = 15;
+class Location {
+    constructor(id, name, latitude, longitude) {
+        this.id = id;
+        this.name = name;
+        this.latitude = latitude;
+        this.longitude = longitude;
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
+}
+
+class Agent {
+    #assignedTickets = [];
+        constructor(id, name, location, hourlyRate) {
+        this.id = id;
+        this.name = name;
+        this.location = location;
+        this.#assignedTickets = [];
+        this.hourlyRate = hourlyRate;
     }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
+
+    getDistanceAndTravelCost(location) {
+        const toRadians = (degree) => degree * (Math.PI / 180);
+        const earthRadiusKm = 6371;
+
+        const dLat = toRadians(location.latitude - this.location.latitude);
+        const dLon = toRadians(location.longitude - this.location.longitude);
+
+        const lat1 = toRadians(this.location.latitude);
+        const lat2 = toRadians(location.latitude);
+
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2); 
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+        const distanceKm = earthRadiusKm * c;
+        const distanceMeters = distanceKm * 1000;
+        const travelCost = distanceKm * TRAVEL_COST_PER_KM;
+
+        return { distance: distanceMeters, cost: travelCost };
     }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
+
+    setAssignedTickets(tickets) {
+        this.#assignedTickets = tickets;
     }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
+
+    getAssignedTickets() {
+        return this.#assignedTickets;
     }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-  
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
+}
+
+class Ticket {
+    constructor(id, location, estimatedTimeToComplete, dueAt) {
+        this.id = id;
+        this.location = location;
+        this.estimatedTimeToComplete = estimatedTimeToComplete;
+        this.dueAt = dueAt;
+    }
+
+
+    assignTo(agent) {
+        this.agent = agent;
+    }
+}
+
+function assignTicketToAgent(agents, ticket) {
+    // Input validation
+    if (!Array.isArray(agents) || agents.some(agent => !(agent instanceof Agent))) {
+        throw new Error("Invalid agents array");
+    }
+    if (!(ticket instanceof Ticket)) {
+        throw new Error("Invalid ticket");
+    }
+    if (ticket.agent) {
+        throw new Error("Ticket is already assigned");
+    }
+
+    let bestAgent = null;
+    let lowestCost = Infinity;
+
+    for (const agent of agents) {
+        // Get agent's last assigned ticket location or current location
+        let startLocation = agent.location;
+        const assignedTickets = agent.getAssignedTickets();
+        let availableStartTime = new Date();
+
+        // If agent has assigned tickets, use the location and completion time of the last ticket
+        if (assignedTickets.length > 0) {
+            const lastTicket = assignedTickets[assignedTickets.length - 1];
+            startLocation = lastTicket.location;
+            
+            // Calculate when the agent will be available after completing current tickets
+            let currentTime = availableStartTime;
+            for (const assignedTicket of assignedTickets) {
+                const { distance } = agent.getDistanceAndTravelCost(assignedTicket.location);
+                const travelTimeMinutes = (distance / 1000) * TRAVEL_TIME_PER_KM_IN_MINUTES;
+                currentTime = new Date(currentTime.getTime() + 
+                    (travelTimeMinutes + assignedTicket.estimatedTimeToComplete) * 60000);
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
+            availableStartTime = currentTime;
+        }
+
+        // Calculate travel details to the new ticket location
+        const { distance, cost: travelCost } = agent.getDistanceAndTravelCost(ticket.location);
+        const travelTimeMinutes = (distance / 1000) * TRAVEL_TIME_PER_KM_IN_MINUTES;
+
+        // Calculate completion time
+        const completionTime = new Date(availableStartTime.getTime() + 
+            (travelTimeMinutes + ticket.estimatedTimeToComplete) * 60000);
+
+        // Check if ticket can be completed before due date
+        if (completionTime > new Date(ticket.dueAt)) {
+            continue;
+        }
+
+        // Calculate total cost
+        const travelingCost = (travelTimeMinutes / 60) * agent.hourlyRate;
+        const laborCost = (ticket.estimatedTimeToComplete / 60) * agent.hourlyRate;
+        const totalCost = travelCost + travelingCost + laborCost;
+
+        // Update best agent if this agent has lower cost
+        if (totalCost < lowestCost) {
+            lowestCost = totalCost;
+            bestAgent = agent;
         }
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+
+    if (!bestAgent) {
+        throw new Error("No agent can complete the ticket before its due date");
+    }
+
+    // Assign ticket to the best agent
+    ticket.assignTo(bestAgent);
+    const updatedTickets = [...bestAgent.getAssignedTickets(), ticket];
+    bestAgent.setAssignedTickets(updatedTickets);
+
+    return bestAgent;
+}
+
+module.exports = { Agent, Ticket, Location, assignTicketToAgent };
