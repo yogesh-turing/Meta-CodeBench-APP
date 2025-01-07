@@ -47,3 +47,26 @@ Test case at line number 51, confirms this requirement, it creates RateLimiter i
     - If the number of valid (non-expired) requests is below the role limit, then the current timestamp should be added to the user's request timestamps and it should return true.
     - If the number of valid requests meets or exceeds the role limit, then a penalty should be applied to the user and it should return false.
     - When a user exceeds their rate limit, a penalty should be applied, User requests should be blocked for a specified duration (penaltyDuration).
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    The following change was not implemented:
+Incorrect solution explanation and Ideal Response Explanation (+ Ideal Response): 
+
+The explanation stated might be incorrect. 
+The first point should return false instead of throwing an error, as per the prompt. Can you check this again for the ideal response code? The ideal response should comply with the prompt requirements. Adjustment is required in the ideal response explanation afterward. Please double-check this point "parameter validations were added to the constructor, setUserRole, and isRequestAllowed functions" and the last point. Check the unit test "if maxRequests is zero then it should return false" again. The response evaluation review will be done after these adjustments are made.
+
+In the prompt, we have a requirement "if maxRequests is zero then it should return false." in tests we expect it to throw an error instead of false when maxRequests is 0, the tests need to match with the given prompt, after updating the tests, refill the Modal evaluations, also update incorrect solution, ideal solution, and their explanations.
+
+ideal response - add constructor validation for 'roleLimits'.

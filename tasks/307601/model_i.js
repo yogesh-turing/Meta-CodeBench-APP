@@ -1,16 +1,13 @@
 class RateLimiter {
   constructor(maxRequests, timeWindow, penaltyDuration, roleLimits = {}) {
-  if (!Number.isInteger(maxRequests) || maxRequests <= 0) {
-      throw new Error("maxRequests must be a non-negative integer");
-      }
+    if (typeof maxRequests !== 'number' || maxRequests <= 0) {
+      throw new Error('maxRequests must be a positive number');
+    }
     if (typeof timeWindow !== 'number' || timeWindow <= 0) {
       throw new Error('timeWindow must be a positive number');
     }
     if (typeof penaltyDuration !== 'number' || penaltyDuration <= 0) {
       throw new Error('penaltyDuration must be a positive number');
-    }
-    if (typeof roleLimits !== 'object') {
-      throw new Error('roleLimits must be an object');
     }
     this.maxRequests = maxRequests;
     this.timeWindow = timeWindow;
@@ -41,12 +38,11 @@ class RateLimiter {
 
     const currentTime = Date.now();
     if (this.userPenalties.has(userId)) {
-      const penaltyTime = this.userPenalties.get(userId);
-      if (currentTime - penaltyTime < this.penaltyDuration) {
+      const penaltyEndTime = this.userPenalties.get(userId);
+      if (currentTime < penaltyEndTime) {
         return false;
-      } else {
-        this.userPenalties.delete(userId);
       }
+      this.userPenalties.delete(userId);
     }
 
     if (!this.userRequests.has(userId)) {
@@ -56,17 +52,17 @@ class RateLimiter {
     const role = this.userRoles.get(userId) || 'default';
     const roleLimit = this.roleLimits[role] || this.maxRequests;
 
-    let userTimestamps = this.userRequests.get(userId);
-    userTimestamps = userTimestamps.filter(timestamp => currentTime - timestamp < this.timeWindow);
+    const userTimestamps = this.userRequests.get(userId);
+    const validRequests = userTimestamps.filter(timestamp => currentTime - timestamp < this.timeWindow);
 
-    if (userTimestamps.length < roleLimit) {
-      userTimestamps.push(currentTime);
-      this.userRequests.set(userId, userTimestamps);
+    if (validRequests.length < roleLimit) {
+      validRequests.push(currentTime);
+      this.userRequests.set(userId, validRequests);
       return true;
-    } else {
-      this.userPenalties.set(userId, currentTime);
-      return false;
     }
+
+    this.userPenalties.set(userId, currentTime + this.penaltyDuration);
+    return false;
   }
 }
 

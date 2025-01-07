@@ -1,23 +1,21 @@
 class RateLimiter {
   constructor(maxRequests, timeWindow, penaltyDuration, roleLimits = {}) {
-  if (!Number.isInteger(maxRequests) || maxRequests <= 0) {
-      throw new Error("maxRequests must be a non-negative integer");
-      }
+    if (typeof maxRequests !== 'number' || maxRequests <= 0) {
+      throw new Error('maxRequests must be a positive number');
+    }
     if (typeof timeWindow !== 'number' || timeWindow <= 0) {
       throw new Error('timeWindow must be a positive number');
     }
     if (typeof penaltyDuration !== 'number' || penaltyDuration <= 0) {
       throw new Error('penaltyDuration must be a positive number');
     }
-    if (typeof roleLimits !== 'object') {
-      throw new Error('roleLimits must be an object');
-    }
+
     this.maxRequests = maxRequests;
     this.timeWindow = timeWindow;
+    this.penaltyDuration = penaltyDuration;
     this.userRequests = new Map();
     this.userRoles = new Map();
     this.roleLimits = roleLimits;
-    this.penaltyDuration = penaltyDuration;
     this.userPenalties = new Map();
   }
 
@@ -35,41 +33,47 @@ class RateLimiter {
     if (typeof userId !== 'string' || userId.trim() === '') {
       throw new Error('Invalid userId');
     }
+
     if (this.maxRequests === 0) {
       return false;
     }
 
     const currentTime = Date.now();
+    const userRole = this.userRoles.get(userId) || 'default';
+    const roleLimit = this.roleLimits[userRole] || this.maxRequests;
+
+    // Check if user is under penalty
     if (this.userPenalties.has(userId)) {
       const penaltyTime = this.userPenalties.get(userId);
-      if (currentTime - penaltyTime < this.penaltyDuration) {
+      if (currentTime < penaltyTime) {
         return false;
-      } else {
-        this.userPenalties.delete(userId);
       }
+      this.userPenalties.delete(userId);
     }
 
     if (!this.userRequests.has(userId)) {
       this.userRequests.set(userId, []);
     }
 
-    const role = this.userRoles.get(userId) || 'default';
-    const roleLimit = this.roleLimits[role] || this.maxRequests;
+    // Remove expired timestamps
+    const userTimestamps = this.userRequests.get(userId);
+    const expiredTimestamps = userTimestamps.filter(timestamp => currentTime - timestamp > this.timeWindow);
+    expiredTimestamps.forEach(timestamp => userTimestamps.splice(userTimestamps.indexOf(timestamp), 1));
 
-    let userTimestamps = this.userRequests.get(userId);
-    userTimestamps = userTimestamps.filter(timestamp => currentTime - timestamp < this.timeWindow);
-
-    if (userTimestamps.length < roleLimit) {
-      userTimestamps.push(currentTime);
-      this.userRequests.set(userId, userTimestamps);
-      return true;
-    } else {
-      this.userPenalties.set(userId, currentTime);
+    // Check if user has exceeded rate limit
+    if (userTimestamps.length >= roleLimit) {
+      this.userPenalties.set(userId, currentTime + this.penaltyDuration);
       return false;
     }
+
+    // Add current timestamp to user's request timestamps
+    userTimestamps.push(currentTime);
+    this.userRequests.set(userId, userTimestamps);
+
+    return true;
   }
 }
 
 module.exports = {
-  RateLimiter
+  RateLimiter,
 };

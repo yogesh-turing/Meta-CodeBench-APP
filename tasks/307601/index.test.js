@@ -1,4 +1,4 @@
-const { RateLimiter } = require(process.env.TARGET_FILE);
+const { RateLimiter } = require('./correct');
 
 describe('RateLimiter', function() {
   describe('constructor', function() {
@@ -19,6 +19,7 @@ describe('RateLimiter', function() {
       expect(() => new RateLimiter(10, 1000, -1)).toThrow(Error);
       expect(() => new RateLimiter(10, 1000, 'a')).toThrow(Error);
     });
+
   });
 
   describe('setUserRole', function() {
@@ -67,7 +68,8 @@ describe('RateLimiter', function() {
     });
 
     it('should apply role-based rate limiting', function() {
-      const rateLimiter = new RateLimiter(10, 1000, 60000, { admin: 5 });
+      const rateLimiter = new RateLimiter(10, 1000, 60000);
+      rateLimiter.roleLimits = { admin: 5 };
       rateLimiter.setUserRole('user1', 'admin');
 
       for (let i = 0; i < 5; i++) {
