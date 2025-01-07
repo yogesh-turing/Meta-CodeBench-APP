@@ -1,157 +1,85 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const { autocomplete } = require('./correct');
 
-describe('getNextRecurrences', () => {
-
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
-    });
-
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
-
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
-    });
-
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
-    });
-
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
-    });
-
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
-    });
-
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
-    });
-
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
+describe('Autocomplete Function', () => {
+    test('should be case insensitive', () => {
+        const keywords = [
+            { keyword: 'Apple', frequency: 10 },
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'Application', frequency: 5 },
+            { keyword: 'banana', frequency: 20 }
         ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+        const result = autocomplete(keywords, 'APP', 2);
+        expect(result).toEqual([
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'Apple', frequency: 10 }
+        ]);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
+    test('should return suggestions that contain the prefix', () => {
+        const keywords = [
+            { keyword: 'apple', frequency: 10 },
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'application', frequency: 5 },
+            { keyword: 'banana', frequency: 20 }
         ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+        const result = autocomplete(keywords, 'pli', 2);
+        expect(result).toEqual([
+            { keyword: 'application', frequency: 5 }
+        ]);
     });
 
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
+    test('should return all suggestions if k is greater than the number of matches', () => {
+        const keywords = [
+            { keyword: 'apple', frequency: 10 },
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'application', frequency: 5 }
         ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+        const result = autocomplete(keywords, 'app', 5);
+        expect(result).toEqual([
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'apple', frequency: 10 },
+            { keyword: 'application', frequency: 5 }
+        ]);
     });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
+    test('should return top k suggestions sorted by frequency', () => {
+        const keywords = [
+            { keyword: 'apple', frequency: 10 },
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'application', frequency: 5 },
+            { keyword: 'applet', frequency: 20 }
         ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+        const result = autocomplete(keywords, 'app', 3);
+        expect(result).toEqual([
+            { keyword: 'applet', frequency: 20 },
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'apple', frequency: 10 }
+        ]);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+    test('should handle empty keyword list', () => {
+        const keywords = [];
+        const result = autocomplete(keywords, 'app', 3);
+        expect(result).toEqual([]);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
+    test('should handle empty prefix', () => {
+        const keywords = [
+            { keyword: 'apple', frequency: 10 },
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'application', frequency: 5 }
         ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+        const result = autocomplete(keywords, '', 3);
+        expect(result).toEqual([]);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
+    test('should handle k less than or equal to 0', () => {
+        const keywords = [
+            { keyword: 'apple', frequency: 10 },
+            { keyword: 'app', frequency: 15 },
+            { keyword: 'application', frequency: 5 }
         ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+        const result = autocomplete(keywords, 'app', 0);
+        expect(result).toEqual([]);
     });
 });

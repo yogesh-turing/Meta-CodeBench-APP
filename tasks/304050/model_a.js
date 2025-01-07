@@ -1,53 +1,39 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0 || !Number.isInteger(count)) {
-        throw new Error("Count must be a positive integer");
-    }
+/**
+ * Implements a search autocomplete system.
+ * 
+ * @param {Object[]} keywords - List of available keywords with their frequencies, each represented as:
+ *   - {string} keyword: The search keyword.
+ *   - {number} frequency: The frequency of the keyword.
+ * @param {string} prefix - The prefix string to search for.
+ * @param {number} k - Number of top suggestions to return.
+ * @returns {Object[]} - Array of top k suggestions, each containing:
+ *   - {string} keyword: The keyword.
+ *   - {number} frequency: The frequency of the keyword.
+ */
+function autocomplete(keywords, prefix, k) {
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
+    if (!keywords || keywords.length === 0) {
+        return [];
     }
 
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
+    if (!prefix) {
+        return [];
     }
 
-    return recurrences;
+    if (k <= 0) {
+        return [];
+    }
+
+    // Filter keywords that start with the given prefix
+    const filteredKeywords = keywords.filter(keyword => keyword.keyword.startsWith(prefix));
+
+    // Sort the filtered keywords by frequency in descending order
+    const sortedKeywords = filteredKeywords.sort((a, b) => b.frequency - a.frequency);
+
+    // Return the top k suggestions
+    return sortedKeywords.slice(0, k);
 }
 
 module.exports = {
-    getNextRecurrences
+    autocomplete
 };

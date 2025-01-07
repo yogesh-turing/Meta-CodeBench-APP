@@ -1,85 +1,46 @@
 Base Code:
 ```javascript
-const sqlite3 = require('sqlite3').verbose();
-const db = new sqlite3.Database(':memory:');
+/**
+ * Implements a search autocomplete system.
+ * 
+ * @param {string[]} keywords - List of available keywords with their frequencies, each represented as:
+ *   - {string} keyword: The search keyword.
+ *   - {number} frequency: The frequency of the keyword.
+ * @param {string} prefix - The prefix string to search for.
+ * @param {number} k - Number of top suggestions to return.
+ * @returns {Object[]} - Array of top k suggestions, each containing:
+ *   - {string} keyword: The keyword.
+ *   - {number} frequency: The frequency of the keyword.
+ */
+function autocomplete(keywords, prefix, k) {
 
-class Employee {
-    id;
-    constructor(name, email, dob) {
-        this.name = name;
-        this.email = email;
-        this.dob = dob;
+    if (!keywords || keywords.length === 0) {
+        return [];
     }
 
-    getAge() {
-        return new Date().getFullYear() - new Date(this.dob).getFullYear();
+    if (!prefix) {
+        return [];
     }
+
+    if (k <= 0) {
+        return [];
+    }
+
+    // TODO - complete the function
+    // Filter keywords that start with the given prefix
+    // Sort the filtered keywords by frequency in descending order
+    // Return the top k suggestions
 }
 
-class EmployeeModel {
-    #table = 'employees';
-    #db;
-
-    constructor(db) {
-        this.#db = db;
-        this.#db.run(`CREATE TABLE IF NOT EXISTS ${this.#table} (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT NOT NULL UNIQUE,
-            dob TEXT NOT NULL,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            is_active BOOLEAN DEFAULT 1,
-            created_by TEXT,
-            updated_by TEXT
-        )`);
-    }
-
-    addEmployee(employee) {
-        // TODO: Complete the function
-
-        // Validate employee object
-
-        // Check if employee with the same email already exists
-
-        // Insert employee into the database
-    }
-
-    getEmployees() {
-        return new Promise((resolve, reject) => {
-            this.#db.all(`SELECT * FROM ${this.#table}`, (err, rows) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(rows.map(row => new Employee(row.name, row.email, row.dob)));
-                }
-            });
-        });
-    }
-
-    getEmployeeByEmail(email) {
-        return new Promise((resolve, reject) => {
-            this.#db.get(`SELECT * FROM ${this.#table} WHERE email = ?`, [email], (err, row) => {
-                if (err) {
-                    reject(err);
-                } else {
-                    resolve(new Employee(row.name, row.email, row.dob));
-                }
-            });
-        });
-    }
-}
-
-module.exports = { Employee, EmployeeModel, db };
+module.exports = {
+    autocomplete
+};
 ```
 
 Prompt:
-Please help to complete the following function
-1. Complete `addEmployee` function:
-    - The function should validate the input parameter employee.
-    - Make sure the employee object is valid, the employee object should have 
-        - name: string with 3 to 20 characters.
-        - email: valid email string.
-        - dob: valid date in the past.
-    - Before inserting an employee into the table, ensure there is no existing entry with the same email address. Email ID should be case-insensitive.
-    - Make sure other values like created_at, created_by, updated_at, updated_by and is_active are set correctly. Use the string "System" for created_by and updated_by. 
+Please help to complete the function
+The function should implement a search autocomplete system. The system should take a prefix string and return the top k suggested keywords from a predefined list, ranked by their frequency. 
+The function first should filter keywords that start with the given prefix. Then sort the filtered keywords by frequency in descending order. 
+It should return the top k suggestions.
+The search should be case-insensitive.
+In addition to prefix matches, it should allow partial matches anywhere in the keyword.
