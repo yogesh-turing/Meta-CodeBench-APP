@@ -49,8 +49,18 @@ test('converts positive integers to words', () => {
     // twelve digits
     expect(currencyAmountInWords(323232323232)).toBe('Three Hundred Twenty Three Billion Two Hundred Thirty Two Million Three Hundred Twenty Three Thousand Two Hundred Thirty Two Dollars');
 
-    // maximum limit
-    expect(currencyAmountInWords(989796959594)).toBe('Nine Hundred Eighty Nine Billion Seven Hundred Ninety Six Million Nine Hundred Fifty Nine Thousand Five Hundred Ninety Four Dollars');
+    // 13 digits
+    expect(currencyAmountInWords(9897969595949)).toBe('Nine Trillion Eight Hundred Ninety Seven Billion Nine Hundred Sixty Nine Million Five Hundred Ninety Five Thousand Nine Hundred Forty Nine Dollars');
+
+    // 14 digits
+    expect(currencyAmountInWords(98979695959494)).toBe('Ninety Eight Trillion Nine Hundred Seventy Nine Billion Six Hundred Ninety Five Million Nine Hundred Fifty Nine Thousand Four Hundred Ninety Four Dollars');
+
+    // 15 digits
+    expect(currencyAmountInWords(989796959594949)).toBe('Nine Hundred Eighty Nine Trillion Seven Hundred Ninety Six Billion Nine Hundred Fifty Nine Million Five Hundred Ninety Four Thousand Nine Hundred Forty Nine Dollars');
+
+    // 1 quadrillion
+    expect(currencyAmountInWords(1000000000000000)).toBe('One Quadrillion Dollars');
+
 });
 
 test('converts negative integers to words', () => {
@@ -69,8 +79,12 @@ test('returns empty string for invalid inputs', () => {
     expect(currencyAmountInWords(NaN)).toBe('');
     expect(currencyAmountInWords(undefined)).toBe('');
     expect(currencyAmountInWords(null)).toBe('');
+
+    // out of range
     expect(currencyAmountInWords(1000000000000001)).toBe('');
     expect(currencyAmountInWords(-1000000000000001)).toBe('');
+    expect(currencyAmountInWords(10000000000000001)).toBe('');
+    expect(currencyAmountInWords(-10000000000000001)).toBe('');
 });
 
 test('should return correct words for amounts with cents', () => {

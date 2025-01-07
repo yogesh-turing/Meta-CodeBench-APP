@@ -1,16 +1,17 @@
 function currencyAmountInWords(amount) {
-    if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000 || amount > 1000000000000) {
+    if (typeof amount !== "number" || isNaN(amount) || amount <= -1000000000000001 || amount >= 1000000000000001) {
         return "";
     }
 
+    // Handle zero cases
     if (amount === 0 || amount === -0) {
         return "Zero Dollars";
     }
 
     const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
-    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
     const teens = ["Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
-    const scales = ["", "Thousand", "Million", "Billion", "Trillion", "Quadrillion"];
+    const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+    const scales = ["", "Thousand", "Million", "Billion", "Trillion"];
 
     function convertGroup(n) {
         let result = "";
@@ -20,16 +21,16 @@ function currencyAmountInWords(amount) {
             n %= 100;
         }
         
-        if (n >= 20) {
-            result += tens[Math.floor(n / 10)] + " ";
-            n %= 10;
-        } else if (n >= 10) {
+        if (n >= 10 && n <= 19) {
             result += teens[n - 10] + " ";
-            return result;
-        }
-        
-        if (n > 0) {
-            result += ones[n] + " ";
+        } else {
+            if (n >= 20) {
+                result += tens[Math.floor(n / 10)] + " ";
+                n %= 10;
+            }
+            if (n > 0) {
+                result += ones[n] + " ";
+            }
         }
         
         return result;
@@ -53,29 +54,33 @@ function currencyAmountInWords(amount) {
         return result.trim();
     }
 
-    const isNegative = amount < 0;
+    let isNegative = amount < 0;
     amount = Math.abs(amount);
-    
-    const dollars = Math.floor(amount);
-    const cents = Math.round((amount - dollars) * 100);
+
+    let dollars = Math.floor(amount);
+    let cents = Math.round((amount - dollars) * 100);
 
     let result = "";
 
-    // Handle amounts less than 1
+    // Handle amounts less than 1 dollar
     if (dollars === 0 && cents > 0) {
-        const centsInWords = convertToWords(cents);
-        return `${isNegative ? "Negative " : ""}${centsInWords}${cents === 1 ? "Cent" : "Cents"}`;
+        let centsInWords = convertToWords(cents);
+        return centsInWords + (cents === 1 ? " Cent" : " Cents");
     }
 
-    // Convert dollars part
-    if (dollars > 0) {
-        result = `${isNegative ? "Negative " : ""}${convertToWords(dollars)}${dollars === 1 ? "Dollar" : "Dollars"}`;
+    // Add negative if needed
+    if (isNegative) {
+        result += "Negative ";
     }
 
-    // Add cents part if exists
+    // Convert dollars
+    result += convertToWords(dollars);
+    result += (dollars === 1 ? " Dollar" : " Dollars");
+
+    // Add cents if any
     if (cents > 0) {
-        const centsInWords = convertToWords(cents);
-        result += ` and ${centsInWords}${cents === 1 ? "Cent" : "Cents"}`;
+        result += " and " + convertToWords(cents);
+        result += (cents === 1 ? " Cent" : " Cents");
     }
 
     return result;
