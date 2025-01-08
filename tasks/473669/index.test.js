@@ -1,98 +1,116 @@
-const fs = require('fs').promises;
-const path = require('path');
-const {analyzeLogs} = require('./model_a'); // Adjust path to the actual function location.
+const { getAvailableDiscounts } = require("./correct");
+const moment = require("moment");
+const assert = require("assert");
 
-const testLogFilePath = path.join(__dirname, 'mockLogs.txt');
+describe("getAvailableDiscounts", () => {
+    it("should return correct discounts for a GOLD member", () => {
+        const user = { membershipLevel: "GOLD" };
+        const discounts = getAvailableDiscounts(user);
 
-describe('analyzeLogs', () => {
-
-    beforeEach(async () => {
-        const sampleLogs = `
-    [2025-01-01 12:00:00] "GET /api/users" 200 150ms
-    [2025-01-01 12:01:00] "GET /api/orders" 500 300ms
-    [2025-01-01 12:02:00] "GET /api/users" 200 90ms
-    [2025-01-01 13:00:00] "GET /api/products" 200 200ms
-    [2025-01-01 13:15:00] "GET /api/users" 200 100ms
-    [2025-01-01 13:30:00] "GET /api/orders" 500 350ms
-        `;
-        await fs.writeFile(testLogFilePath, sampleLogs.trim());
-    });
-    
-    afterEach(async () => {
-        await fs.unlink(testLogFilePath);
-    });
-
-    // file path is empty or not provided
-    it('should throw an error if file path is not provided', async () => {
-        await expect(analyzeLogs()).rejects.toThrow(Error);
-    });
-
-    // file does not exist
-    it('should throw an error if the file does not exist', async () => {
-        await expect(analyzeLogs('nonexistent.log')).rejects.toThrow(Error);
-    });
-
-    it('should return the top 3 slowest endpoints by average response time', async () => {
-        const result = await analyzeLogs(testLogFilePath);
-        expect(result.slowestEndpoints).toEqual([
-            { path: '/api/orders', avgResponseTime: 325 }, // Slower than /api/products and /api/users
-            { path: '/api/products', avgResponseTime: 200 },
-            { path: '/api/users', avgResponseTime: 113 }, // Rounded average
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 15, priority: 3, expiration: "2025-01-15" },
+            { name: "Loyalty Reward", discount: 20, priority: 2, expiration: "2025-01-10" },
         ]);
     });
 
-    it('should correctly calculate hourly request counts', async () => {
-        const result = await analyzeLogs(testLogFilePath);
-        expect(result.hourlyRequestCounts).toEqual({
-            '2025-01-01 12': 3, // 3 requests in hour 12:00
-            '2025-01-01 13': 3, // 3 requests in hour 13:00
-        });
-    });
+    it("should return correct discounts for a PLATINUM member", () => {
+        const user = { membershipLevel: "PLATINUM" };
+        const discounts = getAvailableDiscounts(user);
 
-    it('should correct calculate histograms', async () => {
-        const result = await analyzeLogs(testLogFilePath);
-        expect(result.histogram ).toEqual({
-            "0-100": 2, // 2 requests with response time between 0 and 100ms
-            "101-200": 2, // 2 requests with response time between 101 and 200ms
-            "201-300": 1, // 1 request with response time between 201 and 300ms
-            "301-400": 1, // 1 request with response time between 301 and 400ms
-        });
-    }); 
-
-
-    it('should detect anomalies based on status code and average response time', async () => {
-        const result = await analyzeLogs(testLogFilePath);
-        expect(result.anomalies).toEqual([
-            { path: '/api/orders', avgResponseTime: 325 }, // Meets both criteria: 500 status and avg > 250ms
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 20, priority: 3, expiration: "2025-01-15" },
+            { name: "Loyalty Reward", discount: 25, priority: 2, expiration: "2025-01-10" },
         ]);
     });
 
-    it('should handle an empty log file gracefully', async () => {
-        await fs.writeFile(testLogFilePath, '');
-        const result = await analyzeLogs(testLogFilePath);
-        expect(result.slowestEndpoints).toEqual([]);
-        expect(result.hourlyRequestCounts).toEqual({});
-        expect(result.anomalies).toEqual([]);
-    });
+    it("should exclude expired offers", () => {
+        const user = { membershipLevel: "SILVER" };
+        const discounts = getAvailableDiscounts(user);
 
-    it('should skip improperly formatted log lines', async () => {
-        const badLogs = `
-[2025-01-01 12:00:00] "GET /api/users" 200 150ms
-INVALID LOG LINE
-[2025-01-01 12:01:00] "GET /api/orders" 500 300ms
-`;
-        await fs.writeFile(testLogFilePath, badLogs.trim());
-        const result = await analyzeLogs(testLogFilePath);
-        expect(result.slowestEndpoints).toEqual([
-            { path: '/api/orders', avgResponseTime: 300 },
-            { path: '/api/users', avgResponseTime: 150 },
-        ]);
-        expect(result.hourlyRequestCounts).toEqual({
-            '2025-01-01 12': 2,
-        });
-        expect(result.anomalies).toEqual([
-            { path: '/api/orders', avgResponseTime: 300 },
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 10, priority: 3, expiration: "2025-01-15" },
+            { name: "Loyalty Reward", discount: 15, priority: 2, expiration: "2025-01-10" },
         ]);
     });
 
+    it("should return an empty array if all offers are expired", () => {
+        const user = { membershipLevel: "SILVER" };
+
+        // Modify mock offers for this test
+        const expiredOffers = [
+            { name: "Old Sale", discount: 10, priority: 3, expiration: moment().subtract(1, "day").format("YYYY-MM-DD") },
+        ];
+        const originalOffers = global.offers; // Backup original offers
+        global.offers = expiredOffers;
+
+        const discounts = getAvailableDiscounts(user);
+        assert.deepStrictEqual(discounts, []);
+
+        // Restore original offers
+        global.offers = originalOffers;
+    });
+
+    it("should handle invalid user data gracefully", () => {
+        const user = {};
+        const discounts = getAvailableDiscounts(user);
+
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 10, priority: 3, expiration: "2025-01-15" },
+            { name: "Loyalty Reward", discount: 15, priority: 2, expiration: "2025-01-10" },
+        ]);
+    });
+
+    it("should return correct discounts for a SILVER member", () => {
+        const user = { membershipLevel: "SILVER" };
+        const discounts = getAvailableDiscounts(user);
+
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 10, priority: 3, expiration: "2025-01-15" },
+            { name: "Loyalty Reward", discount: 15, priority: 2, expiration: "2025-01-10" },
+        ]);
+    });
+
+    it("should return an empty array for a BRONZE member", () => {
+        const user = { membershipLevel: "BRONZE" };
+        const discounts = getAvailableDiscounts(user);
+
+        assert.deepStrictEqual(discounts, []);
+    });
+
+    it("should return correct discounts for a DIAMOND member", () => {
+        const user = { membershipLevel: "DIAMOND" };
+        const discounts = getAvailableDiscounts(user);
+
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 25, priority: 3, expiration: "2025-01-15" },
+            { name: "Loyalty Reward", discount: 30, priority: 2, expiration: "2025-01-10" },
+        ]);
+    });
+
+    it("should return correct discounts for a new member", () => {
+        const user = { membershipLevel: "NEW" };
+        const discounts = getAvailableDiscounts(user);
+
+        assert.deepStrictEqual(discounts, [
+            { name: "Welcome Offer", discount: 5, priority: 3, expiration: "2025-01-15" },
+        ]);
+    });
+
+    it("should return correct discounts for a member with no membership level", () => {
+        const user = { membershipLevel: "" };
+        const discounts = getAvailableDiscounts(user);
+
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 5, priority: 3, expiration: "2025-01-15" },
+        ]);
+    });
+
+    it("should return correct discounts for a member with an unknown membership level", () => {
+        const user = { membershipLevel: "UNKNOWN" };
+        const discounts = getAvailableDiscounts(user);
+
+        assert.deepStrictEqual(discounts, [
+            { name: "New Year Sale", discount: 5, priority: 3, expiration: "2025-01-15" },
+        ]);
+    });
 });
