@@ -1,53 +1,94 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
+const fs = require('fs').promises;
+const { parseISO, format } = require('date-fns');
+
+async function analyzeLogs(filePath) {
+    if (!filePath) throw new Error('File path is required');
+
+    try {
+        await fs.access(filePath);
+    } catch (error) {
+        throw new Error('File not found');
     }
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+    const data = await fs.readFile(filePath, 'utf-8');
+    const lines = data.split('\n').filter(Boolean);
 
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
+    // Parse log lines into structured objects
+    const logRegex = /\[(.*?)\] "GET (.*?)" (\d{3}) (\d+)ms/;
+    const logs = lines.map(line => {
+        const match = line.match(logRegex);
+        if (!match) return null;
 
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
+        const [_, timestamp, path, statusCode, responseTime] = match;
+        return {
+            timestamp: parseISO(timestamp),
+            path,
+            statusCode: parseInt(statusCode),
+            responseTime: parseInt(responseTime)
+        };
+    }).filter(Boolean);
 
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+    // Calculate endpoint statistics
+    const endpointStats = {};
+    const hourlyStats = {};
+    const histogram = {};
+
+    logs.forEach(log => {
+        // Endpoint statistics
+        if (!endpointStats[log.path]) {
+            endpointStats[log.path] = {
+                totalTime: 0,
+                count: 0,
+                errorCount: 0,
+                totalErrorTime: 0
+            };
+        }
+        endpointStats[log.path].totalTime += log.responseTime;
+        endpointStats[log.path].count += 1;
+        if (log.statusCode === 500) {
+            endpointStats[log.path].errorCount += 1;
+            endpointStats[log.path].totalErrorTime += log.responseTime;
         }
 
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
-    }
+        // Hourly request counts
+        const hourKey = format(log.timestamp, 'yyyy-MM-dd HH');
+        hourlyStats[hourKey] = (hourlyStats[hourKey] || 0) + 1;
 
-    return recurrences;
+        // Response time histogram
+        const bucketKey = `${Math.floor(log.responseTime / 100) * 100}-${Math.floor(log.responseTime / 100) * 100 + 99}`;
+        histogram[bucketKey] = (histogram[bucketKey] || 0) + 1;
+    });
+
+    // Calculate slowest endpoints
+    const slowestEndpoints = Object.entries(endpointStats)
+        .map(([path, stats]) => ({
+            path,
+            avgResponseTime: Math.round(stats.totalTime / stats.count)
+        }))
+        .sort((a, b) => b.avgResponseTime - a.avgResponseTime)
+        .slice(0, 3);
+
+    // Calculate anomalies
+    const anomalies = Object.entries(endpointStats)
+        .filter(([_, stats]) => stats.errorCount > 0)
+        .map(([path, stats]) => ({
+            path,
+            avgResponseTime: Math.round(stats.totalErrorTime / stats.errorCount)
+        }))
+        .filter(anomaly => anomaly.avgResponseTime > 250);
+
+    // Sort histogram keys numerically
+    const sortedHistogram = Object.fromEntries(
+        Object.entries(histogram)
+            .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+    );
+
+    return {
+        slowestEndpoints,
+        hourlyRequestCounts: hourlyStats,
+        anomalies,
+        histogram: sortedHistogram
+    };
 }
 
-module.exports = {
-    getNextRecurrences
-};
+module.exports = { analyzeLogs };

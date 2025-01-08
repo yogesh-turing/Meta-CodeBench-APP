@@ -1,12 +1,10 @@
 const fs = require('fs').promises;
-const _ = require('lodash');
-const { parseISO, format } = require('date-fns'); // Or use moment.js
+const { parseISO, format } = require('date-fns');
 
 async function analyzeLogs(filePath) {
-    if (!filePath) {
-        throw new Error('File path is required');
-    }
-    // check if the file exists
+
+    if (!filePath) throw new Error('File path is required');
+
     try {
         await fs.access(filePath);
     } catch (error) {
@@ -22,9 +20,9 @@ async function analyzeLogs(filePath) {
     }).filter(Boolean);
 
     // To Do: Implement the following logic:
-    // 1. Calculate top 3 slowest endpoints by average response time.
-    // 2. Aggregate hourly request counts.
-    // 3. Detect anomalous patterns as described.
+    // Calculate top 3 slowest endpoints by average response time.
+    // Aggregate hourly request counts.
+    // Detect anomalous patterns as described.
 
     // Sample return structure
     return {

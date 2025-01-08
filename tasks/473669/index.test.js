@@ -1,6 +1,6 @@
 const fs = require('fs').promises;
 const path = require('path');
-const {analyzeLogs} = require('./model_a'); // Adjust path to the actual function location.
+const {analyzeLogs} = require(process.env.TARGET_FILE);
 
 const testLogFilePath = path.join(__dirname, 'mockLogs.txt');
 

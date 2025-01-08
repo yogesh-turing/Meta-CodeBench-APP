@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+473669:
+base       : 3/8 tests passed [FAILED]
+correct    : 8/8 tests passed [PASSED]
+incorrect  : 3/8 tests passed [FAILED]
+model_a    : 7/8 tests passed [FAILED]
+model_b    : 7/8 tests passed [FAILED]
+model_c    : 7/8 tests passed [FAILED]
+model_d    : 7/8 tests passed [FAILED]
+model_e    : 7/8 tests passed [FAILED]
+model_f    : 4/8 tests passed [FAILED]
+model_g    : 3/8 tests passed [FAILED]
+model_h    : 4/8 tests passed [FAILED]
+model_i    : 3/8 tests passed [FAILED]
+model_j    : 4/8 tests passed [FAILED]
+

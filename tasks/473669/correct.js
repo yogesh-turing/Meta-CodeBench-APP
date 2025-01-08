@@ -77,8 +77,10 @@ async function analyzeLogs(filePath) {
         .filter(Boolean);
 
     const histogram = logs.reduce((acc, log) => {
-        const bucket = Math.floor(log.responseTime / 100) * 100;
-        const bucketLabel = `${bucket}-${bucket + 99}ms`;
+        const bucket = Math.round(log.responseTime / 100) * 100;
+        let start = bucket - 99;
+        if (start < 100) start = 0;
+        const bucketLabel = `${start}-${bucket}`;
         if (!acc[bucketLabel]) {
             acc[bucketLabel] = 0;
         }

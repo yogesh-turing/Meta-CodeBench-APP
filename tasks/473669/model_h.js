@@ -1,57 +1,82 @@
-/**
- * Returns an array of next recurrences based on the provided start date and frequency.
- * 
- * @param {Date} startDate The start date for calculating recurrences.
- * @param {number} frequency The frequency of recurrences in days.
- * @param {number} count The number of recurrences to generate.
- * @param {boolean} [onlyWeekDays=false] If true, only include weekdays (Monday to Friday) in the recurrences.
- * @returns {Date[]} An array of dates representing the next recurrences.
- * @throws {Error} If startDate is not a valid date, or if frequency or count is negative.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors accordingly
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
+const fs = require('fs').promises;
+const { parseISO, format } = require('date-fns');
+
+async function analyzeLogs(filePath) {
+
+    if (!filePath) throw new Error('File path is required');
+
+    try {
+        await fs.access(filePath);
+    } catch (error) {
+        throw new Error('File not found');
     }
-    if (frequency < 0) {
-        throw new Error('Frequency cannot be negative');
-    }
-    if (count < 0) {
-        throw new Error('Count cannot be negative');
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-        // If onlyWeekDays is true, skip weekends
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // Adjust the current date to the next weekday
-            currentDate.setDate(currentDate.getDate() + (currentDate.getDay() === 0 ? 1 : 2));
-        }
-  
-        recurrences.push(new Date(currentDate));
-  
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
-    }
-  
-    return recurrences;
-  }
-  
-  // // Example usage:
-  // const startDate = new Date('2024-03-04'); // Monday
-  // const frequency = 3; // Every 3 days
-  // const count = 5;
-  
-  // // Get recurrences without considering weekdays
-  // const recurrences = getNextRecurrences(startDate, frequency, count);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-10, 2024-03-13, 2024-03-16]
-  
-  // // Get recurrences considering only weekdays
-  // const weekdayRecurrences = getNextRecurrences(startDate, frequency, count, true);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-11, 2024-03-14, 2024-03-18]
-  
-  module.exports = {
-    getNextRecurrences
-  };
+
+    const data = await fs.readFile(filePath, 'utf-8');
+    const lines = data.split('\n').filter(Boolean);
+
+    // Parse log lines into structured objects
+    const logs = lines.map(line => {
+        // Log format: [YYYY-MM-DD HH:mm:ss] "GET /path/to/resource" 200 123ms
+        const regex = /\[(.*?)\] "(.*?)" (\d+) (\d+)ms/;
+        const match = line.match(regex);
+        if (!match) return null; // Ignore lines not in expected format
+
+        const [_, timestamp, path, statusCode, responseTime] = match;
+        return {
+            timestamp: parseISO(timestamp),
+            path,
+            statusCode: parseInt(statusCode),
+            responseTime: parseInt(responseTime),
+        };
+    }).filter(Boolean);
+
+    // Group logs by path for calculating average response times
+    const pathGroups = logs.reduce((acc, log) => {
+        if (!acc[log.path]) acc[log.path] = [];
+        acc[log.path].push(log);
+        return acc;
+    }, {});
+
+    // Calculate average response time for each path
+    const pathAverages = Object.keys(pathGroups).map(path => {
+        const group = pathGroups[path];
+        const sum = group.reduce((acc, log) => acc + log.responseTime, 0);
+        const avgResponseTime = Math.round(sum / group.length);
+        return { path, avgResponseTime };
+    });
+
+    // Find top 3 slowest endpoints
+    const slowestEndpoints = pathAverages.sort((a, b) => b.avgResponseTime - a.avgResponseTime).slice(0, 3);
+
+    // Aggregate hourly request counts
+    const hourlyRequestCounts = logs.reduce((acc, log) => {
+        const hour = format(log.timestamp, 'yyyy-MM-dd HH');
+        if (!acc[hour]) acc[hour] = 0;
+        acc[hour]++;
+        return acc;
+    }, {});
+
+    // Detect anomalous patterns (500 status code and avg response time above 250ms)
+    const anomalies = pathAverages.filter(({ path, avgResponseTime }) => {
+        const group = pathGroups[path];
+        const has500Error = group.some(log => log.statusCode === 500);
+        return has500Error && avgResponseTime > 250;
+    });
+
+    // Create response time histogram
+    const histogram = logs.reduce((acc, log) => {
+        const bucket = `${Math.floor(log.responseTime / 100) * 100}-${Math.ceil(log.responseTime / 100) * 100}`;
+        if (!acc[bucket]) acc[bucket] = 0;
+        acc[bucket]++;
+        return acc;
+    }, {});
+
+    return {
+        slowestEndpoints,
+        hourlyRequestCounts,
+        anomalies,
+        histogram,
+    };
+}
+
+module.exports = { analyzeLogs };
