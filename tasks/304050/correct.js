@@ -1,4 +1,15 @@
 function currencyAmountInWords(amount) {
+    let cents;
+    if (typeof amount === "string") {
+        amount = amount.split(".");
+        if (amount.length > 2) {
+            return "";
+        }
+        if (amount.length === 2) {
+            cents = amount[1];
+        }
+        amount = parseInt(amount[0]);
+    }
     if (typeof amount !== "number" || isNaN(amount) || amount < -1000000000000000 || amount > 1000000000000000) {
         return "";
     }
@@ -57,7 +68,7 @@ function currencyAmountInWords(amount) {
     amount = Math.abs(amount);
 
     const dollars = Math.floor(amount);
-    const cents = Math.round((amount - dollars) * 100);
+    cents = cents ?? Math.round((amount - dollars) * 100);
 
     let result = '';
 

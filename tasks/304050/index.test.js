@@ -1,5 +1,10 @@
-const { currencyAmountInWords } = require(process.env.TARGET_FILE);
+const { default: BigNumber } = require('bignumber.js');
+const { currencyAmountInWords } = require('./correct');
 
+test.only('special', () => {
+    const value = 90000000000231.21;
+    expect(currencyAmountInWords(value)).toBe('Ninety Trillion Two Hundred Thirty One Dollars and Twenty One Cents');
+});
 test('should return "Zero Dollars" for 0', () => {
     expect(currencyAmountInWords(0)).toBe("Zero Dollars");
     expect(currencyAmountInWords(-0)).toBe("Zero Dollars");
