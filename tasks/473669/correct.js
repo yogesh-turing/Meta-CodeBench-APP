@@ -1,101 +1,35 @@
-const fs = require('fs').promises;
-const { parseISO, format } = require('date-fns');
+const _ = require('lodash');
+const moment = require('moment');
 
-/**
- * Analyzes server logs and generates a performance summary.
- * @param {string} filePath - Path to the log file.
- * @returns {Promise<object>} - Performance summary.
- */
-async function analyzeLogs(filePath) {
+// Function to filter and transform requests
+function filterAndTransformRequests(requests) {
+    const now = moment();
 
-    if (!filePath) throw new Error('File path is required');
+    // Filter the requests based on user-defined criteria
+    const filteredRequests = requests.filter(request => {
+        const createdDatetime = moment(request.created_datetime);
+        const isRecent = now.diff(createdDatetime, 'minutes') <= 2;
+        const isTuringAssignee = request.assignee.email.toLowerCase().endsWith('@turing.com');
+        return request.user.isActive && isRecent && isTuringAssignee;
+    });
 
-    try {
-        await fs.access(filePath);
-    } catch (error) {
-        throw new Error('File not found');
-    }
+    // Transform the requests based on transformation rules
+    const transformedRequests = filteredRequests.map(request => {
+        const transformedRequest = {
+            name: request.ticket.name ? request.ticket.name.toUpperCase() : null,
+            due_at: request.ticket.priority ? moment().add(request.ticket.priority, 'days').format('YYYY-MM-DD HH:mm:ss') : null,
+            created_at: request.created_datetime ? moment(request.created_datetime).format('YYYY-MM-DD HH:mm:ss') : null,
+            assignee: request.assignee.email ? request.assignee.email.toLowerCase() : null,
+            source: request.ticket.source ? request.ticket.source.toLowerCase() : null,
+        };
 
-    const data = await fs.readFile(filePath, 'utf-8');
-    const lines = data.split('\n').filter(Boolean);
+        // Add a timestamp
+        transformedRequest.processedAt = new Date().toISOString();
 
-    // Parse log lines into structured objects
-    const logs = lines
-        .map(line => {
-            const match = line.match(/\[(.+)\] "GET (.+)" (\d+) (\d+)ms/);
-            if (!match) return null;
-            const [_, timestamp, path, status, responseTime] = match;
-            return {
-                timestamp: parseISO(timestamp),
-                path,
-                status: parseInt(status, 10),
-                responseTime: parseInt(responseTime, 10),
-            };
-        })
-        .filter(Boolean);
+        return transformedRequest;
+    });
 
-    // Group logs by path for performance analysis
-    const logsByPath = logs.reduce((acc, log) => {
-        if (!acc[log.path]) {
-            acc[log.path] = [];
-        }
-        acc[log.path].push(log);
-        return acc;
-    }, {});
-
-    // 1. Calculate top 3 slowest endpoints by average response time
-    const slowestEndpoints = Object.keys(logsByPath)
-        .map(path => {
-            const entries = logsByPath[path];
-            const avgResponseTime = Math.round(entries.reduce((sum, log) => sum + log.responseTime, 0) / entries.length);
-            return { path, avgResponseTime };
-        })
-        .sort((a, b) => b.avgResponseTime - a.avgResponseTime)
-        .slice(0, 3);
-
-    // 2. Aggregate hourly request counts
-    const hourlyRequestCounts = logs.reduce((acc, log) => {
-        const hour = format(log.timestamp, 'yyyy-MM-dd HH');
-        if (!acc[hour]) {
-            acc[hour] = 0;
-        }
-        acc[hour]++;
-        return acc;
-    }, {});
-
-    // 3. Detect anomalous patterns
-    const anomalies = Object.keys(logsByPath)
-        .map(path => {
-            const entries = logsByPath[path];
-            const avgResponseTime = entries.reduce((sum, log) => sum + log.responseTime, 0) / entries.length;
-            const hasAnomaly = entries.some(log => log.status === 500 && avgResponseTime > 250);
-            if (hasAnomaly) {
-                return { path, avgResponseTime: Math.round(avgResponseTime) };
-            }
-            return null;
-        })
-        .filter(Boolean);
-
-    // 4. Generate response time histogram
-    const histogram = logs.reduce((acc, log) => {
-        const bucket = Math.round(log.responseTime / 100) * 100;
-        let start = bucket - 99;
-        if (start < 100) start = 0;
-        const bucketLabel = `${start}-${bucket}`;
-        if (!acc[bucketLabel]) {
-            acc[bucketLabel] = 0;
-        }
-        acc[bucketLabel]++;
-        return acc;
-    }, {});
-
-    // Return the result
-    return {
-        slowestEndpoints,
-        hourlyRequestCounts,
-        anomalies,
-        histogram 
-    };
+    return transformedRequests;
 }
 
-module.exports = { analyzeLogs };
+module.exports = { filterAndTransformRequests };

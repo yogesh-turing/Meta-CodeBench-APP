@@ -1,98 +1,78 @@
-const fs = require('fs').promises;
-const { parseISO, format } = require('date-fns');
+const _ = require('lodash');
+const moment = require('moment');
 
-async function analyzeLogs(filePath) {
-    if (!filePath) throw new Error('File path is required');
+// Function to filter and transform requests
+function filterAndTransformRequests(requests) {
+    // Filter the requests based on user-defined criteria
+    const filteredRequests = requests.filter(request => {
+        // Filter requests created in the last 2 minutes
+        const twoMinutesAgo = moment().subtract(2, 'minutes');
+        const requestCreatedTime = moment(request.created_datetime);
+        const isRecent = requestCreatedTime.isAfter(twoMinutesAgo);
 
-    try {
-        await fs.access(filePath);
-    } catch (error) {
-        throw new Error('File not found');
-    }
+        // Filter requests assigned to users in turing.com
+        const isTuringUser = _.toLower(request.assignee.email).endsWith('@turing.com');
 
-    const data = await fs.readFile(filePath, 'utf-8');
-    const lines = data.split('\n').filter(Boolean);
+        // Simple example filter: Check if the user is an active
+        const isActiveUser = request.user.isActive;
 
-    // Parse log lines into structured objects
-    const logRegex = /\[(.*?)\] "GET (.*?)" (\d{3}) (\d+)ms/;
-    const logs = lines.map(line => {
-        const match = line.match(logRegex);
-        if (!match) return null;
+        return isRecent && isTuringUser && isActiveUser;
+    });
 
-        const [, timestamp, path, status, responseTime] = match;
-        return {
-            timestamp: parseISO(timestamp),
-            path,
-            status: parseInt(status),
-            responseTime: parseInt(responseTime)
+    // Transform the requests based on transformation rules
+    const transformedRequests = filteredRequests.map(request => {
+        // Define transformation rules
+        const transformationRules = {
+            name: '[[request.ticket.name, uppercase]]',
+            due_at: '[[request.ticket.priority, date_add]]',
+            created_at: '[[request.created_datetime]]',
+            assignee: '[[request.assignee.email, lowercase]]',
+            source: '[[request.ticket.source, lowercase]]'
         };
-    }).filter(Boolean);
 
-    // Calculate endpoint statistics
-    const endpointStats = {};
-    logs.forEach(log => {
-        if (!endpointStats[log.path]) {
-            endpointStats[log.path] = {
-                totalTime: 0,
-                count: 0,
-                error500Count: 0,
-                error500TotalTime: 0
-            };
-        }
-        endpointStats[log.path].totalTime += log.responseTime;
-        endpointStats[log.path].count += 1;
-        
-        if (log.status === 500) {
-            endpointStats[log.path].error500Count += 1;
-            endpointStats[log.path].error500TotalTime += log.responseTime;
-        }
+        // Apply transformation rules
+        const transformedRequest = {};
+        _.forEach(transformationRules, (rule, field) => {
+            const [value, transformation] = rule.replace('[[', '').replace(']]', '').split(', ');
+            let fieldValue = _.get(request, value);
+
+            // Apply transformation if specified
+            if (transformation) {
+                switch (transformation) {
+                    case 'uppercase':
+                        fieldValue = _.toUpper(fieldValue);
+                        break;
+                    case 'lowercase':
+                        fieldValue = _.toLower(fieldValue);
+                        break;
+                    case 'date_add':
+                        fieldValue = moment(fieldValue).add(request.ticket.priority, 'days').format('YYYY-MM-DD HH:mm:ss');
+                        break;
+                    default:
+                        break;
+                }
+            }
+
+            // Format dates
+            if (field.endsWith('_at')) {
+                fieldValue = moment(fieldValue).format('YYYY-MM-DD HH:mm:ss');
+            }
+
+            // Set null if value is not present
+            if (!fieldValue) {
+                fieldValue = null;
+            }
+
+            transformedRequest[field] = fieldValue;
+        });
+
+        // Add a timestamp
+        transformedRequest.processedAt = new Date().toISOString();
+
+        return transformedRequest;
     });
 
-    // Calculate slowest endpoints
-    const slowestEndpoints = Object.entries(endpointStats)
-        .map(([path, stats]) => ({
-            path,
-            avgResponseTime: Math.round(stats.totalTime / stats.count)
-        }))
-        .sort((a, b) => b.avgResponseTime - a.avgResponseTime)
-        .slice(0, 3);
-
-    // Calculate hourly request counts
-    const hourlyRequestCounts = {};
-    logs.forEach(log => {
-        const hour = format(log.timestamp, 'yyyy-MM-dd HH');
-        hourlyRequestCounts[hour] = (hourlyRequestCounts[hour] || 0) + 1;
-    });
-
-    // Detect anomalies (500 status with avg response time > 250ms)
-    const anomalies = Object.entries(endpointStats)
-        .filter(([, stats]) => stats.error500Count > 0)
-        .map(([path, stats]) => ({
-            path,
-            avgResponseTime: Math.round(stats.error500TotalTime / stats.error500Count)
-        }))
-        .filter(anomaly => anomaly.avgResponseTime > 250);
-
-    // Generate response time histogram
-    const histogram = {};
-    logs.forEach(log => {
-        const bucket = Math.floor(log.responseTime / 100) * 100;
-        const bucketKey = `${bucket}-${bucket + 100}`;
-        histogram[bucketKey] = (histogram[bucketKey] || 0) + 1;
-    });
-
-    // Sort histogram keys numerically
-    const sortedHistogram = Object.fromEntries(
-        Object.entries(histogram)
-            .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
-    );
-
-    return {
-        slowestEndpoints,
-        hourlyRequestCounts,
-        anomalies,
-        histogram: sortedHistogram
-    };
+    return transformedRequests;
 }
 
-module.exports = { analyzeLogs };
+module.exports = { filterAndTransformRequests };
