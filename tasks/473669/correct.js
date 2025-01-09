@@ -76,6 +76,7 @@ async function analyzeLogs(filePath) {
         })
         .filter(Boolean);
 
+    // 4. Generate response time histogram
     const histogram = logs.reduce((acc, log) => {
         const bucket = Math.round(log.responseTime / 100) * 100;
         let start = bucket - 99;

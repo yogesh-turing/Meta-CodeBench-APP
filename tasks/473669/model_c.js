@@ -14,11 +14,11 @@ async function analyzeLogs(filePath) {
     const lines = data.split('\n').filter(Boolean);
 
     // Parse log lines into structured objects
-    const logRegex = /\[(.*?)\] "GET (.*?)" (\d{3}) (\d+)ms/;
+    const logRegex = /\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] "GET ([^"]+)" (\d{3}) (\d+)ms/;
     const logs = lines.map(line => {
         const match = line.match(logRegex);
         if (!match) return null;
-
+        
         const [, timestamp, path, status, responseTime] = match;
         return {
             timestamp: parseISO(timestamp),
@@ -28,7 +28,7 @@ async function analyzeLogs(filePath) {
         };
     }).filter(Boolean);
 
-    // Calculate slowest endpoints
+    // Calculate endpoint statistics
     const endpointStats = {};
     logs.forEach(log => {
         if (!endpointStats[log.path]) {
@@ -36,17 +36,18 @@ async function analyzeLogs(filePath) {
                 totalTime: 0,
                 count: 0,
                 errorCount: 0,
-                totalErrorTime: 0
+                errorTotalTime: 0
             };
         }
         endpointStats[log.path].totalTime += log.responseTime;
-        endpointStats[log.path].count += 1;
+        endpointStats[log.path].count++;
         if (log.status === 500) {
-            endpointStats[log.path].errorCount += 1;
-            endpointStats[log.path].totalErrorTime += log.responseTime;
+            endpointStats[log.path].errorCount++;
+            endpointStats[log.path].errorTotalTime += log.responseTime;
         }
     });
 
+    // Calculate slowest endpoints
     const slowestEndpoints = Object.entries(endpointStats)
         .map(([path, stats]) => ({
             path,
@@ -62,16 +63,16 @@ async function analyzeLogs(filePath) {
         hourlyRequestCounts[hourKey] = (hourlyRequestCounts[hourKey] || 0) + 1;
     });
 
-    // Detect anomalies (500 status and avg response time > 250ms)
+    // Calculate anomalies
     const anomalies = Object.entries(endpointStats)
-        .filter(([, stats]) => stats.errorCount > 0 && 
-            (stats.totalErrorTime / stats.errorCount) > 250)
+        .filter(([, stats]) => stats.errorCount > 0)
         .map(([path, stats]) => ({
             path,
-            avgResponseTime: Math.round(stats.totalErrorTime / stats.errorCount)
-        }));
+            avgResponseTime: Math.round(stats.errorTotalTime / stats.errorCount)
+        }))
+        .filter(anomaly => anomaly.avgResponseTime > 250);
 
-    // Create response time histogram
+    // Generate response time histogram
     const histogram = {};
     logs.forEach(log => {
         const bucket = Math.floor(log.responseTime / 100) * 100;
@@ -79,11 +80,17 @@ async function analyzeLogs(filePath) {
         histogram[bucketKey] = (histogram[bucketKey] || 0) + 1;
     });
 
+    // Sort histogram keys numerically
+    const sortedHistogram = Object.fromEntries(
+        Object.entries(histogram)
+            .sort((a, b) => parseInt(a[0]) - parseInt(b[0]))
+    );
+
     return {
         slowestEndpoints,
         hourlyRequestCounts,
         anomalies,
-        histogram
+        histogram: sortedHistogram
     };
 }
 

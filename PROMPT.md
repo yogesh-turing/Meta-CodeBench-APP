@@ -41,20 +41,20 @@ Prompt:
 
 Please complete the function `analyzeLogs`,
 1. Implement the log parsing logic:
-    - The line in the log file follows the following format
+    - The line in the log file follows the following format, maximum time an API can take is up to 5000ms.
         [YYYY-MM-DD HH:mm:ss] "GET /path/to/resource" 200 123ms
         e.g.
         [2025-01-01 12:00:00] "GET /api/users" 200 150ms
         [2025-01-01 12:01:00] "GET /api/orders" 500 300ms
         [2025-01-01 12:02:00] "GET /api/users" 200 90ms
-    - If line is not in expected format ignore the line
+    - If the line is not in the expected format ignore the line
 2. Implement logic to analyze logs:
     - The function should return an object with the following details
         - slowestEndpoints (top three slowest endpoints): An array of paths with the highest average response times.
         - hourlyRequestCounts (hourly request count): An object where keys are hours (YYYY-MM-DD HH) and values are the total number of requests during that hour.
         - anomalies (anomalous patterns): paths with a 500 response code and an average response time above 250ms.
-        - histogram (response time histogram): group all response times into buckets (e.g., 0-100ms, 101-200ms, etc.). There should be no limit on keys. 
-    - Make sure the numbers are rounded to the nearest value.
+        - histogram (response time histogram): group all response times into buckets e.g., "0-100", "101-200", "201-300" and so on.
+    - Make sure the numbers are rounded to the nearest value. Do not add entries with zero count.
     - Response should be in the following format:
         {
             "slowestEndpoints": [

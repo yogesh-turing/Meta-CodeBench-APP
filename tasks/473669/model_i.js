@@ -16,62 +16,62 @@ async function analyzeLogs(filePath) {
 
     // Parse log lines into structured objects
     const logs = lines.map(line => {
-        const match = line.match(/^\[(.*?)\] "(.*?)" (\d+) (\d+)ms$/);
+        const regex = /\[(.*?)\] "(.*?)" (\d+) (\d+)ms/;
+        const match = line.match(regex);
         if (!match) return null;
-        const [_, timestamp, path, statusCode, responseTime] = match;
+        const [timestamp, methodPath, statusCode, responseTime] = match.slice(1);
+        const [method, path] = methodPath.split(' ');
         return {
             timestamp: parseISO(timestamp),
+            method,
             path,
             statusCode: parseInt(statusCode),
-            responseTime: parseInt(responseTime)
+            responseTime: parseInt(responseTime),
         };
     }).filter(Boolean);
 
-    // Group logs by path to calculate average response times
-    const pathGroups = logs.reduce((acc, log) => {
-        if (!acc[log.path]) acc[log.path] = [];
-        acc[log.path].push(log);
-        return acc;
-    }, {});
+    // Calculate top 3 slowest endpoints by average response time.
+    const endpointResponseTimes = {};
+    logs.forEach(log => {
+        if (!endpointResponseTimes[log.path]) endpointResponseTimes[log.path] = [];
+        endpointResponseTimes[log.path].push(log.responseTime);
+    });
+    const slowestEndpoints = Object.keys(endpointResponseTimes)
+        .map(path => ({
+            path,
+            avgResponseTime: Math.round(endpointResponseTimes[path].reduce((sum, time) => sum + time, 0) / endpointResponseTimes[path].length),
+        }))
+        .sort((a, b) => b.avgResponseTime - a.avgResponseTime)
+        .slice(0, 3);
 
-    // Calculate top 3 slowest endpoints by average response time
-    const slowestEndpoints = Object.keys(pathGroups).map(path => {
-        const group = pathGroups[path];
-        const avgResponseTime = group.reduce((sum, log) => sum + log.responseTime, 0) / group.length;
-        return { path, avgResponseTime };
-    }).sort((a, b) => b.avgResponseTime - a.avgResponseTime).slice(0, 3);
-
-    // Aggregate hourly request counts
-    const hourlyRequestCounts = logs.reduce((acc, log) => {
+    // Aggregate hourly request counts.
+    const hourlyRequestCounts = {};
+    logs.forEach(log => {
         const hour = format(log.timestamp, 'yyyy-MM-dd HH');
-        if (!acc[hour]) acc[hour] = 0;
-        acc[hour]++;
-        return acc;
-    }, {});
+        if (!hourlyRequestCounts[hour]) hourlyRequestCounts[hour] = 0;
+        hourlyRequestCounts[hour]++;
+    });
 
-    // Detect anomalous patterns (500 status code and avg response time above 250ms)
-    const anomalies = Object.keys(pathGroups).map(path => {
-        const group = pathGroups[path];
-        const avgResponseTime = group.reduce((sum, log) => sum + log.responseTime, 0) / group.length;
-        if (group.some(log => log.statusCode === 500) && avgResponseTime > 250) {
-            return { path, avgResponseTime };
-        }
-        return null;
-    }).filter(Boolean);
+    // Detect anomalous patterns as described.
+    const anomalies = logs.filter(log => log.statusCode === 500 && log.responseTime > 250)
+        .map(log => ({
+            path: log.path,
+            avgResponseTime: log.responseTime,
+        }));
 
-    // Create response time histogram
-    const histogram = logs.reduce((acc, log) => {
-        const bucket = `${Math.floor(log.responseTime / 100) * 100}-${(Math.floor(log.responseTime / 100) + 1) * 100 - 1}`;
-        if (!acc[bucket]) acc[bucket] = 0;
-        acc[bucket]++;
-        return acc;
-    }, {});
+    // Create response time histogram.
+    const histogram = {};
+    logs.forEach(log => {
+        const bucket = `${Math.floor(log.responseTime / 100) * 100}-${Math.ceil(log.responseTime / 100) * 100}`;
+        if (!histogram[bucket]) histogram[bucket] = 0;
+        histogram[bucket]++;
+    });
 
     return {
         slowestEndpoints,
         hourlyRequestCounts,
         anomalies,
-        histogram
+        histogram,
     };
 }
 

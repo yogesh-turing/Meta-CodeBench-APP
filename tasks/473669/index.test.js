@@ -8,12 +8,12 @@ describe('analyzeLogs', () => {
 
     beforeEach(async () => {
         const sampleLogs = `
-    [2025-01-01 12:00:00] "GET /api/users" 200 150ms
-    [2025-01-01 12:01:00] "GET /api/orders" 500 300ms
-    [2025-01-01 12:02:00] "GET /api/users" 200 90ms
-    [2025-01-01 13:00:00] "GET /api/products" 200 200ms
-    [2025-01-01 13:15:00] "GET /api/users" 200 100ms
-    [2025-01-01 13:30:00] "GET /api/orders" 500 350ms
+[2025-01-01 12:00:00] "GET /api/users" 200 150ms
+[2025-01-01 12:01:00] "GET /api/orders" 500 300ms
+[2025-01-01 12:02:00] "GET /api/users" 200 90ms
+[2025-01-01 13:00:00] "GET /api/products" 200 200ms
+[2025-01-01 13:15:00] "GET /api/users" 200 100ms
+[2025-01-01 13:30:00] "GET /api/orders" 500 350ms
         `;
         await fs.writeFile(testLogFilePath, sampleLogs.trim());
     });

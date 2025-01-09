@@ -16,16 +16,17 @@ async function analyzeLogs(filePath) {
 
     // Parse log lines into structured objects
     const logs = lines.map(line => {
-        const match = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})\] "(\w+) (.+)" (\d{3}) (\d+)ms$/);
+        const match = line.match(/^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})] "(GET|POST|PUT|DELETE) (.+)" (\d{3}) (\d+)ms$/);
         if (!match) return null;
-        const [_, timestamp, method, path, statusCode, responseTime] = match;
-        return {
-            timestamp: parseISO(timestamp),
-            method,
-            path,
-            statusCode: parseInt(statusCode),
-            responseTime: parseInt(responseTime),
-        };
+
+        const timestamp = parseISO(match[1]);
+        const hour = format(timestamp, 'yyyy-MM-dd HH');
+        const method = match[2];
+        const path = match[3];
+        const status = parseInt(match[4]);
+        const responseTime = parseInt(match[5]);
+
+        return { timestamp, hour, method, path, status, responseTime };
     }).filter(Boolean);
 
     // Calculate top 3 slowest endpoints by average response time
@@ -36,42 +37,30 @@ async function analyzeLogs(filePath) {
         }
         endpointResponseTimes[log.path].push(log.responseTime);
     });
-    const slowestEndpoints = Object.keys(endpointResponseTimes)
-        .map(path => ({
-            path,
-            avgResponseTime: Math.round(endpointResponseTimes[path].reduce((a, b) => a + b, 0) / endpointResponseTimes[path].length),
-        }))
-        .sort((a, b) => b.avgResponseTime - a.avgResponseTime)
-        .slice(0, 3);
+
+    const slowestEndpoints = Object.keys(endpointResponseTimes).map(path => {
+        const responseTimes = endpointResponseTimes[path];
+        const avgResponseTime = responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length;
+        return { path, avgResponseTime };
+    }).sort((a, b) => b.avgResponseTime - a.avgResponseTime).slice(0, 3);
 
     // Aggregate hourly request counts
     const hourlyRequestCounts = {};
     logs.forEach(log => {
-        const hour = format(log.timestamp, 'yyyy-MM-dd HH');
-        if (!hourlyRequestCounts[hour]) {
-            hourlyRequestCounts[hour] = 0;
+        if (!hourlyRequestCounts[log.hour]) {
+            hourlyRequestCounts[log.hour] = 0;
         }
-        hourlyRequestCounts[hour]++;
+        hourlyRequestCounts[log.hour]++;
     });
 
     // Detect anomalous patterns
-    const anomalies = [];
-    Object.keys(endpointResponseTimes).forEach(path => {
-        const responseTimes = endpointResponseTimes[path];
-        const avgResponseTime = Math.round(responseTimes.reduce((a, b) => a + b, 0) / responseTimes.length);
-        if (avgResponseTime > 250 && logs.some(log => log.path === path && log.statusCode === 500)) {
-            anomalies.push({
-                path,
-                avgResponseTime,
-            });
-        }
-    });
+    const anomalies = logs.filter(log => log.status === 500 && log.responseTime > 250)
+        .map(log => ({ path: log.path, avgResponseTime: log.responseTime }));
 
     // Response time histogram
     const histogram = {};
     logs.forEach(log => {
-        const responseTime = log.responseTime;
-        const bucket = `${Math.floor(responseTime / 100) * 100}-${Math.floor(responseTime / 100) * 100 + 100}`;
+        const bucket = `${Math.floor(log.responseTime / 100) * 100}-${Math.floor(log.responseTime / 100) * 100 + 99}`;
         if (!histogram[bucket]) {
             histogram[bucket] = 0;
         }
