@@ -1,4 +1,4 @@
-const { filterAndTransformRequests } = require(process.env.TARGET_FILE);
+const { filterAndTransformRequests } = require('./correct');
 const moment = require('moment');
 
 describe('filterAndTransformRequests', () => {

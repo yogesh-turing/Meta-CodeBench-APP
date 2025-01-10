@@ -42,7 +42,7 @@ function filterAndTransformRequests(requests) {
         const transformedRequest = {};
 
         _.each(transformationRules, (rule, key) => {
-            const value = _.get(request, rule.replace(/\[\[|\]\]/g, '').split(',')[0]);
+            const value = _.get(request, rule.replace(/\[\[|\]\]|request./g, '').split(',')[0]);
 
             if (value) {
                 switch (rule.split(',')[1]) {
