@@ -1,11 +1,18 @@
-Base Code:
-```javascript
-// buggyBillingSystem.js
+const cartValidation = (cart) => {
+    // Validate input using Joi
+    const schema = Joi.object({
+        price: Joi.number().min(0).required(),
+        quantity: Joi.number().min(1).required()
+    }).required();
+
+    const { error } = schema.validate(rentalDetails);
+    if (error) {
+        throw new Error(`Invalid input: ${error.message}`);
+    }
+}
 
 function calculateTotalBill(cart, membershipStatus, paymentMethod, discountCode = null) {
-    if (!Array.isArray(cart) || cart.length == 0) {
-        throw new Error("Cart must be a non-empty array.");
-    }
+    cartValidation(cart);
 
     let total = 0;
 
@@ -16,6 +23,8 @@ function calculateTotalBill(cart, membershipStatus, paymentMethod, discountCode 
         }
         total += item.price * item.quantity;
     });
+
+
 
     // Apply discount if available
     let discount = 0;
@@ -67,22 +76,3 @@ function getDiscountPercentage(discountCode) {
 }
 
 module.exports = { calculateTotalBill };
-
-```
-
-Prompt:
-Please help to identify and fix the bugs in the code:
-The function does not calculate `totalAmount`, `discountApplied`, `taxAmount`, and `processingFee` correctly.
-The function should calculate the total bill for a customer based on the items in their cart.
-It should apply a discount based on membership status or promotional offers. If membership status is a premium 10% discount should be applied.
-It should apply tax to the total bill. A total of 10 percent tax should be applied to the total amount.
-For different payment methods, different charges should be applied. For credit cards apply 2% of processing fees, for paypal 3%, and for bank transfer 1%.
-The function should handle some edge cases (e.g., invalid cart items, and invalid discounts).
-The function should return the object with the following format
-{
-    totalAmount: 'string', // a number string with exactly two digits after the decimal point
-    discountApplied: 'number,
-    taxAmount: 'string, // a number string with exactly two digits after the decimal point
-    processingFee: 'string' // a number string with exactly two digits after the decimal point
-}
-The `discountApplied` should not include membership status discounts/offer.
