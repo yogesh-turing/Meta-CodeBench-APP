@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+304050:
+base       : 0/0 tests passed [PASSED]
+correct    : 7/7 tests passed [PASSED]
+incorrect  : 3/7 tests passed [FAILED]
+model_a    : 3/7 tests passed [FAILED]
+model_b    : 3/7 tests passed [FAILED]
+model_c    : 3/7 tests passed [FAILED]
+model_d    : 6/7 tests passed [FAILED]
+model_e    : 6/7 tests passed [FAILED]
+model_f    : 6/7 tests passed [FAILED]
+model_g    : 4/7 tests passed [FAILED]
+model_h    : 6/7 tests passed [FAILED]
+model_i    : 6/7 tests passed [FAILED]
+model_j    : 3/7 tests passed [FAILED]
+
