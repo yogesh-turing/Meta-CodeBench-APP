@@ -1,4 +1,4 @@
-const { flattenArr } = require('./incorrect');
+const { flattenArr } = require(process.env.TARGET_FILE || 'tasks/304014/index');
 
 // Test suite to check the flattening function
 describe('flattenArr', () => {

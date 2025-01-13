@@ -4,6 +4,12 @@ function flattenArr(input) {
         return input;
     }
 
+    // Use native flat() if available (better performance)
+    if (typeof Array.prototype.flat === 'function') {
+        return input.flat(Infinity);
+    }
+
+    // Fallback to iterative solution
     const stack = [input];
     const result = [];
 
@@ -11,12 +17,11 @@ function flattenArr(input) {
         const current = stack.pop();
         
         for (let i = current.length - 1; i >= 0; i--) {
-            const element = current[i];
-            
-            if (Array.isArray(element)) {
-                stack.push(element);
+            const item = current[i];
+            if (Array.isArray(item)) {
+                stack.push(item);
             } else {
-                result.unshift(element);
+                result.unshift(item);
             }
         }
     }

@@ -1,5 +1,5 @@
 function flattenArr(input) {
-    // Handle non-array inputs
+    // Handle non-array input
     if (!Array.isArray(input)) {
         return input;
     }
@@ -9,7 +9,7 @@ function flattenArr(input) {
 
     while (stack.length > 0) {
         const current = stack.pop();
-
+        
         for (let i = current.length - 1; i >= 0; i--) {
             const element = current[i];
             

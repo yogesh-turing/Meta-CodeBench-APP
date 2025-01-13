@@ -1,14 +1,14 @@
 function flattenArr(arr) {
+  if (!Array.isArray(arr)) return arr;
+  const stack = [...arr];
   const result = [];
-  const stack = [arr];
 
   while (stack.length) {
-    const current = stack.pop();
-
-    if (Array.isArray(current)) {
-      stack.push(...current);
+    const item = stack.pop();
+    if (Array.isArray(item)) {
+      stack.push(...item);
     } else {
-      result.push(current);
+      result.push(item);
     }
   }
 
