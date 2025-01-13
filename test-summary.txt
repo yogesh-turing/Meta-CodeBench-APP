@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+303998:
+base       : 0/13 tests passed [FAILED]
+correct    : 0/0 tests passed [PASSED]
+incorrect  : 0/13 tests passed [FAILED]
+model_a    : 2/13 tests passed [FAILED]
+model_b    : 0/13 tests passed [FAILED]
+model_c    : 0/0 tests passed [PASSED]
+model_d    : 0/0 tests passed [PASSED]
+model_e    : 0/13 tests passed [FAILED]
+model_f    : 0/0 tests passed [PASSED]
+model_g    : 0/0 tests passed [PASSED]
+model_h    : 0/0 tests passed [PASSED]
+model_i    : 0/13 tests passed [FAILED]
+model_j    : 0/13 tests passed [FAILED]
+
