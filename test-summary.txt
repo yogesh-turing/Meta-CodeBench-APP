@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+473638:
+base       : 0/12 tests passed [FAILED]
+correct    : 12/12 tests passed [PASSED]
+incorrect  : 9/12 tests passed [FAILED]
+model_a    : 9/12 tests passed [FAILED]
+model_b    : 12/12 tests passed [PASSED]
+model_c    : 12/12 tests passed [PASSED]
+model_d    : 12/12 tests passed [PASSED]
+model_e    : 12/12 tests passed [PASSED]
+model_f    : 3/12 tests passed [FAILED]
+model_g    : 3/12 tests passed [FAILED]
+model_h    : 5/12 tests passed [FAILED]
+model_i    : 5/12 tests passed [FAILED]
+model_j    : 10/12 tests passed [FAILED]
+
