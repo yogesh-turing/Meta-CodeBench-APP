@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+307560:
+base       : 0/0 tests passed [PASSED]
+correct    : 9/9 tests passed [PASSED]
+incorrect  : 4/9 tests passed [FAILED]
+model_a    : 7/9 tests passed [FAILED]
+model_b    : 7/9 tests passed [FAILED]
+model_c    : 7/9 tests passed [FAILED]
+model_d    : 7/9 tests passed [FAILED]
+model_e    : 7/9 tests passed [FAILED]
+model_f    : 5/9 tests passed [FAILED]
+model_g    : 5/9 tests passed [FAILED]
+model_h    : 4/9 tests passed [FAILED]
+model_i    : 4/9 tests passed [FAILED]
+model_j    : 5/9 tests passed [FAILED]
+
