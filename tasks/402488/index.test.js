@@ -1,4 +1,4 @@
-const { equalObjects } = require('./correct');
+const { equalObjects } = require('./incorrect');
 
 describe("equalObjects Function Tests", () => {
   // Test case: Same numbers should be equal
@@ -121,10 +121,16 @@ describe("equalObjects Function Tests", () => {
     const obj1 = {
       name: "John",
       age: 20,
-      address: {
-        city: "New York",
-        zip: 10001,
-      },
+      addresses: [
+        {
+          zip: 10001,
+          city: "New York",
+        },
+        {
+            zip: 20001,
+            city: "Los Angeles",
+        }
+      ],
       scores: [100, 90, 80],
       phone: null,
     };
