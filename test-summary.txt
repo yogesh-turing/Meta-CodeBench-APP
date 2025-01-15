@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402488:
+base       : 1/18 tests passed [FAILED]
+correct    : 18/18 tests passed [PASSED]
+incorrect  : 12/18 tests passed [FAILED]
+model_a    : 17/18 tests passed [FAILED]
+model_b    : 17/18 tests passed [FAILED]
+model_c    : 17/18 tests passed [FAILED]
+model_d    : 17/18 tests passed [FAILED]
+model_e    : 17/18 tests passed [FAILED]
+model_f    : 17/18 tests passed [FAILED]
+model_g    : 18/18 tests passed [PASSED]
+model_h    : 17/18 tests passed [FAILED]
+model_i    : 17/18 tests passed [FAILED]
+model_j    : 17/18 tests passed [FAILED]
+
