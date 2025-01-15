@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402483:
+base       : 1/13 tests passed [FAILED]
+correct    : 13/13 tests passed [PASSED]
+incorrect  : 8/13 tests passed [FAILED]
+model_a    : 7/13 tests passed [FAILED]
+model_b    : 6/13 tests passed [FAILED]
+model_c    : 8/13 tests passed [FAILED]
+model_d    : 6/13 tests passed [FAILED]
+model_e    : 8/13 tests passed [FAILED]
+model_f    : 7/13 tests passed [FAILED]
+model_g    : 7/13 tests passed [FAILED]
+model_h    : 7/13 tests passed [FAILED]
+model_i    : 3/13 tests passed [FAILED]
+model_j    : 7/13 tests passed [FAILED]
+
