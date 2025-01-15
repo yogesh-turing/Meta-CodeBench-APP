@@ -1,40 +1,49 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
-    }
-
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
-    }
-
-    if (count < 0) {
-        throw new Error("count cannot be negative");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
-            }
+const calculator = () => {
+    let result = 0;
+    return {
+      add: function(...nums) {
+        nums.forEach((num) => {
+          if (typeof num !== 'number') {
+            throw new Error('Error encountered: Invalid input for addition');
+          }
+          result += num;
+        });
+        return this;
+      },
+      subtract: function(...nums) {
+        nums.forEach((num) => {
+          if (typeof num !== 'number') {
+            throw new Error('Error encountered: Invalid input for subtraction');
+          }
+          result -= num;
+        });
+        return this;
+      },
+      multiply: function(...nums) {
+        nums.forEach((num) => {
+          if (typeof num !== 'number') {
+            throw new Error('Error encountered: Invalid input for multiplication');
+          }
+          result *= num;
+        });
+        return this;
+      },
+      divide: function(...nums) {
+        nums.forEach((num) => {
+          if (typeof num !== 'number' || num === 0) {
+            throw new Error('Error encountered: Invalid input for division');
+          }
+          result /= num;
+        });
+        return this;
+      },
+      getResult: function(precision) {
+        if (precision && typeof precision !== 'number') {
+          throw new Error('Error encountered: Invalid precision');
         }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
-    }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-};
+        return precision ? parseFloat(result.toFixed(precision)) : result;
+      },
+    };
+  };
+  
+  module.exports = { calculator };

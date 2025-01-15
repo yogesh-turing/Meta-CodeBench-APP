@@ -1,38 +1,43 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-      throw new Error("startDate cannot be null or undefined");
-    }
-  
-    if (frequency < 0) {
-      throw new Error("frequency cannot be negative");
-    }
-  
-    if (count < 0) {
-      throw new Error("count cannot be negative");
-    }
-  
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-      throw new Error("startDate must be a valid Date object");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-      if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-        // Skip weekends
-        currentDate.setDate(currentDate.getDate() + 1);
-        i--; // Decrement the counter to ensure we get the correct number of recurrences
-        continue;
-      }
-  
-      recurrences.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + frequency);
-    }
-  
-    return recurrences;
-  }
+const calculator = () => {
+  let result = 0;
 
-  module.exports = {
-    getNextRecurrences
+  const calc = {
+    add: function (...nums) {
+      nums.forEach((num) => {
+        result += num;
+      });
+      return calc;
+    },
+    subtract: function (...nums) {
+      nums.forEach((num) => {
+        result -= num;
+      });
+      return calc;
+    },
+    multiply: function (...nums) {
+      nums.forEach((num) => {
+        result *= num;
+      });
+      return calc;
+    },
+    divide: function (...nums) {
+      nums.forEach((num) => {
+        if (num === 0) {
+          throw new Error("Error encountered: Division by zero");
+        }
+        result /= num;
+      });
+      return calc;
+    },
+    getResult: function (precision) {
+      if (precision < 0) {
+        throw new Error("Error encountered: Precision cannot be negative");
+      }
+      return precision ? parseFloat(result.toFixed(precision)) : result;
+    },
+  };
+
+  return calc;
 };
+
+module.exports = { calculator };

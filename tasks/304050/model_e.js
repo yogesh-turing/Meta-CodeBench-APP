@@ -1,53 +1,52 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-  
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
+const calculator = () => {
+    let result = 0;
+    const calc = {
+        add: function(...nums) {
+            if (nums.length === 0) throw new Error('Error encountered');
+            nums.forEach(num => {
+                if (typeof num !== 'number') throw new Error('Error encountered');
+                result += num;
+            });
+            return this;
+        },
+        
+        subtract: function(...nums) {
+            if (nums.length === 0) throw new Error('Error encountered');
+            nums.forEach(num => {
+                if (typeof num !== 'number') throw new Error('Error encountered');
+                result -= num;
+            });
+            return this;
+        },
+        
+        multiply: function(...nums) {
+            if (nums.length === 0) throw new Error('Error encountered');
+            nums.forEach(num => {
+                if (typeof num !== 'number') throw new Error('Error encountered');
+                result *= num;
+            });
+            return this;
+        },
+        
+        divide: function(...nums) {
+            if (nums.length === 0) throw new Error('Error encountered');
+            nums.forEach(num => {
+                if (typeof num !== 'number') throw new Error('Error encountered');
+                if (num === 0) throw new Error('Error encountered');
+                result /= num;
+            });
+            return this;
+        },
+        
+        getResult: function(precision) {
+            if (precision !== undefined && (!Number.isInteger(precision) || precision < 0)) {
+                throw new Error('Error encountered');
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
+            return precision !== undefined ? parseFloat(result.toFixed(precision)) : result;
         }
-    }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+    };
+    
+    return calc;
+};
+
+module.exports = { calculator };

@@ -1,157 +1,121 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const { calculator } = require('./incorrect');
 
-describe('getNextRecurrences', () => {
+describe("Calculator Function Tests", () => {
+  let calc;
 
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
-    });
+  beforeEach(() => {
+    calc = calculator();
+  });
 
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
+  test("Initial state should return 0", () => {
+    expect(calc.getResult()).toBe(0);
+  });
 
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
-    });
+  test("Addition should work correctly", () => {
+    calc.add(10);
+    expect(calc.getResult()).toBe(10);
+  });
 
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
-    });
+  test("Addition with multiple params should work correctly", () => {
+    calc.add(10, 12, 12);
+    expect(calc.getResult()).toBe(34);
+  });
 
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
-    });
+  test("Subtraction should work correctly", () => {
+    calc.add(10).subtract(5);
+    expect(calc.getResult()).toBe(5);
+  });
 
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
-    });
+  test("Subtraction with multiple params should work correctly", () => {
+    calc.add(10).subtract(5, 2);
+    expect(calc.getResult()).toBe(3);
+  });
 
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
-    });
+  test("Multiplication should work correctly", () => {
+    calc.add(2).multiply(3);
+    expect(calc.getResult()).toBe(6);
+  });
 
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
+  test("Multiplication with multiple params should work correctly", () => {
+    calc.add(2).multiply(3, 2);
+    expect(calc.getResult()).toBe(12);
+  });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
+  test("Division should work correctly", () => {
+    calc.add(20).divide(4);
+    expect(calc.getResult()).toBe(5);
+  });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
+  test("Division with multiple params should work correctly", () => {
+    calc.add(20).divide(4, 5);
+    expect(calc.getResult()).toBe(1);
+  });
 
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
+  test("Precision should work correctly", () => {
+    calc.add(10).divide(3);
+    expect(calc.getResult(2)).toBe(3.33);
+  });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
+  test("Chaining multiple operations should work correctly", () => {
+    calc.add(5).multiply(4).subtract(10).divide(2);
+    expect(calc.getResult()).toBe(5);
+  });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
+  test("Chaining multiple operations should work correctly", () => {
+    calc.add(5).multiply(4).subtract(10).divide(2);
+    expect(calc.getResult()).toBe(5);
+    expect(calc.add(5).getResult()).toBe(10);
+  });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
+  test("Chaining operations with multiple params should work correctly", () => {
+    calc.add(4, 5).subtract(3).multiply(4).divide(2);
+    expect(calc.getResult()).toBe(12);
+  });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
+  test("Division by zero should throw an error", () => {
+    expect(() => {
+      calc.add(10).divide(0);
+    }).toThrow("Error encountered");
+  });
+
+  test("Invalid input should throw an error", () => {
+    expect(() => {
+      calc.add(null).add(2).getResult();
+    }).toThrow("Error encountered");
+  });
+
+  test("Invalid input should throw an error", () => {
+    expect(() => {
+      calc.add("1").divide(1).getResult();
+    }).toThrow("Error encountered");
+    expect(() => {
+      calc.add(1).subtract("1").getResult();
+    }).toThrow("Error encountered");
+    expect(() => {
+      calc.add(1).multiply("1").getResult();
+    }).toThrow("Error encountered");
+  });
+
+  test("Invalid input with multiple params should throw an error", () => {
+    expect(() => {
+      calc.add(1, "1").divide(1).getResult();
+    }).toThrow("Error encountered");
+  });
+
+  test("Null precision should throw an error", () => {
+    expect(() => {
+      calc.add(1).divide(1).getResult(null);
+    }).toThrow("Error encountered");
+  });
+
+  test("Invalid precision should throw an error", () => {
+    expect(() => {
+      calc.add(1).divide(1).getResult("2");
+    }).toThrow("Error encountered");
+  });
+
+  test("first subtraction should work correctly", () => {
+    calc.subtract(10);
+    expect(calc.getResult()).toBe(-10);
+  });
 });
