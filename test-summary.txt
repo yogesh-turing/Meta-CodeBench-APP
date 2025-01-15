@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+307624:
+base       : 0/26 tests passed [FAILED]
+correct    : 26/26 tests passed [PASSED]
+incorrect  : 23/26 tests passed [FAILED]
+model_a    : 23/26 tests passed [FAILED]
+model_b    : 25/26 tests passed [FAILED]
+model_c    : 25/26 tests passed [FAILED]
+model_d    : 25/26 tests passed [FAILED]
+model_e    : 25/26 tests passed [FAILED]
+model_f    : 22/26 tests passed [FAILED]
+model_g    : 22/26 tests passed [FAILED]
+model_h    : 20/26 tests passed [FAILED]
+model_i    : 22/26 tests passed [FAILED]
+model_j    : 23/26 tests passed [FAILED]
+
