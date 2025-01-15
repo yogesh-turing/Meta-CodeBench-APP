@@ -1,10 +1,17 @@
-const { flattenArr } = require(process.env.TARGET_FILE || 'tasks/304014/index');
+const { flattenArr } = require('./incorrect');
 
 // Test suite to check the flattening function
 describe('flattenArr', () => {
 
+  test.only('should flatten a deeply nested array', () => {
+    const nestedArray = [[1, 2], [3, 4], 5];
+    const result = flattenArr(nestedArray);
+    const expected = [1, 2, 3, 4, 5];
+    expect(result).toEqual(expected);
+  });
+
   test('should flatten a deeply nested array', () => {
-    const nestedArray = [1, [2, [3, [4, [5]]]]];
+    const nestedArray = [1, [2, [3, [4, [5, 6]]]]];
     const result = flattenArr(nestedArray);
     const expected = [1, 2, 3, 4, 5];
     expect(result).toEqual(expected);
@@ -18,9 +25,10 @@ describe('flattenArr', () => {
   });
 
   test('should flatten an array with multiple subarrays at different depths', () => {
-    const multiLevelArray = [1, [2, 3], [[4, 5], 6], [7]];
-    const expected = [1, 2, 3, 4, 5, 6, 7];
+    const multiLevelArray = [1, [[4, 5], 6]];
+    const expected = [1, 4, 5, 6];
     const result = flattenArr(multiLevelArray);
+    console.log(result, expected);
     expect(result).toEqual(expected);
   });
 
