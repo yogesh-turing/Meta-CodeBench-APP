@@ -1,5 +1,3 @@
-Base Code:
-```JavaScript
 /**
  * Product Recommendation System with personalized scoring and contextual recommendations
  */
@@ -28,8 +26,15 @@ class ProductRecommender {
         return isSeasonalItem ? 0.2 : 0;
     }
 
-    calculatePriceScore(product, userBudget) {
-        
+    calculatePriceScore(product, maxPrice) {
+        if (!product || !product.price) {
+            return 0;
+        }
+        if (product.price > maxPrice) {
+            return 0;
+        }
+        const normalizedPrice = (maxPrice - product.price) / maxPrice;
+        return normalizedPrice * 0.3;
     }
 
     calculatePreferenceScore(product, preferences) {
@@ -97,24 +102,25 @@ class ProductRecommender {
     }
 
     getRecommendations(currentSeason, maxPrice, numRecommendations = 5) {
-       
+        if (!this.validateInput(maxPrice)) {
+            return [];
+        }
+
+        const validProducts = this.products.filter(product => 
+            this.isValidProduct(product, maxPrice)
+        );
+
+        const productsWithScore = validProducts.map(product => ({
+            ...product,
+            recommendationScore: this.calculateRecommendationScore(product, currentSeason, maxPrice)
+        }));
+
+        const sortedProducts = productsWithScore.sort((a, b) => 
+            b.recommendationScore - a.recommendationScore
+        );
+
+        return sortedProducts.slice(0, numRecommendations);
     }
 }
 
 module.exports = ProductRecommender;
-```
-Prompt:
-The `ProductRecommender` class is a product recommendation system for an e-commerce platform. The system should provide personalized product recommendations based on seasonal relevance, price sensitivity, user preferences and product popularity. Some methods are not implemented and i want you to complete them.
-
-Complete the `calculatePriceScore` method which should return a score between 0 and 0.3. Score should be 0 if above budget and should be higher for prices closer to budget. Also complete the `getRecommendations` method which should return a list of the top N recommended products and the product should include its `recommendationScore`. Sort by total score and filter out products that are above the `maxPrice` and out of stock. Maintain existing api structure. An example of a product is ` {
-            id: 1,
-            name: "Summer Beach Sunglasses",
-            category: "sunglasses",
-            brand: "SunMaster",
-            price: 80,
-            style: ["casual", "summer", "sporty"],
-            rating: 4.5,
-            reviewCount: 850,
-            inStock: true
-        }
-`

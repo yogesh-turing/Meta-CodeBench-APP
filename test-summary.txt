@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402887:
+base       : 22/50 tests passed [FAILED]
+correct    : 50/50 tests passed [PASSED]
+incorrect  : 50/50 tests passed [PASSED]
+model_a    : 50/50 tests passed [PASSED]
+model_b    : 50/50 tests passed [PASSED]
+model_c    : 50/50 tests passed [PASSED]
+model_d    : 50/50 tests passed [PASSED]
+model_e    : 50/50 tests passed [PASSED]
+model_f    : 50/50 tests passed [PASSED]
+model_g    : 49/50 tests passed [FAILED]
+model_h    : 48/50 tests passed [FAILED]
+model_i    : 49/50 tests passed [FAILED]
+model_j    : 50/50 tests passed [PASSED]
+
