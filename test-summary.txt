@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402543:
+base       : 17/30 tests passed [FAILED]
+correct    : 17/30 tests passed [FAILED]
+incorrect  : 17/30 tests passed [FAILED]
+model_a    : 17/30 tests passed [FAILED]
+model_b    : 17/30 tests passed [FAILED]
+model_c    : 17/30 tests passed [FAILED]
+model_d    : 17/30 tests passed [FAILED]
+model_e    : 17/30 tests passed [FAILED]
+model_f    : 17/30 tests passed [FAILED]
+model_g    : 17/30 tests passed [FAILED]
+model_h    : 17/30 tests passed [FAILED]
+model_i    : 17/30 tests passed [FAILED]
+model_j    : 17/30 tests passed [FAILED]
+
