@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402996:
+base       : 9/17 tests passed [FAILED]
+correct    : 17/17 tests passed [PASSED]
+incorrect  : 15/17 tests passed [FAILED]
+model_a    : 15/17 tests passed [FAILED]
+model_b    : 16/17 tests passed [FAILED]
+model_c    : 16/17 tests passed [FAILED]
+model_d    : 16/17 tests passed [FAILED]
+model_e    : 17/17 tests passed [PASSED]
+model_f    : 15/17 tests passed [FAILED]
+model_g    : 16/17 tests passed [FAILED]
+model_h    : 16/17 tests passed [FAILED]
+model_i    : 16/17 tests passed [FAILED]
+model_j    : 16/17 tests passed [FAILED]
+
