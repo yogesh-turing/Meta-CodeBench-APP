@@ -1,157 +1,93 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const { FitnessClass, GymManagement } = require('./correct');
 
-describe('getNextRecurrences', () => {
+describe("FitnessClass", () => {
+  let fitnessClass;
 
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
+  beforeEach(() => {
+    fitnessClass = new FitnessClass("FitLife Gym", "HIIT Class");
+  });
+
+  test("should initialize with correct parameters", () => {
+    expect(fitnessClass.status).toBe(null);
+    expect(fitnessClass.gymName).toBe(null);
+    expect(fitnessClass.className).toBe(null);
+  });
+
+  test("should complete class after specified duration", async () => {
+    jest.useFakeTimers();
+
+    const runPromise = fitnessClass.run();
+    expect(fitnessClass.status).toBe("ongoing");
+
+    jest.advanceTimersByTime(2000);
+    const result = await runPromise;
+
+    expect(result.status).toBe("completed");
+    expect(fitnessClass.status).toBe("completed");
+
+    jest.useRealTimers();
+  });
+
+  test("should throw error for invalid initialization", () => {
+    expect(() => new FitnessClass(null, "Class")).toThrow();
+    expect(() => new FitnessClass("Gym", null)).toThrow();
+  });
+});
+describe("GymManagement", () => {
+  let gym;
+
+  beforeEach(() => {
+    gym = new GymManagement("FitLife Gym");
+  });
+
+  test("should initialize gym with correct name and zero members", () => {
+    expect(gym.gymName).toBe("FitLife Gym");
+    expect(gym.totalMembers).toBe(0);
+  });
+
+  test("should correctly manage a workout and increase member count", async () => {
+    await gym.manageWorkout("HIIT", true, "Alice");
+    expect(gym.totalMembers).toBe(1);
+  });
+
+  test("should handle intense workouts with a warning", async () => {
+    const consoleSpy = jest.spyOn(console, "log");
+    await gym.manageWorkout("HIIT", true, "Alice");
+    expect(consoleSpy).toHaveBeenCalledWith("Warning: Intense workout ahead!");
+    consoleSpy.mockRestore();
+  });
+
+  test("should register a member with a valid name", async () => {
+    await gym.registerMember("John");
+    expect(gym.totalMembers).toBe(1);
+  });
+
+  test("should throw error for invalid member names", async () => {
+    await expect(() => gym.registerMember(null).toThrow());
+    await expect(() => gym.registerMember(undefined).toThrow());
+  });
+
+  test("should add equipment correctly", () => {
+    gym.addEquipment("Treadmill", 1500.0);
+    const equipment = gym.equipment.get("Treadmill");
+
+    expect(equipment).toEqual({
+      cost: 1500.0,
+      addedAt: expect.any(Date),
     });
+  });
 
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
+  test("should throw error for invalid equipment data", () => {
+    expect(() => gym.addEquipment(null, 1500.0)).toThrow();
+    expect(() => gym.addEquipment("Treadmill", -100)).toThrow();
+  });
 
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
-    });
-
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
-    });
-
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
-    });
-
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
-    });
-
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
-    });
-
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
+  test("should handle concurrent member registration", async () => {
+    await Promise.all([
+      gym.registerMember("John"),
+      gym.registerMember("Jane"),
+      gym.registerMember("Bob"),
+    ]);
+    expect(gym.totalMembers).toBe(3);
+  });
 });

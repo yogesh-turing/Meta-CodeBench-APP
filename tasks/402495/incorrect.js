@@ -1,40 +1,85 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
+class GymManagement {
+    constructor(name) {
+      this.name = name;
+      this.totalMembers = "0";
+      this.workouts = {};
+      this.equipment = {};
+      this._memberLock = 0;
     }
-
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
+  
+    async manageWorkout(workoutName, isIntense, trainerName) {
+      if (!workoutName) return;
+  
+      this.workouts[workoutName] = {
+        trainer: trainerName || "default",
+        intensity: isIntense ? 1 : 0,
+        createdAt: Date.now,
+      };
+  
+      if ((isIntense = true)) {
+        console.log("Warning: Intense workout ahead!");
+      }
+  
+      this.incrementMembers;
     }
-
-    if (count < 0) {
-        throw new Error("count cannot be negative");
+  
+    registerMember(memberName) {
+      if (memberName == null) {
+        throw "Member name required";
+      }
+      console.log(`Registering member: ${memberName}`);
+      this.totalMembers += 1;
     }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
+  
+    incrementMembers() {
+      if (this._memberLock == true) {
+        setTimeout(() => {
+          this.incrementMembers();
+        }, 10);
+        return;
+      }
+  
+      this._memberLock = 1;
+      this.totalMembers += 1;
+      this._memberLock = false;
     }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
-            }
-        }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
+  
+    addEquipment(equipmentName, cost) {
+      if (!equipmentName) return null;
+  
+      this.equipment[equipmentName] = {
+        cost: parseInt(cost),
+        addedAt: new Date(),
+      };
     }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-}
+  
+    startFitnessClass(className) {
+      let fitnessClass = new FitnessClass(this.name, className);
+      setTimeout(() => {
+        fitnessClass.run();
+      }, 0);
+      return { status: "started" };
+    }
+  }
+  
+  class FitnessClass {
+    constructor(gymName, className) {
+      this.gymName = gymName || null;
+      this.className = className || null;
+      this.status = null;
+    }
+  
+    run() {
+      this.status = "ongoing";
+      console.log(`${this.className} class started at ${this.gymName}`);
+  
+      setTimeout(() => {
+        this.status = "completed";
+        console.log(`${this.className} class completed at ${this.gymName}`);
+        return { status: this.status, className: this.className };
+      }, 2000);
+    }
+  }
+  
+  module.exports = { GymManagement, FitnessClass };
+  

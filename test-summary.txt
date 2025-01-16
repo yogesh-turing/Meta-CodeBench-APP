@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402495:
+base       : 7/11 tests passed [FAILED]
+correct    : 10/11 tests passed [FAILED]
+incorrect  : 2/11 tests passed [FAILED]
+model_a    : 7/11 tests passed [FAILED]
+model_b    : 3/11 tests passed [FAILED]
+model_c    : 7/11 tests passed [FAILED]
+model_d    : 6/11 tests passed [FAILED]
+model_e    : 6/11 tests passed [FAILED]
+model_f    : 4/11 tests passed [FAILED]
+model_g    : 7/11 tests passed [FAILED]
+model_h    : 6/11 tests passed [FAILED]
+model_i    : 6/11 tests passed [FAILED]
+model_j    : 2/11 tests passed [FAILED]
+

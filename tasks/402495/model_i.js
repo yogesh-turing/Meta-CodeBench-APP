@@ -1,51 +1,85 @@
-/**
- * Calculates the next recurrences based on the given start date, frequency, and count.
- * 
- * @param {Date} startDate The start date from which to calculate recurrences.
- * @param {number} frequency The interval in days between each recurrence.
- * @param {number} count The number of recurrences to calculate.
- * @param {boolean} [onlyWeekDays=false] If true, only consider weekdays (Monday to Friday).
- * @returns {Date[]} An array of dates representing the next recurrences.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined.");
-    }
-    if (!(startDate instanceof Date)) {
-        throw new Error("startDate must be a valid Date object.");
-    }
-    if (isNaN(startDate.getTime())) {
-        throw new Error("startDate is an invalid date.");
-    }
-    if (frequency <= 0) {
-        throw new Error("frequency must be a positive number.");
-    }
-    if (count <= 0) {
-        throw new Error("count must be a positive number.");
+class GymManagement {
+    /**
+     * @param {string} name - Name of the gym
+     */
+    constructor(name) {
+        this.gymName = name;
+        this.totalMembers = 0;
+        this.workouts = [];
+        this.equipmentList = new Map();
     }
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    while (recurrences.length < count) {
-        // If onlyWeekDays is true, check if the current date is a weekday
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // If it's a weekend, skip to the next day
-            currentDate.setDate(currentDate.getDate() + 1);
-            continue;
+    /**
+     * Manage a workout
+     * @param {string} workoutName - Name of the workout
+     * @param {boolean} isIntense - Intensity of the workout
+     * @param {string} trainerName - Name of the trainer
+     */
+    manageWorkout(workoutName, isIntense, trainerName) {
+        if (!workoutName || !trainerName) {
+            throw new Error('Workout name and trainer name are required');
         }
 
-        // Add the current date to the recurrences array
-        recurrences.push(new Date(currentDate));
+        this.workouts.push(workoutName);
+        console.log(`${trainerName} designed the workout: ${workoutName}`);
+        if (isIntense) {
+            console.log('Warning: Intense workout ahead!');
+        }
 
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+        this.totalMembers++;
+        console.log(`Total registered members: ${this.totalMembers}`);
     }
 
-    return recurrences;
+    /**
+     * Register a member
+     * @param {string} memberName - Name of the member
+     */
+    registerMember(memberName) {
+        if (!memberName) {
+            throw new Error('Member name is required');
+        }
+
+        console.log(`Registering member: ${memberName}`);
+        this.totalMembers++;
+    }
+
+    /**
+     * Start a fitness class
+     */
+    async startFitnessClass() {
+        const fitnessClass = new FitnessClass();
+        await fitnessClass.run();
+    }
+
+    /**
+     * Add equipment to the gym
+     * @param {string} equipmentName - Name of the equipment
+     * @param {number} cost - Cost of the equipment
+     */
+    addEquipment(equipmentName, cost) {
+        if (!equipmentName || !cost) {
+            throw new Error('Equipment name and cost are required');
+        }
+
+        this.equipmentList.set(equipmentName, cost);
+    }
 }
 
-module.exports = {
-    getNextRecurrences
-};
+class FitnessClass {
+    constructor() {
+        this.status = null;
+    }
+
+    /**
+     * Run the fitness class
+     */
+    async run() {
+        this.status = 'ongoing';
+        console.log('Fitness class started.');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        this.status = 'completed';
+        console.log('Fitness class completed.');
+    }
+}
+
+module.exports = { GymManagement, FitnessClass };

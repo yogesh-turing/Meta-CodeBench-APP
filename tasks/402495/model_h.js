@@ -1,57 +1,86 @@
-/**
- * Returns an array of next recurrences based on the provided start date and frequency.
- * 
- * @param {Date} startDate The start date for calculating recurrences.
- * @param {number} frequency The frequency of recurrences in days.
- * @param {number} count The number of recurrences to generate.
- * @param {boolean} [onlyWeekDays=false] If true, only include weekdays (Monday to Friday) in the recurrences.
- * @returns {Date[]} An array of dates representing the next recurrences.
- * @throws {Error} If startDate is not a valid date, or if frequency or count is negative.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors accordingly
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
+class GymManagement {
+    /**
+     * Initialize the GymManagement class.
+     * @param {string} name - Name of the gym.
+     */
+    constructor(name) {
+        this.gymName = name;
+        this.totalMembers = 0;
+        this.workouts = new Map();
+        this.equipmentList = new Map();
     }
-    if (frequency < 0) {
-        throw new Error('Frequency cannot be negative');
-    }
-    if (count < 0) {
-        throw new Error('Count cannot be negative');
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-        // If onlyWeekDays is true, skip weekends
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // Adjust the current date to the next weekday
-            currentDate.setDate(currentDate.getDate() + (currentDate.getDay() === 0 ? 1 : 2));
+
+    /**
+     * Manage a workout.
+     * @param {string} workoutName - Name of the workout.
+     * @param {boolean} isIntense - Whether the workout is intense.
+     * @param {string} trainerName - Name of the trainer.
+     */
+    manageWorkout(workoutName, isIntense, trainerName) {
+        if (typeof workoutName !== 'string' || typeof trainerName !== 'string') {
+            throw new Error('Invalid input type. Workout name and trainer name must be strings.');
         }
-  
-        recurrences.push(new Date(currentDate));
-  
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+
+        this.workouts.set(workoutName, { isIntense, trainerName });
+        console.log(`${trainerName} designed the workout: ${workoutName}`);
+        if (isIntense) {
+            console.log('Warning: Intense workout ahead!');
+        }
+
+        this.totalMembers++;
+        console.log(`Total registered members: ${this.totalMembers}`);
     }
-  
-    return recurrences;
-  }
-  
-  // // Example usage:
-  // const startDate = new Date('2024-03-04'); // Monday
-  // const frequency = 3; // Every 3 days
-  // const count = 5;
-  
-  // // Get recurrences without considering weekdays
-  // const recurrences = getNextRecurrences(startDate, frequency, count);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-10, 2024-03-13, 2024-03-16]
-  
-  // // Get recurrences considering only weekdays
-  // const weekdayRecurrences = getNextRecurrences(startDate, frequency, count, true);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-11, 2024-03-14, 2024-03-18]
-  
-  module.exports = {
-    getNextRecurrences
-  };
+
+    /**
+     * Register a member.
+     * @param {string} memberName - Name of the member.
+     */
+    registerMember(memberName) {
+        if (typeof memberName !== 'string') {
+            throw new Error('Invalid input type. Member name must be a string.');
+        }
+
+        console.log(`Registering member: ${memberName}`);
+        this.totalMembers++;
+    }
+
+    /**
+     * Start a fitness class.
+     */
+    async startFitnessClass() {
+        const fitnessClass = new FitnessClass();
+        await fitnessClass.run();
+    }
+
+    /**
+     * Add equipment to the gym.
+     * @param {string} equipmentName - Name of the equipment.
+     * @param {number} cost - Cost of the equipment.
+     */
+    addEquipment(equipmentName, cost) {
+        if (typeof equipmentName !== 'string' || typeof cost !== 'number') {
+            throw new Error('Invalid input type. Equipment name must be a string and cost must be a number.');
+        }
+
+        this.equipmentList.set(equipmentName, cost);
+    }
+}
+
+class FitnessClass {
+    constructor() {
+        this.status = null;
+    }
+
+    /**
+     * Run the fitness class.
+     */
+    async run() {
+        this.status = 'ongoing';
+        console.log('Fitness class started.');
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        this.status = 'completed';
+        console.log('Fitness class completed.');
+    }
+}
+
+module.exports = { GymManagement, FitnessClass };
