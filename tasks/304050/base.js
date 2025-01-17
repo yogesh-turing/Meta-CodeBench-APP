@@ -1,15 +1,15 @@
-function getNextRecurrences(startDate, frequency, count) {
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    for (let i = 0; i < count; i++) {
-        recurrences.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + frequency);
+class TaskManager {
+    constructor() {
+      this.tasks = [];
     }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-}
+  
+    addTask(task, priority) {
+      this.tasks.push({ task, priority });
+    }
+  
+    getTasks() {
+      return this.tasks;
+    }
+  }
+  
+  module.exports = TaskManager;

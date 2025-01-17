@@ -1,51 +1,49 @@
-/**
- * Calculates the next recurrences based on the given start date, frequency, and count.
- * 
- * @param {Date} startDate The start date from which to calculate recurrences.
- * @param {number} frequency The interval in days between each recurrence.
- * @param {number} count The number of recurrences to calculate.
- * @param {boolean} [onlyWeekDays=false] If true, only consider weekdays (Monday to Friday).
- * @returns {Date[]} An array of dates representing the next recurrences.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined.");
+class TaskManager {
+    constructor() {
+      this.tasks = {};
     }
-    if (!(startDate instanceof Date)) {
-        throw new Error("startDate must be a valid Date object.");
+  
+    addTask(task, priority) {
+      if (this.tasks[task]) {
+        throw new Error(`Task ${task} already exists`);
+      }
+      this.tasks[task] = {
+        priority,
+        dependencies: [],
+        completed: false,
+      };
     }
-    if (isNaN(startDate.getTime())) {
-        throw new Error("startDate is an invalid date.");
+  
+    addDependency(taskName, dependencyTaskName) {
+      if (!this.tasks[taskName]) {
+        throw new Error(`Task ${taskName} does not exist`);
+      }
+      if (!this.tasks[dependencyTaskName]) {
+        throw new Error(`Dependency task ${dependencyTaskName} does not exist`);
+      }
+      this.tasks[taskName].dependencies.push(dependencyTaskName);
     }
-    if (frequency <= 0) {
-        throw new Error("frequency must be a positive number.");
+  
+    completeTask(taskName) {
+      if (!this.tasks[taskName]) {
+        throw new Error(`Task ${taskName} does not exist`);
+      }
+      if (this.tasks[taskName].completed) {
+        throw new Error(`Task ${taskName} is already completed`);
+      }
+      if (this.tasks[taskName].dependencies.some(dependency => !this.tasks[dependency].completed)) {
+        throw new Error(`Cannot complete task with uncompleted dependencies`);
+      }
+      this.tasks[taskName].completed = true;
     }
-    if (count <= 0) {
-        throw new Error("count must be a positive number.");
+  
+    getCompletedTasks() {
+      return Object.keys(this.tasks).filter(task => this.tasks[task].completed);
     }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    while (recurrences.length < count) {
-        // If onlyWeekDays is true, check if the current date is a weekday
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // If it's a weekend, skip to the next day
-            currentDate.setDate(currentDate.getDate() + 1);
-            continue;
-        }
-
-        // Add the current date to the recurrences array
-        recurrences.push(new Date(currentDate));
-
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+  
+    getPendingTasks() {
+      return Object.keys(this.tasks).filter(task => !this.tasks[task].completed);
     }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-};
+  }
+  
+  module.exports = TaskManager;

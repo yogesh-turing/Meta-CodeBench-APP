@@ -1,157 +1,96 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const TaskManager = require('./incorrect');
 
-describe('getNextRecurrences', () => {
+describe("TaskManager", () => {
+  let taskManager;
 
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
-    });
+  beforeEach(() => {
+    taskManager = new TaskManager();
+  });
 
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
+  it("should add a task", () => {
+    taskManager.addTask("Write Report", "High");
+    expect(taskManager.getTasks().length).toBe(1);
+  });
 
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
-    });
+  it("should add a dependency", () => {
+    taskManager.addTask("Write Report", "High");
+    taskManager.addTask("Gather Data", "High");
+    taskManager.addDependency("Write Report", "Gather Data");
+    expect(taskManager.dependencies["Write Report"]).toEqual(["Gather Data"]);
+  });
 
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
-    });
+  it("should throw error if task or dependency does not exist", () => {
+    taskManager.addTask("Write Report", "High");
+    expect(() =>
+      taskManager.addDependency("Write Report", "Gather Data")
+    ).toThrow("Task or dependency does not exist");
+    expect(() =>
+      taskManager.addDependency("Gather Data", "Write Report")
+    ).toThrow("Task or dependency does not exist");
+  });
 
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
-    });
+  it("should complete a task", () => {
+    taskManager.addTask("Write Report", "High");
+    taskManager.completeTask("Write Report");
+    expect(taskManager.getCompletedTasks()).toEqual(["Write Report"]);
+  });
 
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
-    });
+  it("should not complete a task if it has uncompleted dependencies", () => {
+    taskManager.addTask("Write Report", "High");
+    taskManager.addTask("Gather Data", "High");
+    taskManager.addDependency("Write Report", "Gather Data");
+    expect(() => taskManager.completeTask("Write Report")).toThrow(
+      "Cannot complete task with uncompleted dependencies"
+    );
+  });
 
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
-    });
+  it("should not complete a task if the task does not exist", () => {
+    expect(() => taskManager.completeTask("Write Report")).toThrow(
+      "Task does not exist"
+    );
+  });
 
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
+  it("should return the completed tasks", () => {
+    taskManager.addTask("Write Report", "High");
+    taskManager.addTask("Gather Data", "High");
+    taskManager.completeTask("Write Report");
+    taskManager.completeTask("Gather Data");
+    expect(taskManager.getCompletedTasks()).toEqual([
+      "Write Report",
+      "Gather Data",
+    ]);
+  });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
+  it("should return the pending tasks", () => {
+    taskManager.addTask("Write Report", "High");
+    taskManager.addTask("Gather Data", "High");
+    taskManager.addTask("Review", "High");
+    taskManager.completeTask("Write Report");
+    expect(taskManager.getPendingTasks()).toEqual(["Gather Data", "Review"]);
+  });
+  it("should handle multiple dependencies", () => {
+    taskManager.addTask("Write Report", "High");
+    taskManager.addTask("Gather Data", "High");
+    taskManager.addTask("Outline", "High");
+    taskManager.addDependency("Write Report", "Gather Data");
+    taskManager.addDependency("Write Report", "Outline");
+    expect(() => taskManager.completeTask("Write Report")).toThrow(
+      "Cannot complete task with uncompleted dependencies"
+    );
+    taskManager.completeTask("Gather Data");
+    expect(() => taskManager.completeTask("Write Report")).toThrow(
+      "Cannot complete task with uncompleted dependencies"
+    );
+    taskManager.completeTask("Outline");
+    taskManager.completeTask("Write Report");
+    expect(taskManager.getCompletedTasks()).toEqual([
+      "Gather Data",
+      "Outline",
+      "Write Report",
+    ]);
+  });
+  it("should add a task with a pending status by default", () => {
+    taskManager.addTask("Write Report", "High");
+    expect(taskManager.getPendingTasks()).toEqual(["Write Report"]);
+  });
 });

@@ -1,30 +1,42 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("Null or undefined input values are not allowed");
+class TaskManager {
+    constructor() {
+      this.tasks = {};
     }
-
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error("Invalid date");
+  
+    addTask(taskName, priority) {
+      if (this.tasks[taskName]) {
+        throw new Error(`Task ${taskName} already exists`);
+      }
+      this.tasks[taskName] = { taskName, priority, completed: false, dependencies: [] };
     }
-
-    if (frequency < 0 || count < 0) {
-        throw new Error("Negative frequency and count values are not allowed");
+  
+    addDependency(taskName, dependencyTaskName) {
+      if (!this.tasks[taskName]) {
+        throw new Error(`Task ${taskName} does not exist`);
+      }
+      if (!this.tasks[dependencyTaskName]) {
+        throw new Error(`Dependency task ${dependencyTaskName} does not exist`);
+      }
+      this.tasks[taskName].dependencies.push(dependencyTaskName);
     }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || (currentDate.getDay() >= 1 && currentDate.getDay() <= 5)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        currentDate.setDate(currentDate.getDate() + frequency);
+  
+    completeTask(taskName) {
+      if (!this.tasks[taskName]) {
+        throw new Error(`Task ${taskName} does not exist`);
+      }
+      if (this.tasks[taskName].dependencies.some(dependency => !this.tasks[dependency].completed)) {
+        throw new Error('Cannot complete task with uncompleted dependencies');
+      }
+      this.tasks[taskName].completed = true;
     }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-};
+  
+    getCompletedTasks() {
+      return Object.values(this.tasks).filter(task => task.completed).map(task => task.taskName);
+    }
+  
+    getPendingTasks() {
+      return Object.values(this.tasks).filter(task => !task.completed).map(task => task.taskName);
+    }
+  }
+  
+  module.exports = TaskManager;

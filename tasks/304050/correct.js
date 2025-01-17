@@ -1,62 +1,61 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (!isValidDate(startDate)) {
-        throw new Error('Invalid start date');
+class TaskManager {
+    constructor() {
+      this.tasks = [];
+      this.completedTasks = new Set();
+      this.dependencies = {};
     }
-    if (!isValidFrequency(frequency)) {
-        throw new Error('Invalid frequency');
+  
+    addTask(task, priority) {
+      this.tasks.push({ task, priority, completed: false });
     }
-    if (!isValidCount(count)) {
-        throw new Error('Invalid count');
+  
+    addDependency(taskName, dependencyTaskName) {
+      const taskExists = this.tasks.some((task) => task.task === taskName);
+      const dependencyExists = this.tasks.some(
+        (task) => task.task === dependencyTaskName
+      );
+  
+      if (!taskExists || !dependencyExists) {
+        throw new Error("Task or dependency does not exist");
+      }
+  
+      if (!this.dependencies[taskName]) {
+        this.dependencies[taskName] = [];
+      }
+      this.dependencies[taskName].push(dependencyTaskName);
     }
-
-    const recurrences = [];
-    let currentDate = adjustToWeekday(new Date(startDate), onlyWeekDays);
-
-    while (recurrences.length < count) {
-        if (shouldAddDate(currentDate, onlyWeekDays)) {
-            recurrences.push(new Date(currentDate));
-        }
-        currentDate = getNextDate(currentDate, frequency, onlyWeekDays);
+  
+    completeTask(taskName) {
+      if (!this.tasks.some((task) => task.task === taskName)) {
+        throw new Error("Task does not exist");
+      }
+      const uncompletedDependencies =
+        this.dependencies[taskName]?.filter((dependency) => {
+          return !this.completedTasks.has(dependency);
+        }) || [];
+  
+      if (uncompletedDependencies.length > 0) {
+        throw new Error("Cannot complete task with uncompleted dependencies");
+      }
+  
+      this.tasks.find((task) => task.task === taskName).completed = true;
+      this.completedTasks.add(taskName);
     }
-
-    return recurrences;
-}
-
-function isValidDate(date) {
-    return date && !isNaN(new Date(date));
-}
-
-function isValidFrequency(frequency) {
-    return typeof frequency === 'number' && frequency > 0;
-}
-
-function isValidCount(count) {
-    return typeof count === 'number' && count > 0;
-}
-
-function adjustToWeekday(date, onlyWeekDays) {
-    if (onlyWeekDays && (date.getDay() === 0 || date.getDay() === 6)) {
-        date.setDate(date.getDate() + 1);
+  
+    getTasks() {
+      return this.tasks;
     }
-    return date;
-}
-
-function shouldAddDate(date, onlyWeekDays) {
-    return !onlyWeekDays || (date.getDay() !== 0 && date.getDay() !== 6);
-}
-
-function getNextDate(date, frequency, onlyWeekDays) {
-    for (let i = 0; i < frequency; i++) {
-        date.setDate(date.getDate() + 1);
-        if (onlyWeekDays) {
-            while (date.getDay() === 0 || date.getDay() === 6) {
-                date.setDate(date.getDate() + 1);
-            }
-        }
+  
+    getCompletedTasks() {
+      return Array.from(this.completedTasks);
     }
-    return date;
-}
-
-module.exports = {
-    getNextRecurrences
-}
+  
+    getPendingTasks() {
+      return this.tasks
+        .filter((task) => !task.completed)
+        .map((task) => task.task);
+    }
+  }
+  
+  module.exports = TaskManager;
+  
