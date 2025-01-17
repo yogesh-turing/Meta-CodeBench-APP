@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+473961:
+base       : 8/14 tests passed [FAILED]
+correct    : 12/14 tests passed [FAILED]
+incorrect  : 10/14 tests passed [FAILED]
+model_a    : 12/14 tests passed [FAILED]
+model_b    : 12/14 tests passed [FAILED]
+model_c    : 12/14 tests passed [FAILED]
+model_d    : 11/14 tests passed [FAILED]
+model_e    : 12/14 tests passed [FAILED]
+model_f    : 12/14 tests passed [FAILED]
+model_g    : 10/14 tests passed [FAILED]
+model_h    : 12/14 tests passed [FAILED]
+model_i    : 11/14 tests passed [FAILED]
+model_j    : 12/14 tests passed [FAILED]
+
