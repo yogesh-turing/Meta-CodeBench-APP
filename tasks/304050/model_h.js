@@ -1,57 +1,98 @@
-/**
- * Returns an array of next recurrences based on the provided start date and frequency.
- * 
- * @param {Date} startDate The start date for calculating recurrences.
- * @param {number} frequency The frequency of recurrences in days.
- * @param {number} count The number of recurrences to generate.
- * @param {boolean} [onlyWeekDays=false] If true, only include weekdays (Monday to Friday) in the recurrences.
- * @returns {Date[]} An array of dates representing the next recurrences.
- * @throws {Error} If startDate is not a valid date, or if frequency or count is negative.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors accordingly
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
-    }
-    if (frequency < 0) {
-        throw new Error('Frequency cannot be negative');
-    }
-    if (count < 0) {
-        throw new Error('Count cannot be negative');
+class SmartPlaylist {
+    constructor() {
+      this.songs = [];
+      this.playHistory = [];
+      this.genreHistory = new Map();
+      this.artistHistory = new Map();
     }
   
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+    addSong(song) {
+      if (!song || typeof song !== 'object' || !song.title || !song.artist || !song.duration || !song.genre) {
+        throw new Error('Invalid song format');
+      }
+      this.songs.push({
+        ...song,
+        playCount: 0,
+        lastPlayed: null,
+        weight: 1.0
+      });
+    }
   
-    for (let i = 0; i < count; i++) {
-        // If onlyWeekDays is true, skip weekends
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // Adjust the current date to the next weekday
-            currentDate.setDate(currentDate.getDate() + (currentDate.getDay() === 0 ? 1 : 2));
+    updateWeight(song) {
+      const now = new Date();
+      const timeDiff = (now - song.lastPlayed) / (1000 * 3600); // hours since last play
+  
+      let weight = 1.0;
+      if (timeDiff >= 24) weight *= 2;
+      else if (timeDiff <= 1) weight *= 0.5;
+  
+      weight *= Math.pow(0.95, song.playCount);
+  
+      if (this.artistHistory.has(song.artist)) {
+        const artistTimeDiff = (now - this.artistHistory.get(song.artist)) / (1000 * 3600);
+        if (artistTimeDiff <= 2) weight *= 0.8;
+      }
+  
+      if (this.genreHistory.has(song.genre)) {
+        const genreTimeDiff = (now - this.genreHistory.get(song.genre)) / (1000 * 3600);
+        if (genreTimeDiff <= 1) weight *= 0.9;
+      }
+  
+      song.weight = weight;
+    }
+  
+    shuffle() {
+      if (this.songs.length === 0) {
+        throw new Error('Playlist is empty');
+      }
+  
+      this.songs.forEach(song => this.updateWeight(song));
+  
+      const totalWeight = this.songs.reduce((acc, song) => acc + song.weight, 0);
+      const random = Math.random() * totalWeight;
+      let cumulativeWeight = 0;
+  
+      for (const song of this.songs) {
+        cumulativeWeight += song.weight;
+        if (random <= cumulativeWeight) {
+          song.playCount++;
+          song.lastPlayed = new Date();
+          this.playHistory.push(song.title);
+          this.artistHistory.set(song.artist, song.lastPlayed);
+          this.genreHistory.set(song.genre, song.lastPlayed);
+  
+          if (this.playHistory.length > this.songs.length) {
+            this.playHistory.shift();
+          }
+  
+          return song;
         }
-  
-        recurrences.push(new Date(currentDate));
-  
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+      }
     }
   
-    return recurrences;
+    getPlaylistAnalytics() {
+      const totalPlays = this.songs.reduce((acc, song) => acc + song.playCount, 0);
+      const averageWeight = this.songs.reduce((acc, song) => acc + song.weight, 0) / this.songs.length;
+      const mostPlayed = this.songs.reduce((max, song) => song.playCount > max.playCount ? song : max, this.songs[0]);
+      const leastPlayed = this.songs.reduce((min, song) => song.playCount < min.playCount ? song : min, this.songs[0]);
+  
+      return {
+        totalSongs: this.songs.length,
+        totalPlays,
+        averageWeight,
+        mostPlayed,
+        leastPlayed
+      };
+    }
+  
+    getSongStats() {
+      return this.songs.map(song => ({
+        title: song.title,
+        playCount: song.playCount,
+        lastPlayed: song.lastPlayed,
+        currentWeight: song.weight
+      }));
+    }
   }
   
-  // // Example usage:
-  // const startDate = new Date('2024-03-04'); // Monday
-  // const frequency = 3; // Every 3 days
-  // const count = 5;
-  
-  // // Get recurrences without considering weekdays
-  // const recurrences = getNextRecurrences(startDate, frequency, count);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-10, 2024-03-13, 2024-03-16]
-  
-  // // Get recurrences considering only weekdays
-  // const weekdayRecurrences = getNextRecurrences(startDate, frequency, count, true);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-11, 2024-03-14, 2024-03-18]
-  
-  module.exports = {
-    getNextRecurrences
-  };
+  module.exports = {SmartPlaylist};
