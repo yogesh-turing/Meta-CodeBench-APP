@@ -1,157 +1,143 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const { updateDiscountRate, calculateDiscount } = require('./correct')
 
-describe('getNextRecurrences', () => {
-
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
+describe("calculateDiscount Function", () => {
+    beforeEach(() => {
+      jest.resetModules();
+      updateDiscountRate("employee", 0.1);
+      updateDiscountRate("student", 0.05);
     });
-
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+  
+    test("should return 90.00 for employees", () => {
+      const price = 100;
+      const userType = "employee";
+      const discount = calculateDiscount(price, userType);
+      expect(discount).toBe(90.0);
     });
-
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
+  
+    test("should return 95.00 for students", () => {
+      const price = 100;
+      const userType = "student";
+      const discount = calculateDiscount(price, userType);
+      expect(discount).toBe(95.0);
     });
-
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
+  
+    test("should throw error for regular customers", () => {
+      const price = 100;
+      const userType = "regular";
+      expect(() => calculateDiscount(price, userType)).toThrow();
+      try {
+        calculateDiscount(price, userType);
+      } catch (error) {
+        expect(typeof error.message).toBe("string");
+      }
     });
-
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
+  
+    test("should throw error when userType is undefined", () => {
+      const price = 100;
+      const userType = undefined;
+      expect(() => calculateDiscount(price, userType)).toThrow();
+      try {
+        calculateDiscount(price, userType);
+      } catch (error) {
+        expect(typeof error.message).toBe("string");
+      }
     });
-
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
+  
+    test("should throw an error for invalid price (negative)", () => {
+      expect(() => calculateDiscount(-50, "employee")).toThrow();
+      try {
+        calculateDiscount(-50, "employee");
+      } catch (error) {
+        expect(typeof error.message).toBe("string");
+      }
     });
-
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
+  
+    test("should throw an error for invalid price (non-numeric)", () => {
+      expect(() => calculateDiscount("100", "employee")).toThrow();
+      try {
+        calculateDiscount("100", "employee");
+      } catch (error) {
+        expect(typeof error.message).toBe("string");
+      }
     });
-
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+  
+    test("should return the original price for a 0% discount rate", () => {
+      updateDiscountRate("guest", 0);
+      expect(calculateDiscount(100, "guest")).toBe(100.0);
     });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+  
+    test("should calculate the discount correctly for dynamically added user types", () => {
+      updateDiscountRate("vip", 0.2);
+      expect(calculateDiscount(300, "vip")).toBe(240.0);
     });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+  
+    test("should handle a very large price correctly", () => {
+      const price = 1000000000;
+      const userType = "employee";
+      const discount = calculateDiscount(price, userType);
+      expect(discount).toBe(900000000);
     });
-
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+  });
+  
+  describe("updateDiscountRate Function", () => {
+    test("should add a new user type with a valid discount rate", () => {
+      updateDiscountRate("member", 0.15);
+      expect(calculateDiscount(100, "member")).toBe(85.0);
     });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+  
+    test("should update an existing user type with a new discount rate", () => {
+      updateDiscountRate("employee", 0.25);
+      expect(calculateDiscount(200, "employee")).toBe(150.0);
     });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+  
+    test("should throw an error for invalid discount rate (negative)", () => {
+      expect(() => updateDiscountRate("employee", -0.1)).toThrow();
+      try {
+        updateDiscountRate("employee", -0.1);
+      } catch (error) {
+        expect(typeof error.message).toBe("string");
+      }
     });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+  
+    test("should throw an error for invalid discount rate (greater than 1)", () => {
+      expect(() => updateDiscountRate("student", 1.5)).toThrow();
+      try {
+        updateDiscountRate("student", 1.5);
+      } catch (error) {
+        expect(typeof error.message).toBe("string");
+      }
     });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+  
+    test("should throw an error for invalid discount rate (non-numeric)", () => {
+      expect(() => updateDiscountRate("vip", "twenty")).toThrow();
+      try {
+        updateDiscountRate("vip", "twenty");
+      } catch (error) {
+        expect(typeof error.message).toBe("string");
+      }
     });
-});
+  });
+  
+  test("should return correct discount for senior citizens", () => {
+    updateDiscountRate("senior", 0.3);
+    const price = 200;
+    const userType = "senior";
+    const discount = calculateDiscount(price, userType);
+    expect(discount).toBe(140.0);
+  });
+  
+  test("should return correct discount for military personnel", () => {
+    updateDiscountRate("military", 0.2);
+    const price = 150;
+    const userType = "military";
+    const discount = calculateDiscount(price, userType);
+    expect(discount).toBe(120.0);
+  });
+  
+  test("should throw an error for a very small discount rate", () => {
+    updateDiscountRate("tiny", 0.0001);
+    const price = 100;
+    const userType = "tiny";
+    const discount = calculateDiscount(price, userType);
+    expect(discount).toBeCloseTo(99.99, 2);
+  });

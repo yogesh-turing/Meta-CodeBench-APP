@@ -1,38 +1,50 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-      throw new Error("startDate cannot be null or undefined");
-    }
-  
-    if (frequency < 0) {
-      throw new Error("frequency cannot be negative");
-    }
-  
-    if (count < 0) {
-      throw new Error("count cannot be negative");
-    }
-  
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-      throw new Error("startDate must be a valid Date object");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-      if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-        // Skip weekends
-        currentDate.setDate(currentDate.getDate() + 1);
-        i--; // Decrement the counter to ensure we get the correct number of recurrences
-        continue;
-      }
-  
-      recurrences.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + frequency);
-    }
-  
-    return recurrences;
+const discountRates = {
+  employee: 0.1,
+  student: 0.05
+};
+
+function isValidUserType(userType) {
+  return typeof userType === "string" && userType in discountRates;
+}
+
+function isValidPrice(price) {
+  return typeof price === "number" && price > 0 && isFinite(price);
+}
+
+function getDiscountRate(userType) {
+  return discountRates[userType] || 0;
+}
+
+function applyDiscount(price, discountRate) {
+  return price * (1 - discountRate);
+}
+
+function roundToTwoDecimals(number) {
+  return Math.round(number * 100) / 100;
+}
+
+function updateDiscountRate(userType, newRate) {
+  if (typeof newRate !== "number" || newRate < 0 || newRate > 1) {
+    throw new Error("Invalid discount rate. Must be a number between 0 and 1.");
+  }
+  discountRates[userType] = newRate;
+}
+
+function calculateDiscount(price, userType) {
+  if (!isValidPrice(price)) {
+    throw new Error("Invalid price. Must be a positive number.");
   }
 
-  module.exports = {
-    getNextRecurrences
+  if (!isValidUserType(userType)) {
+    throw new Error("Invalid user type.");
+  }
+
+  const discountRate = getDiscountRate(userType);
+  const discountedPrice = applyDiscount(price, discountRate);
+  return roundToTwoDecimals(discountedPrice);
+}
+
+module.exports = {
+  calculateDiscount,
+  updateDiscountRate,
 };

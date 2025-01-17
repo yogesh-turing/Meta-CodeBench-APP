@@ -1,40 +1,50 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
+const discountRates = {
+    employee: 0.1,
+    student: 0.05
+  };
+  
+  function isValidUserType(userType) {
+    return typeof userType === "string" && userType in discountRates;
+  }
+  
+  function isValidPrice(price) {
+    return typeof price === "number" && price > 0 && isFinite(price);
+  }
+  
+  function getDiscountRate(userType) {
+    return discountRates[userType] || 0;
+  }
+  
+  function applyDiscount(price, discountRate) {
+    return price * (1 - discountRate);
+  }
+  
+  function roundToTwoDecimals(number) {
+    return Math.round(number * 100) / 100;
+  }
+  
+  function updateDiscountRate(userType, newRate) {
+    if (typeof newRate !== "number" || newRate < 0 || newRate > 1) {
+      throw new Error("Invalid discount rate. Must be a number between 0 and 1.");
     }
-
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
+    discountRates[userType] = newRate;
+  }
+  
+  function calculateDiscount(price, userType) {
+    if (!isValidPrice(price)) {
+      throw new Error("Invalid price. Must be a positive number.");
     }
-
-    if (count < 0) {
-        throw new Error("count cannot be negative");
+  
+    if (!isValidUserType(userType)) {
+      throw new Error("Invalid user type.");
     }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
-            }
-        }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
-    }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-};
+  
+    const discountRate = getDiscountRate(userType);
+    const discountedPrice = applyDiscount(price, discountRate);
+    return roundToTwoDecimals(discountedPrice);
+  }
+  
+  module.exports = {
+    calculateDiscount,
+    updateDiscountRate,
+  };

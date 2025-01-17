@@ -1,53 +1,53 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
+const discountRates = new Map([
+    ['employee', 0.1],
+    ['student', 0.05]
+  ]);
+  
+  function isValidUserType(userType) {
+    return typeof userType === 'string' && discountRates.has(userType);
+  }
+  
+  function isValidPrice(price) {
+    return typeof price === 'number' && price > 0 && isFinite(price);
+  }
+  
+  function getDiscountRate(userType) {
+    return discountRates.get(userType) || 0;
+  }
+  
+  function applyDiscount(price, discountRate) {
+    return price * (1 - discountRate);
+  }
+  
+  function roundToTwoDecimals(number) {
+    return Number(number.toFixed(2));
+  }
+  
+  function updateDiscountRate(userType, newRate) {
+    if (typeof userType !== 'string' || userType.trim() === '') {
+      throw new Error('Invalid user type. Must be a non-empty string.');
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
+    if (typeof newRate !== 'number' || newRate < 0 || newRate > 1) {
+      throw new Error('Invalid discount rate. Must be a number between 0 and 1.');
     }
-    if (typeof count !== 'number' || count <= 0 || !Number.isInteger(count)) {
-        throw new Error("Count must be a positive integer");
+    discountRates.set(userType, newRate);
+  }
+  
+  function calculateDiscount(price, userType) {
+    if (!isValidPrice(price)) {
+      throw new Error('Invalid price. Must be a positive number.');
     }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
+  
+    if (!isValidUserType(userType)) {
+      throw new Error('Invalid user type.');
     }
-
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
-    }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-};
+  
+    const discountRate = getDiscountRate(userType);
+    const discountedPrice = applyDiscount(price, discountRate);
+    return roundToTwoDecimals(discountedPrice);
+  }
+  
+  module.exports = {
+    calculateDiscount,
+    updateDiscountRate,
+  };
