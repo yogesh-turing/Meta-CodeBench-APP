@@ -1,61 +1,136 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Input validation
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("startDate, frequency, and count must be provided");
+const nodemailer = require('nodemailer');
+
+class NotificationDeliveryMethod {
+    async send(to, subject, body) {
+        throw new Error('Method not implemented');
     }
-    
-    const start = new Date(startDate);
-    if (isNaN(start.getTime())) {
-        throw new Error("Invalid startDate");
+}
+
+class EmailDeliveryMethod extends NotificationDeliveryMethod {
+    constructor(config) {
+        super();
+        this.config = config;
     }
-    
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("frequency must be a positive number");
+
+    async send(to, subject, body) {
+        const transporter = nodemailer.createTransport(this.config);
+        await transporter.sendMail({
+            from: this.config.sender,
+            to,
+            subject,
+            text: body
+        });
     }
-    
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("count must be a positive number");
+}
+
+class NotificationType {
+    constructor(userData, messageContent) {
+        this.userData = userData;
+        this.messageContent = messageContent;
     }
-  
-    const recurrences = [];
-    let currentDate = new Date(start);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
+
+    async send(deliveryMethod) {
+        throw new Error('Method not implemented');
     }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
+}
+
+class WelcomeNotification extends NotificationType {
+    async send(deliveryMethod) {
+        const subject = 'Welcome to Our Platform';
+        const body = `Hello ${this.userData.name},\n\nWelcome to our platform! ${this.messageContent}`;
+        await deliveryMethod.send(this.userData.email, subject, body);
+        console.log(`Sent welcome email to ${this.userData.email}`);
     }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+}
+
+class PasswordResetNotification extends NotificationType {
+    constructor(userData, messageContent, tokenService) {
+        super(userData, messageContent);
+        this.tokenService = tokenService;
+    }
+
+    async send(deliveryMethod) {
+        const subject = 'Password Reset Request';
+        const resetToken = await this.tokenService.generateResetToken();
+        const body = `Hello ${this.userData.name},\n\nYou requested a password reset. ${this.messageContent}\nToken: ${resetToken}`;
+        await deliveryMethod.send(this.userData.email, subject, body);
+        await this.tokenService.storeResetToken(this.userData.id, resetToken);
+        console.log(`Sent password reset email to ${this.userData.email}`);
+    }
+}
+
+class AccountLockedNotification extends NotificationType {
+    async send(deliveryMethod) {
+        const subject = 'Account Security Alert';
+        const body = `Hello ${this.userData.name},\n\nYour account has been locked. ${this.messageContent}`;
+        await deliveryMethod.send(this.userData.email, subject, body);
+        console.log(`Sent account locked email to ${this.userData.email}`);
+    }
+}
+
+class TokenService {
+    async generateResetToken() {
+        // Implementation of token generation
+    }
+
+    async storeResetToken(userId, token) {
+        // Implementation of token storage
+    }
+}
+
+class NotificationFactory {
+    constructor(deliveryMethodConfig, tokenService) {
+        this.deliveryMethod = new EmailDeliveryMethod(deliveryMethodConfig);
+        this.tokenService = tokenService;
+    }
+
+    createNotification(notificationType, userData, messageContent) {
+        switch (notificationType) {
+            case 'welcome_email':
+                return new WelcomeNotification(userData, messageContent);
+            case 'password_reset':
+                return new PasswordResetNotification(userData, messageContent, this.tokenService);
+            case 'account_locked':
+                return new AccountLockedNotification(userData, messageContent);
+            default:
+                throw new Error(`Unknown notification type: ${notificationType}`);
         }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--; // Don't count weekend days
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
+}
+
+async function sendNotification(notificationType, userData, messageContent) {
+    const deliveryMethodConfig = {
+        host: 'smtp.company.com',
+        port: 587,
+        secure: false,
+        auth: {
+            user: 'username',
+            pass: 'password'
+        },
+        sender: 'notifications@company.com'
+    };
+
+    const tokenService = new TokenService();
+    const factory = new NotificationFactory(deliveryMethodConfig, tokenService);
+
+    try {
+        const notification = factory.createNotification(notificationType, userData, messageContent);
+        await notification.send(factory.deliveryMethod);
+        return true;
+    } catch (error) {
+        console.error(`Failed to send notification: ${error.message}`);
+        return false;
+    }
+}
+
+module.exports = {
+    NotificationDeliveryMethod,
+    EmailDeliveryMethod,
+    NotificationType,
+    WelcomeNotification,
+    PasswordResetNotification,
+    AccountLockedNotification,
+    TokenService,
+    NotificationFactory,
+    sendNotification
   };
