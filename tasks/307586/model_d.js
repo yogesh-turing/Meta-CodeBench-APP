@@ -1,37 +1,42 @@
-class Task {
-    constructor(fn, index) {
-        this.fn = fn;
-        this.index = index;
-        this.status = 'pending';
-        this.result = null;
+const ONE_MINUTE = 60 * 1000; // 1 minute in milliseconds
+
+async function bid(auction, amount, user) {
+    const now = new Date();
+    if (auction.endDate.getTime() < now.getTime()) {
+        auction.status = 'closed';
+        return auction;
+    }
+    if (canExtend(auction, now)) {
+        auction.endDate = new Date(now.getTime() + (auction.extensions.time * 60 * 1000))
+        auction.extensions.extended_count = (auction.extensions.extended_count || 0) + 1;
     }
 
-    async execute() {
-        try {
-            this.result = await this.fn();
-            this.status = 'completed';
-        } catch (error) {
-            this.status = 'failed';
-            this.result = error.message;
-        }
-        return this;
+    if (!auction.bids) {
+        auction.bids = [];
     }
+    auction.bids.push({
+        amount,
+        createdAt: now,
+        createdBy: user
+    })
+    return auction;
 }
 
-async function executeTasksInParallel(tasks) {
-    const taskInstances = tasks.map((task, index) => new Task(task, index));
-    
-    await Promise.all(taskInstances.map(task => task.execute()));
+async function canExtend(auction, now) {
+    // auction cannot be extended
+    if (auction.extensions.count === 0) return false;
 
-    const completed = taskInstances.filter(task => task.status === 'completed');
-    const failed = taskInstances.filter(task => task.status === 'failed');
+    // auction already extended to allowed number of times
+    if (auction.extensions.extended_count >= auction.extensions.count) {
+        return false;
+    }
 
-    return {
-        completed,
-        failed
-    };
+    const time_left = auction.endDate.getTime() - now.getTime()
+
+    return (time_left <= ONE_MINUTE);
 }
 
 module.exports = {
-    executeTasksInParallel
+    bid,
+    canExtend
 };

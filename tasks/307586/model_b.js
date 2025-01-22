@@ -1,33 +1,42 @@
-async function executeTasksInParallel(tasks) {
-    const taskPromises = tasks.map(async (task, index) => {
-        try {
-            const result = await task();
-            return { status: 'completed', result, index };
-        } catch (error) {
-            return { status: 'failed', error: error.message, index };
-        }
+const ONE_MINUTE_MS = 60 * 1000; // 1 minute in milliseconds
+
+async function bid(auction, amount, user) {
+    const now = new Date();
+    if (auction.endDate.getTime() < now.getTime()) {
+        auction.status = 'closed';
+        return auction;
+    }
+    
+    if (await canExtend(auction, now)) {
+        auction.endDate = new Date(now.getTime() + (auction.extensions.time * 60 * 1000));
+        auction.extensions.extended_count = (auction.extensions.extended_count || 0) + 1;
+    }
+
+    if (!auction.bids) {
+        auction.bids = [];
+    }
+    auction.bids.push({
+        amount,
+        createdAt: now,
+        createdBy: user
     });
+    return auction;
+}
 
-    const results = await Promise.allSettled(taskPromises);
+async function canExtend(auction, now) {
+    // auction cannot be extended
+    if (auction.extensions.count === 0) return false;
 
-    return results.reduce((acc, result, index) => {
-        if (result.status === 'fulfilled') {
-            const taskResult = result.value;
-            acc[taskResult.status].push({
-                index: taskResult.index,
-                ...taskResult
-            });
-        } else {
-            acc.failed.push({
-                index,
-                status: 'failed',
-                error: result.reason
-            });
-        }
-        return acc;
-    }, { completed: [], failed: [] });
+    // auction already extended to allowed number of times
+    if (auction.extensions.extended_count >= auction.extensions.count) {
+        return false;
+    }
+
+    const timeLeft = auction.endDate.getTime() - now.getTime();
+    return (timeLeft <= ONE_MINUTE_MS);
 }
 
 module.exports = {
-    executeTasksInParallel
+    bid,
+    canExtend
 };
