@@ -6,7 +6,7 @@ class TaskSchedulingSystem {
     this.executionTimes = new Map();
     this.groups = new Map();
   }
-  //Priority could be low, medium, or high
+
   addTask(taskId, priority = 'medium', executionTime, group = 'default') {
     // Validate taskId
     if (typeof taskId !== 'string') {
@@ -37,6 +37,7 @@ class TaskSchedulingSystem {
     this.executionTimes.set(normalizedTaskId, executionTime);
     this.groups.set(normalizedTaskId, group);
   }
+
   addDependency(taskId, dependencyId) {
     if (typeof taskId !== 'string' || !taskId.trim() || typeof dependencyId !== 'string' || !dependencyId.trim()) {
       throw new Error('Invalid taskId or dependencyId. Both should be non-empty strings.');
@@ -50,14 +51,63 @@ class TaskSchedulingSystem {
       this.dependencies.get(normalizedTaskId).push(normalizedDependencyId);
     }
   }
+
   scheduleTasksWithDependencies() {
-    // TODO - Implement the scheduling logic
-    return {
-        scheduledTasks: [], 
-        totalExecutionTime: 0
-    };
+    const visited = new Set();
+    const inProgress = new Set();
+    const scheduledTasks = [];
+    let totalExecutionTime = 0;
+
+    for (const task of this.tasks) {
+      if (!visited.has(task)) {
+        this.topologicalSort(task, visited, inProgress, scheduledTasks);
+      }
+    }
+
+    // Sort tasks by priority
+    scheduledTasks.sort((a, b) => {
+      const priorityA = this.priorities.get(a);
+      const priorityB = this.priorities.get(b);
+      if (priorityA === priorityB) {
+        return 0;
+      } else if (priorityA === 'high') {
+        return -1;
+      } else if (priorityA === 'low') {
+        return 1;
+      } else if (priorityB === 'high') {
+        return 1;
+      } else if (priorityB === 'low') {
+        return -1;
+      }
+    });
+
+    for (const task of scheduledTasks) {
+      totalExecutionTime += this.executionTimes.get(task);
+    }
+
+    return { scheduledTasks, totalExecutionTime };
+  }
+
+  topologicalSort(task, visited, inProgress, scheduledTasks) {
+    if (inProgress.has(task)) {
+      throw new Error(`Cyclic dependency detected for task ${task}`);
+    }
+
+    if (!visited.has(task)) {
+      inProgress.add(task);
+      const dependencies = this.dependencies.get(task);
+      for (const dependency of dependencies) {
+        if (!visited.has(dependency)) {
+          this.topologicalSort(dependency, visited, inProgress, scheduledTasks);
+        }
+      }
+      inProgress.delete(task);
+      visited.add(task);
+      scheduledTasks.push(task);
+    }
   }
 }
+
 module.exports = {
   TaskSchedulingSystem
 };

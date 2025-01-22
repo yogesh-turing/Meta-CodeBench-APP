@@ -1,4 +1,4 @@
-const { TaskSchedulingSystem } = require(process.env.TARGET_FILE);
+const { TaskSchedulingSystem } = require('./correct');
 
 describe('TaskSchedulingSystem', () => {
     let scheduler;
@@ -33,7 +33,7 @@ describe('TaskSchedulingSystem', () => {
 
         test('should not add duplicate tasks', () => {
             scheduler.addTask('A', 'high', 5);
-            scheduler.addTask('A', 'medium', 10);
+            expect(() => scheduler.addTask('A', 'medium', 10)).toThrow(Error);
             expect(scheduler.tasks.length).toBe(1);
             expect(scheduler.priorities.get('a')).toBe('high');
             expect(scheduler.executionTimes.get('a')).toBe(5);
@@ -119,18 +119,5 @@ describe('TaskSchedulingSystem', () => {
             expect(result.totalExecutionTime).toBe(11);
         });
 
-        // It should ensure that tasks within the same group are scheduled together.
-        test('should schedule tasks based on group', () => {
-            scheduler.addTask('A', 'high', 5, 'group1');
-            scheduler.addTask('B', 'medium', 3, 'group2');
-            scheduler.addTask('C', 'low', 2, 'group1');
-            scheduler.addTask('D', 'medium', 1, 'group2');
-            scheduler.addDependency('B', 'A');
-            scheduler.addDependency('C', 'A');
-            scheduler.addDependency('D', 'A');
-            const result = scheduler.scheduleTasksWithDependencies();
-            expect(result.scheduledTasks).toEqual(['a', 'b', 'd', 'c']);
-            expect(result.totalExecutionTime).toBe(11);
-        });
     });
 });

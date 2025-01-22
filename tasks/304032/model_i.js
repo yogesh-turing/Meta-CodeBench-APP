@@ -51,10 +51,42 @@ class TaskSchedulingSystem {
     }
   }
   scheduleTasksWithDependencies() {
-    // TODO - Implement the scheduling logic
+    const visited = new Map();
+    const scheduledTasks = [];
+    let totalExecutionTime = 0;
+
+    const visitTask = (taskId) => {
+      if (visited.get(taskId) === 'visiting') {
+        throw new Error(`Cyclic dependency detected for task ${taskId}`);
+      }
+      if (visited.get(taskId) === 'visited') {
+        return;
+      }
+      visited.set(taskId, 'visiting');
+      const dependencies = this.dependencies.get(taskId);
+      dependencies.forEach(dependencyId => {
+        visitTask(dependencyId);
+      });
+      visited.set(taskId, 'visited');
+      scheduledTasks.push(taskId);
+      totalExecutionTime += this.executionTimes.get(taskId);
+    };
+
+    // Sort tasks by priority
+    const tasksByPriority = Array.from(this.tasks).sort((a, b) => {
+      const priorityA = this.priorities.get(a);
+      const priorityB = this.priorities.get(b);
+      const priorityOrder = ['high', 'medium', 'low'];
+      return priorityOrder.indexOf(priorityA) - priorityOrder.indexOf(priorityB);
+    });
+
+    tasksByPriority.forEach(taskId => {
+      visitTask(taskId);
+    });
+
     return {
-        scheduledTasks: [], 
-        totalExecutionTime: 0
+      scheduledTasks,
+      totalExecutionTime
     };
   }
 }

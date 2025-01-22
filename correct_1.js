@@ -54,17 +54,20 @@ class TaskSchedulingSystem {
         const scheduledTasks = [];
         const visitedTasks = new Set();
         const visiting = new Set();
+        const taskDependencies = new Map();
         let totalExecutionTime = 0;
-
+        // Build task dependencies map
+        for (const task of this.tasks) {
+            taskDependencies.set(task, this.dependencies.get(task).slice());
+        }
         // Define a recursive function to perform DFS
-        const dfs = (task) => {
+        function dfs(task) {
             if (visitedTasks.has(task)) return;
-            // Check for cyclic dependencies
             if (visiting.has(task)) throw new Error('Cyclic dependency detected.');
 
             visiting.add(task);
 
-            for (const dep of this.dependencies.get(task)) {
+            for (const dep of taskDependencies.get(task)) {
                 dfs(dep);
             }
 
@@ -96,6 +99,13 @@ class TaskSchedulingSystem {
         for (const task of tasksByPriority) {
             dfs(task);
         }
+        // Check for cyclic dependencies
+        // for (const task of this.tasks) {
+        //     if (taskDependencies.get(task).length > 0) {
+        //         throw new Error('Cyclic dependencies detected');
+        //     }
+        // }
+        
         // Calculate total execution time
         for (const task of scheduledTasks) {
             totalExecutionTime += this.executionTimes.get(task);
