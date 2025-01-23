@@ -1,85 +1,48 @@
-const fs = require('fs').promises;
-const axios = require('axios');
+async function* paginateArray(array, pageSize) {
+    for (let i = 0; i < array.length; i += pageSize) {
+        yield array.slice(i, i + pageSize);
+    }
+}
 
-async function fetchData(url) {
+async function fetchMetadataForUsers(users, fetchUserMetadata) {
+    const metadataPromises = users.map(user => 
+        fetchUserMetadata(user.id)
+            .then(metadata => ({ ...user, metadata }))
+    );
+    return Promise.all(metadataPromises);
+}
+
+async function processUsers(users, pageSize, fetchUserMetadata) {
+    // Input validation
+    if (!Array.isArray(users) || !users.length || !pageSize || typeof pageSize !== 'number') {
+        return [];
+    }
+
     try {
-        const response = await axios.get(url);
-        return response;
+        // Filter active users and remove duplicates using Set
+        const uniqueUsers = Array.from(
+            new Map(
+                users
+                    .filter(user => user.isActive)
+                    .map(user => [user.email, user])
+            ).values()
+        );
+
+        const result = [];
+        // Use generator for pagination
+        for await (const page of paginateArray(uniqueUsers, pageSize)) {
+            // Fetch metadata concurrently for each page
+            const pageWithMetadata = await fetchMetadataForUsers(page, fetchUserMetadata);
+            result.push(pageWithMetadata);
+        }
+
+        return result;
     } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error processing users:', error);
         throw error;
     }
 }
 
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-async function validateOrder(order) {
-    await delay(1000);
-    if (!order || !order.items || order.items.length === 0) {
-        throw new Error('Invalid order data.');
-    }
-    console.log('Order validated.');
-    return order;
-}
-
-async function checkCustomerCredit(customer, totalPrice) {
-    await delay(1000);
-    if (customer.credit < totalPrice) {
-        throw new Error('Insufficient credit.');
-    }
-    console.log('Customer has sufficient credit.');
-    return customer;
-}
-
-async function reserveInventory() {
-    await delay(1000);
-    console.log('Inventory reserved.');
-}
-
-async function saveOrderToFile(orderId, order) {
-    await fs.writeFile(`order_${orderId}.json`, JSON.stringify(order));
-    console.log('Order saved to file.');
-}
-
-async function markOrderAsComplete(orderId) {
-    await fetchData(`https://api.example.com/orders/${orderId}/complete`, { method: 'POST' });
-    console.log('Order marked as completed.');
-}
-
-async function processOrder(orderId) {
-    console.log(`Processing order: ${orderId}`);
-
-    try {
-        // Step 1: Fetch order details
-        const orderResponse = await fetchData(`https://api.example.com/orders/${orderId}`);
-        const order = orderResponse.data;
-        console.log('Order details fetched:', order);
-
-        // Step 2: Validate order
-        await validateOrder(order);
-
-        // Step 3: Fetch customer details
-        const customerResponse = await fetchData(`https://api.example.com/customers/${order.customerId}`);
-        const customer = customerResponse.data;
-        console.log('Customer details fetched:', customer);
-
-        // Step 4: Check customer credit
-        await checkCustomerCredit(customer, order.totalPrice);
-
-        // Step 5: Reserve inventory
-        await reserveInventory();
-
-        // Step 6: Save order to file
-        await saveOrderToFile(orderId, order);
-
-        // Final Step: Mark order as completed
-        await markOrderAsComplete(orderId);
-
-        return 'Order processing completed successfully!';
-    } catch (error) {
-        console.error('Error processing order:', error);
-        throw error;
-    }
-}
-
-module.exports = { processOrder };
+module.exports = {
+    processUsers
+};

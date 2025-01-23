@@ -1,84 +1,56 @@
-const fs = require('fs');
-const util = require('util');
-const axios = require('axios');
+async function processUsers(users, pageSize, fetchUserMetadata) {
+    // Input validation
+    if (!Array.isArray(users) || !users.length || !pageSize || typeof pageSize !== 'number') {
+        return [];
+    }
 
-const writeFileAsync = util.promisify(fs.writeFile);
+    // Filter active users and remove duplicates
+    const processedUsers = getUniqueActiveUsers(users);
 
-async function fetchData(url) {
+    // Generate paginated results with metadata
+    const paginatedResults = [];
+    for (const page of paginateUsers(processedUsers, pageSize)) {
+        const pageWithMetadata = await fetchPageMetadata(page, fetchUserMetadata);
+        paginatedResults.push(pageWithMetadata);
+    }
+
+    return paginatedResults;
+}
+
+function getUniqueActiveUsers(users) {
+    // Use Map to efficiently track unique emails
+    const uniqueUsersMap = new Map();
+    
+    users
+        .filter(user => user.isActive)
+        .forEach(user => {
+            if (!uniqueUsersMap.has(user.email)) {
+                uniqueUsersMap.set(user.email, user);
+            }
+        });
+
+    return Array.from(uniqueUsersMap.values());
+}
+
+function* paginateUsers(users, pageSize) {
+    for (let i = 0; i < users.length; i += pageSize) {
+        yield users.slice(i, i + pageSize);
+    }
+}
+
+async function fetchPageMetadata(users, fetchUserMetadata) {
     try {
-        const response = await axios.get(url);
-        return response;
+        // Fetch metadata concurrently for all users in the page
+        const metadataPromises = users.map(async user => {
+            const metadata = await fetchUserMetadata(user.id);
+            return { ...user, metadata };
+        });
+
+        return await Promise.all(metadataPromises);
     } catch (error) {
-        console.error('Error fetching data:', error);
+        console.error('Error fetching user metadata:', error);
         throw error;
     }
 }
 
-async function validateOrder(order) {
-    if (!order || !order.items || order.items.length === 0) {
-        throw new Error('Invalid order data.');
-    }
-    console.log('Order validated.');
-}
-
-async function checkCustomerCredit(customer, orderTotal) {
-    if (customer.credit < orderTotal) {
-        throw new Error('Insufficient credit.');
-    }
-    console.log('Customer has sufficient credit.');
-}
-
-async function reserveInventory() {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Inventory reserved.');
-}
-
-async function saveOrderToFile(orderId, order) {
-    await writeFileAsync(`order_${orderId}.json`, JSON.stringify(order));
-    console.log('Order saved to file.');
-}
-
-async function markOrderComplete(orderId) {
-    await fetchData(`https://api.example.com/orders/${orderId}/complete`, { method: 'POST' });
-    console.log('Order marked as completed.');
-}
-
-async function processOrder(orderId) {
-    try {
-        console.log(`Processing order: ${orderId}`);
-
-        // Step 1: Fetch order details
-        const orderResponse = await fetchData(`https://api.example.com/orders/${orderId}`);
-        const order = orderResponse.data;
-        console.log('Order details fetched:', order);
-
-        // Step 2: Validate order
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await validateOrder(order);
-
-        // Step 3: Fetch customer details
-        const customerResponse = await fetchData(`https://api.example.com/customers/${order.customerId}`);
-        const customer = customerResponse.data;
-        console.log('Customer details fetched:', customer);
-
-        // Step 4: Check customer credit
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await checkCustomerCredit(customer, order.totalPrice);
-
-        // Step 5: Reserve inventory
-        await reserveInventory();
-
-        // Step 6: Save order to file
-        await saveOrderToFile(orderId, order);
-
-        // Final Step: Mark order as completed
-        await markOrderComplete(orderId);
-
-        return 'Order processing completed successfully!';
-    } catch (error) {
-        console.error('Error processing order:', error);
-        throw error;
-    }
-}
-
-module.exports = { processOrder };
+module.exports = { processUsers };

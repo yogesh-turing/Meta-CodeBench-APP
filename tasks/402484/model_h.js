@@ -1,59 +1,32 @@
-const fs = require('fs').promises;
-const axios = require('axios');
-
-async function fetchData(url) {
-    try {
-        const response = await axios.get(url);
-        return response;
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        throw error;
+async function* generatePaginatedResults(users, pageSize, fetchUserMetadata) {
+    if (!users.length || !pageSize) {
+      return;
     }
-}
-
-async function processOrder(orderId) {
-    console.log(`Processing order: ${orderId}`);
-    
-    try {
-        // Step 1: Fetch order details
-        const orderResponse = await fetchData(`https://api.example.com/orders/${orderId}`);
-        const order = orderResponse.data;
-        console.log('Order details fetched:', order);
-
-        // Step 2: Validate order
-        if (!order || !order.items || order.items.length === 0) {
-            throw new Error('Invalid order data.');
-        }
-        console.log('Order validated.');
-
-        // Step 3: Fetch customer details
-        const customerResponse = await fetchData(`https://api.example.com/customers/${order.customerId}`);
-        const customer = customerResponse.data;
-        console.log('Customer details fetched:', customer);
-
-        // Step 4: Check customer credit
-        if (customer.credit < order.totalPrice) {
-            throw new Error('Insufficient credit.');
-        }
-        console.log('Customer has sufficient credit.');
-
-        // Step 5: Reserve inventory
-        console.log('Inventory reserved.');
-
-        // Step 6: Save order to file
-        await fs.writeFile(`order_${orderId}.json`, JSON.stringify(order));
-        console.log('Order saved to file.');
-
-        // Final Step: Mark order as completed
-        await axios.post(`https://api.example.com/orders/${orderId}/complete`);
-        console.log('Order marked as completed.');
-        return 'Order processing completed successfully!';
-    } catch (error) {
-        console.error('Error processing order:', error);
-        throw error;
+  
+    // Step 1: Filter active users
+    const activeUsers = users.filter(user => user.isActive);
+  
+    // Step 2: Remove duplicates based on email
+    const uniqueEmails = new Set();
+    const deduplicatedUsers = activeUsers.filter(user => {
+      if (uniqueEmails.has(user.email)) {
+        return false;
+      }
+      uniqueEmails.add(user.email);
+      return true;
+    });
+  
+    // Step 3: Generate paginated results
+    for (let i = 0; i < deduplicatedUsers.length; i += pageSize) {
+      const page = deduplicatedUsers.slice(i, i + pageSize);
+      const pageWithMetadata = await Promise.all(page.map(async user => {
+        const metadata = await fetchUserMetadata(user.id);
+        return { ...user, metadata };
+      }));
+      yield pageWithMetadata;
     }
-}
-
-module.exports = {
-    processOrder
-};
+  }
+  
+  module.exports = {
+    generatePaginatedResults
+  };

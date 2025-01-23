@@ -1,84 +1,47 @@
-const fs = require('fs').promises;
-const axios = require('axios');
-
-async function fetchData(url) {
-    try {
-        const response = await axios.get(url);
-        return response;
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        throw error;
+async function* paginateArray(array, pageSize) {
+    for (let i = 0; i < array.length; i += pageSize) {
+        yield array.slice(i, i + pageSize);
     }
 }
 
-async function validateOrder(order) {
-    if (!order || !order.items || order.items.length === 0) {
-        throw new Error('Invalid order data.');
+async function fetchMetadataForUsers(users, fetchUserMetadata) {
+    const metadataPromises = users.map(user => 
+        fetchUserMetadata(user.id)
+            .then(metadata => ({ ...user, metadata }))
+    );
+    return Promise.all(metadataPromises);
+}
+
+async function processUsers(users, pageSize, fetchUserMetadata) {
+    // Input validation
+    if (!Array.isArray(users) || !users.length || !pageSize || typeof fetchUserMetadata !== 'function') {
+        return [];
     }
-    console.log('Order validated.');
-    return order;
-}
-
-async function checkCustomerCredit(customer, orderTotalPrice) {
-    if (customer.credit < orderTotalPrice) {
-        throw new Error('Insufficient credit.');
-    }
-    console.log('Customer has sufficient credit.');
-}
-
-async function reserveInventory() {
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    console.log('Inventory reserved.');
-}
-
-async function saveOrderToFile(orderId, order) {
-    await fs.writeFile(`order_${orderId}.json`, JSON.stringify(order));
-    console.log('Order saved to file.');
-}
-
-async function markOrderAsComplete(orderId) {
-    await fetchData(`https://api.example.com/orders/${orderId}/complete`, { method: 'POST' });
-    console.log('Order marked as completed.');
-}
-
-async function processOrder(orderId) {
-    console.log(`Processing order: ${orderId}`);
 
     try {
-        // Step 1: Fetch order details
-        const orderResponse = await fetchData(`https://api.example.com/orders/${orderId}`);
-        const order = orderResponse.data;
-        console.log('Order details fetched:', order);
+        // Filter active users and remove duplicates in a single pass
+        const uniqueActiveUsers = Array.from(
+            new Map(
+                users
+                    .filter(user => user.isActive)
+                    .map(user => [user.email, user])
+            ).values()
+        );
 
-        // Step 2: Validate order
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await validateOrder(order);
+        const result = [];
+        // Use generator for pagination and process each page
+        for await (const page of paginateArray(uniqueActiveUsers, pageSize)) {
+            const pageWithMetadata = await fetchMetadataForUsers(page, fetchUserMetadata);
+            result.push(pageWithMetadata);
+        }
 
-        // Step 3: Fetch customer details
-        const customerResponse = await fetchData(`https://api.example.com/customers/${order.customerId}`);
-        const customer = customerResponse.data;
-        console.log('Customer details fetched:', customer);
-
-        // Step 4: Check customer credit
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        await checkCustomerCredit(customer, order.totalPrice);
-
-        // Step 5: Reserve inventory
-        await reserveInventory();
-
-        // Step 6: Save order to file
-        await saveOrderToFile(orderId, order);
-
-        // Final Step: Mark order as completed
-        await markOrderAsComplete(orderId);
-
-        return 'Order processing completed successfully!';
+        return result;
     } catch (error) {
-        console.error('Error processing order:', error);
+        console.error('Error processing users:', error);
         throw error;
     }
 }
 
 module.exports = {
-    processOrder
+    processUsers
 };

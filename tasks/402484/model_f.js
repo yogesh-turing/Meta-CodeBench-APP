@@ -1,60 +1,39 @@
-const fs = require('fs').promises;
-const axios = require('axios');
-
-async function fetchData(url, options = {}) {
-    try {
-        const response = await axios(url, options);
-        return response;
-    } catch (error) {
-        console.error('Error fetching data:', error);
-        throw error;
-    }
-}
-
-async function processOrder(orderId) {
-  try {
-    console.log(`Processing order: ${orderId}`);
-    
-    // Step 1: Fetch order details
-    const orderResponse = await fetchData(`https://api.example.com/orders/${orderId}`);
-    const order = orderResponse.data;
-    console.log('Order details fetched:', order);
-
-    // Step 2: Validate order
-    if (!order || !order.items || order.items.length === 0) {
-      throw new Error('Invalid order data.');
-    }
-    console.log('Order validated.');
-
-    // Step 3: Fetch customer details
-    const customerResponse = await fetchData(`https://api.example.com/customers/${order.customerId}`);
-    const customer = customerResponse.data;
-    console.log('Customer details fetched:', customer);
-
-    // Step 4: Check customer credit
-    if (customer.credit < order.totalPrice) {
-      throw new Error('Insufficient credit.');
-    }
-    console.log('Customer has sufficient credit.');
-
-    // Step 5: Reserve inventory
-    console.log('Inventory reserved.');
-
-    // Step 6: Save order to file
-    await fs.writeFile(`order_${orderId}.json`, JSON.stringify(order));
-    console.log('Order saved to file.');
-
-    // Final Step: Mark order as completed
-    await fetchData(`https://api.example.com/orders/${orderId}/complete`, { method: 'POST' });
-    console.log('Order marked as completed.');
-
-    return 'Order processing completed successfully!';
-  } catch (error) {
-    console.error('Error processing order:', error);
-    throw error;
+function* paginateUsers(users, pageSize) {
+  for (let i = 0; i < users.length; i += pageSize) {
+    yield users.slice(i, i + pageSize);
   }
 }
 
+async function fetchUserMetadataBatch(users, fetchUserMetadata) {
+  const batch = await Promise.all(users.map(user => fetchUserMetadata(user.id)));
+  return users.map((user, index) => ({ ...user, metadata: batch[index] }));
+}
+
+async function processUsers(users, pageSize, fetchUserMetadata) {
+  if (!users.length || !pageSize) {
+    return [];
+  }
+
+  // Step 1: Filter active users and remove duplicates based on email
+  const activeUsers = new Map();
+  users.forEach(user => {
+    if (user.isActive) {
+      activeUsers.set(user.email, user);
+    }
+  });
+
+  // Step 2: Convert the Map to an array and generate paginated results
+  const paginatedResults = paginateUsers([...activeUsers.values()], pageSize);
+
+  // Step 3: Fetch additional metadata for each page
+  const resultsWithMetadata = [];
+  for (const page of paginatedResults) {
+    resultsWithMetadata.push(await fetchUserMetadataBatch(page, fetchUserMetadata));
+  }
+
+  return resultsWithMetadata;
+}
+
 module.exports = {
-  processOrder
+  processUsers
 };

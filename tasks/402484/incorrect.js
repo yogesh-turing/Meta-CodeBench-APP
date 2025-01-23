@@ -1,51 +1,39 @@
-const discountRates = {
-    employee: 0.1,
-    student: 0.05
-  };
-  
-  function isValidUserType(userType) {
-    return userType in discountRates;
+function* paginateUsers(users, pageSize) {
+  for (let i = 0; i < users.length; i += pageSize) {
+    yield users.slice(i, i + pageSize);
   }
-  
-  function isValidPrice(price) {
-    return price > 0;
+}
+
+async function fetchUserMetadataBatch(users, fetchUserMetadata) {
+  const batch = await Promise.all(users.map(user => fetchUserMetadata(user.id)));
+  return users.map((user, index) => ({ ...user, metadata: batch[index] }));
+}
+
+async function processUsers(users, pageSize, fetchUserMetadata) {
+  if (!users.length || !pageSize) {
+    throw new Error('Invalid input parameters');
   }
-  
-  function getDiscountRate(userType) {
-    return discountRates[userType];
-  }
-  
-  function applyDiscount(price, discountRate) {
-    return price * discountRate;
-  }
-  
-  function roundToTwoDecimals(number) {
-    return Math.floor(number * 100) / 100;
-  }
-  
-  function updateDiscountRate(userType, newRate) {
-    if (newRate < 0 || newRate > 1) {
-      throw new Error("Invalid rate");
+
+  // Step 1: Filter active users and remove duplicates based on email
+  const activeUsers = new Map();
+  users.forEach(user => {
+    if (user.isActive) {
+      activeUsers.set(user.email, user);
     }
-    discountRates[userType] = newRate;
+  });
+
+  // Step 2: Convert the Map to an array and generate paginated results
+  const paginatedResults = paginateUsers([...activeUsers.values()], pageSize);
+
+  // Step 3: Fetch additional metadata for each page
+  const resultsWithMetadata = [];
+  for (const page of paginatedResults) {
+    resultsWithMetadata.push(await fetchUserMetadataBatch(page, fetchUserMetadata));
   }
-  
-  function calculateDiscount(price, userType) {
-    if (!isValidPrice(price)) {
-      throw new Error("Invalid price");
-    }
-  
-    if (!isValidUserType(userType)) {
-      throw new Error("Invalid user type");
-    }
-  
-    const discountRate = getDiscountRate(userType);
-    const discountedPrice = applyDiscount(price, discountRate);
-    return roundToTwoDecimals(discountedPrice);
-  }
-  
-  module.exports = {
-    calculateDiscount,
-    updateDiscountRate,
-  };
-  
+
+  return resultsWithMetadata;
+}
+
+module.exports = {
+  processUsers
+};

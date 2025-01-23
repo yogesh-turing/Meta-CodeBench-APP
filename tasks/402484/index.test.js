@@ -1,146 +1,78 @@
-const fs = require('fs');
-const axios = require('axios');
-const { processOrder } = require(process.env.TARGET_FILE);
+const { processUsers } = require(process.env.TARGET_FILE);
 
-jest.mock('fs', () => ({
-    writeFile: jest.fn(),
-    promises: {
-        writeFile: jest.fn()
-    }
-}));
-jest.mock('axios');
-jest.setTimeout(15000);
+describe('processUsers', () => {
+    const users = [
+        { id: 1, email: 'user1@example.com', isActive: true },
+        { id: 2, email: 'user2@example.com', isActive: false },
+        { id: 3, email: 'user3@example.com', isActive: true },
+        { id: 4, email: 'user1@example.com', isActive: true },
+    ];
 
-describe('processOrder', () => {
-
-    let consoleLogSpy;
-    let consoleErrorSpy;
-
-    beforeEach(() => {
-        jest.clearAllMocks();
-        consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => {});
-        consoleErrorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+    const fetchUserMetadata = jest.fn(async (id) => {
+        return { metadata: `metadata for user ${id}` };
     });
 
-    afterEach(() => {
-      consoleLogSpy.mockRestore();
-      consoleErrorSpy.mockRestore();
+    test('should filter active users', async () => {
+        const result = await processUsers(users, 2, fetchUserMetadata);
+        expect(result.length).toBe(1);
+        expect(result[0].length).toBe(2);
+        expect(result[0][0].email).toBe('user1@example.com');
+        expect(result[0][1].email).toBe('user3@example.com');
     });
 
-    test('should process order successfully', async () => {
-      const orderId = 123;
-      const orderData = { customerId: 456, items: [{ id: 1, name: 'item1' }], totalPrice: 100 };
-      const customerData = { credit: 200 };
-  
-      axios.get.mockImplementation((url) => {
-          if (url.includes('orders')) {
-              return Promise.resolve({ data: orderData });
-          } else if (url.includes('customers')) {
-              return Promise.resolve({ data: customerData });
-          } else if (url.includes('complete')) {
-              return Promise.resolve();
-          }
-      });
-
-      axios.mockImplementation(({ method, url }) => {
-        if (method === 'GET' && url.includes('orders')) {
-            return Promise.resolve({ data: orderData });
-        } else if (method === 'GET' && url.includes('customers')) {
-            return Promise.resolve({ data: customerData });
-        } else if (method === 'POST' && url.includes('complete')) {
-            return Promise.resolve();
-        }
-      });
-  
-      fs.writeFile.mockImplementation((path, data, callback) => {
-          callback(null);
-      });
-
-      fs.promises.writeFile.mockImplementation((path, data) => {
-        return Promise.resolve();
-      });
-  
-      const result = await processOrder(orderId);
-      expect(result).toBe('Order processing completed successfully!');
-  });
-
-    test('should return error for invalid order data', async () => {
-        const orderId = 123;
-        const orderData = { customerId: 456, items: [], totalPrice: 100 };
-
-        axios.get.mockResolvedValue({ data: orderData });
-        axios.mockResolvedValue({ data: orderData });
-
-        try {
-            await processOrder(orderId);
-        } catch (err) {
-            expect(err).toEqual(new Error('Invalid order data.'));
-        }
+    test('should remove duplicate users based on email', async () => {
+        const result = await processUsers(users, 2, fetchUserMetadata);
+        expect(result[0].length).toBe(2);
+        expect(result[0][0].email).toBe('user1@example.com');
+        expect(result[0][1].email).toBe('user3@example.com');
     });
 
-    test('should return error for insufficient credit', async () => {
-        const orderId = 123;
-        const orderData = { customerId: 456, items: [{ id: 1, name: 'item1' }], totalPrice: 100 };
-        const customerData = { credit: 50 };
-
-        axios.get.mockImplementation((url) => {
-            if (url.includes('orders')) {
-                return Promise.resolve({ data: orderData });
-            } else if (url.includes('customers')) {
-                return Promise.resolve({ data: customerData });
-            }
-        });
-
-        axios.mockImplementation(({ method, url }) => {
-            if (method === 'GET' && url.includes('orders')) {
-                return Promise.resolve({ data: orderData });
-            } else if (method === 'GET' && url.includes('customers')) {
-                return Promise.resolve({ data: customerData });
-            }
-        });
-
-        try {
-            await processOrder(orderId);
-        } catch (err) {
-            expect(err).toEqual(new Error('Insufficient credit.'));
-        }
-
+    test('should paginate results', async () => {
+        const result = await processUsers(users, 1, fetchUserMetadata);
+        expect(result.length).toBe(2);
+        expect(result[0].length).toBe(1);
+        expect(result[1].length).toBe(1);
     });
 
-    test('should return error if writing to file fails', async () => {
-        const orderId = 123;
-        const orderData = { customerId: 456, items: [{ id: 1, name: 'item1' }], totalPrice: 100 };
-        const customerData = { credit: 200 };
+    test('should fetch additional metadata for each user', async () => {
+        const result = await processUsers(users, 2, fetchUserMetadata);
+        expect(result[0][0].metadata).toEqual({ metadata: 'metadata for user 1' });
+        expect(result[0][1].metadata).toEqual({ metadata: 'metadata for user 3' });
+    });
 
-        axios.get.mockImplementation((url) => {
-            if (url.includes('orders')) {
-                return Promise.resolve({ data: orderData });
-            } else if (url.includes('customers')) {
-                return Promise.resolve({ data: customerData });
-            }
-        });
+    test('should handle empty users', async () => {
+        const result = await processUsers([], 2, fetchUserMetadata);
+        expect(result).toEqual([]);
+    });
 
-        axios.mockImplementation(({ method, url }) => {
-            if (method === 'GET' && url.includes('orders')) {
-                return Promise.resolve({ data: orderData });
-            } else if (method === 'GET' && url.includes('customers')) {
-                return Promise.resolve({ data: customerData });
-            }
-        });
+    test('should handle empty fetchUserMetadata', async () => {
+        const result = await processUsers(users, 2, async () => {});
+        expect(result[0][0].metadata).toBeUndefined();
+    });
 
-        fs.writeFile.mockImplementation((path, data, callback) => {
-            callback(new Error('Failed to write file'));
-        });
+    test('should handle empty pageSize', async () => {
+        const result = await processUsers(users, 0, fetchUserMetadata);
+        expect(result).toEqual([]);
+    });
 
-        fs.promises.writeFile.mockImplementation((path, data) => {
-            return Promise.reject(new Error('Failed to write file'));
-        });
+    test('should handle empty users and fetchUserMetadata', async () => {
+        const result = await processUsers([], 2, async () => {});
+        expect(result).toEqual([]);
+    });
 
-        try {
-            await processOrder(orderId);
-        } catch (err) {
-            expect(err).toEqual(new Error('Failed to write file'));
-        }
+    test('should handle large dataset', async () => {
+        const users = Array.from({ length: 1000 }, (_, i) => ({
+            id: i,
+            email: `john+${i}@example.com`,
+            isActive: i % 2 === 0,
+        }));
 
+        let result = await processUsers(users, 10, fetchUserMetadata);
+        expect(result.length).toBe(50);
+        expect(result[0].length).toBe(10);
+
+        result = await processUsers(users, 100, fetchUserMetadata);
+        expect(result.length).toBe(5);
+        expect(result[0].length).toBe(100);
     });
 });

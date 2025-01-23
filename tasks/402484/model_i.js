@@ -1,58 +1,55 @@
-const fs = require('fs').promises;
-const axios = require('axios');
+// Helper function to filter active users
+function filterActiveUsers(users) {
+  return users.filter(user => user.isActive);
+}
 
-async function fetchData(url, method = 'GET') {
-  try {
-    const response = await axios({ method, url });
-    return response.data;
-  } catch (error) {
-    console.error('Error fetching data:', error);
-    throw error;
+// Helper function to remove duplicates based on email
+function removeDuplicates(users) {
+  const seenEmails = new Set();
+  return users.filter(user => {
+    if (seenEmails.has(user.email)) {
+      return false;
+    }
+    seenEmails.add(user.email);
+    return true;
+  });
+}
+
+// Helper function to fetch metadata for a user
+async function fetchMetadata(user, fetchUserMetadata) {
+  const metadata = await fetchUserMetadata(user.id);
+  return { ...user, metadata };
+}
+
+// Generator function to lazily paginate results
+function* paginate(users, pageSize) {
+  for (let i = 0; i < users.length; i += pageSize) {
+    yield users.slice(i, i + pageSize);
   }
 }
 
-async function processOrder(orderId) {
-  try {
-    console.log(`Processing order: ${orderId}`);
+// Main function to process users
+async function* processUsers(users, pageSize, fetchUserMetadata) {
+  if (!users.length || !pageSize) {
+    return;
+  }
 
-    // Step 1: Fetch order details
-    const order = await fetchData(`https://api.example.com/orders/${orderId}`);
-    console.log('Order details fetched:', order);
+  // Step 1: Filter active users
+  const activeUsers = filterActiveUsers(users);
 
-    // Step 2: Validate order
-    if (!order || !order.items || order.items.length === 0) {
-      throw new Error('Invalid order data.');
-    }
-    console.log('Order validated.');
+  // Step 2: Remove duplicates based on email
+  const deduplicatedUsers = removeDuplicates(activeUsers);
 
-    // Step 3: Fetch customer details
-    const customer = await fetchData(`https://api.example.com/customers/${order.customerId}`);
-    console.log('Customer details fetched:', customer);
+  // Step 3: Generate paginated results
+  const paginatedResults = paginate(deduplicatedUsers, pageSize);
 
-    // Step 4: Check customer credit
-    if (customer.credit < order.totalPrice) {
-      throw new Error('Insufficient credit.');
-    }
-    console.log('Customer has sufficient credit.');
-
-    // Step 5: Reserve inventory
-    console.log('Inventory reserved.');
-
-    // Step 6: Save order to file
-    await fs.writeFile(`order_${orderId}.json`, JSON.stringify(order));
-    console.log('Order saved to file.');
-
-    // Final Step: Mark order as completed
-    await fetchData(`https://api.example.com/orders/${orderId}/complete`, 'POST');
-    console.log('Order marked as completed.');
-
-    return 'Order processing completed successfully!';
-  } catch (error) {
-    console.error('Error processing order:', error);
-    throw error;
+  // Step 4: Fetch additional metadata
+  for (const page of paginatedResults) {
+    const pageWithMetadata = await Promise.all(page.map(user => fetchMetadata(user, fetchUserMetadata)));
+    yield pageWithMetadata;
   }
 }
 
 module.exports = {
-  processOrder
+  processUsers
 };
