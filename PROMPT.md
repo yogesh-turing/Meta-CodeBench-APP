@@ -1,62 +1,86 @@
-The task does not meet the criteria for a level 4 task.
-Test cases must adhere to the format provided by the team lead.
-Model responses should be re-evaluated after the test case format has been corrected.
-The "Full Stack Trace" field in the test cases should include the response from all models, encompassing both correct and incorrect outputs.
+Base Code:
+```javascript
+const fs = require('fs');
+const axios = require('axios');
 
-const discountRates = {
-    employee: 0.1,
-    student: 0.05
-};
-
-function isValidUserType(userType) {
-    return typeof userType === "string" && userType in discountRates;
-}
-
-function isValidPrice(price) {
-    return typeof price === "number" && price > 0 && isFinite(price);
-}
-
-function getDiscountRate(userType) {
-    return discountRates[userType] || 0;
-}
-
-function applyDiscount(price, discountRate) {
-    return price * (1 - discountRate);
-}
-
-function roundToTwoDecimals(number) {
-    return Math.round(number * 100) / 100;
-}
-
-function updateDiscountRate(userType, newRate) {
-    if (typeof newRate !== "number" || newRate < 0 || newRate > 1) {
-        throw new Error("Invalid discount rate. Must be a number between 0 and 1.");
+async function fetchData(url) {
+    try {
+        const response = await axios.get(url);
+        return response;
+    } catch (error) {
+        console.error('Error fetching data:', error);
+        throw error;
     }
-    discountRates[userType] = newRate;
 }
 
-function calculateDiscount(price, userType) {
-    if (!isValidPrice(price)) {
-        throw new Error("Invalid price. Must be a positive number.");
-    }
+function processOrder(orderId, callback) {
+  console.log(`Processing order: ${orderId}`);
+  
+  // Step 1: Fetch order details
+  fetchData(`https://api.example.com/orders/${orderId}`)
+    .then(response => response.data)
+    .then(order => {
+      console.log('Order details fetched:', order);
 
-    if (!isValidUserType(userType)) {
-        throw new Error("Invalid user type.");
-    }
+      // Step 2: Validate order
+      setTimeout(() => {
+        if (!order || !order.items || order.items.length === 0) {
+          return callback(new Error('Invalid order data.'));
+        }
+        console.log('Order validated.');
 
-    const discountRate = getDiscountRate(userType);
-    const discountedPrice = applyDiscount(price, discountRate);
-    return roundToTwoDecimals(discountedPrice);
+        // Step 3: Fetch customer details
+        fetchData(`https://api.example.com/customers/${order.customerId}`)
+          .then(response => response.data)
+          .then(customer => {
+            console.log('Customer details fetched:', customer);
+
+            // Step 4: Check customer credit
+            setTimeout(() => {
+              if (customer.credit < order.totalPrice) {
+                return callback(new Error('Insufficient credit.'));
+              }
+              console.log('Customer has sufficient credit.');
+
+              // Step 5: Reserve inventory
+              setTimeout(() => {
+                console.log('Inventory reserved.');
+
+                // Step 6: Save order to file
+                fs.writeFile(`order_${orderId}.json`, JSON.stringify(order), (err) => {
+                  if (err) {
+                    return callback(err);
+                  }
+                  console.log('Order saved to file.');
+
+                  // Final Step: Mark order as completed
+                  fetchData(`https://api.example.com/orders/${orderId}/complete`, { method: 'POST' })
+                    .then(() => {
+                      console.log('Order marked as completed.');
+                      callback(null, 'Order processing completed successfully!');
+                    })
+                    .catch(callback);
+                });
+              }, 1000);
+            }, 1000);
+          })
+          .catch(callback);
+      }, 1000);
+    })
+    .catch(callback);
 }
+
 
 module.exports = {
-    calculateDiscount,
-    updateDiscountRate,
+    processOrder
 };
+```
 
-I'm tasked with refactoring the code that calculates discounts based on user types. 
-While the current implementation works, it lacks scalability and maintainability, making it difficult to add new user types or update discount rates dynamically. 
-I need to refactor the code to store discount rates in a flexible structure that can be easily extended. 
-The solution should include separate functions for validating the price and user type, applying the discount, and rounding the final price to two decimal places. 
-The code must allow dynamic updates to the discount rates and handle invalid inputs such as negative prices and unsupported user types, throwing appropriate error messages. 
-The final price should always be returned with two decimal points, even in edge cases.
+Prompt:
+
+Please help to refactor the function `processOrder`:
+- Refactor the processOrder function to improve readability and remove the nested callback structure.
+- Use modern JavaScript features like Promises and async/await.
+- Add proper error handling at each step.
+- Make sure that the refactored function/module produces the same output as the original.
+- The refactored code should be understandable and maintainable.
