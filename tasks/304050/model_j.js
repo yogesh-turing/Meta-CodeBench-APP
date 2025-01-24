@@ -1,40 +1,46 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
-    }
+const Joi = require('joi');
+const uuid = require('uuid');
 
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
-    }
+const TICKET = Joi.object({
+  _id: Joi.string().optional().default(null).allow(null),
+  name: Joi.string().min(3).max(100).required(),
+  due_date: Joi.date().when('start_date', {
+    is: Joi.exist(),
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+  start_date: Joi.date().when('due_date', {
+    is: Joi.exist(),
+    then: Joi.required(),
+    otherwise: Joi.optional(),
+  }),
+});
 
-    if (count < 0) {
-        throw new Error("count cannot be negative");
-    }
+const createTicket = (ticket) => {
+  if (!ticket) {
+    throw new Error('Ticket is required');
+  }
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+  // Generate id if not provided
+  if (!ticket._id) {
+    ticket._id = uuid.v4();
+  }
 
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
-    }
+  // Add additional validations
+  const schema = TICKET.append({
+    start_date: Joi.date().greater('now'),
+    due_date: Joi.date().greater(Joi.ref('start_date')),
+  });
 
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
+  const { error, value } = schema.validate(ticket, { abortEarly: false });
 
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
-            }
-        }
+  if (error) {
+    throw error;
+  }
 
-        recurrences.push(nextDate);
-        currentDate = nextDate;
-    }
-
-    return recurrences;
-}
+  return value;
+};
 
 module.exports = {
-    getNextRecurrences
+  createTicket,
 };

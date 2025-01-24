@@ -1,53 +1,50 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
+const Joi = require('joi');
+const { v4: uuidv4 } = require('uuid');
+
+const TICKET = Joi.object({
+    _id: Joi.string().optional().default(() => uuidv4()),
+    name: Joi.string().min(3).max(100).required(),
+    due_date: Joi.date().when('start_date', {
+        is: Joi.exist(),
+        then: Joi.date().required().greater('now').greater(Joi.ref('start_date'))
+            .messages({
+                'date.greater': 'Due date must be after start date and in the future'
+            })
+    }),
+    start_date: Joi.date().when('due_date', {
+        is: Joi.exist(),
+        then: Joi.date().required().greater('now')
+            .messages({
+                'date.greater': 'Start date must be in the future'
+            })
+    })
+}).custom((obj, helper) => {
+    // Additional check to ensure both dates exist if one exists
+    if ((obj.start_date && !obj.due_date) || (!obj.start_date && obj.due_date)) {
+        return helper.error('object.custom', {
+            message: 'Both start_date and due_date must be provided together'
+        });
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0 || !Number.isInteger(count)) {
-        throw new Error("Count must be a positive integer");
-    }
+    return obj;
+});
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
+const createTicket = (ticket) => {
+    if (!ticket) {
+        throw new Error('Ticket is required');
     }
 
-    return recurrences;
-}
+    const { error, value } = TICKET.validate(ticket, {
+        abortEarly: false,
+        stripUnknown: true
+    });
+
+    if (error) {
+        throw new Error(error.details.map(err => err.message).join('; '));
+    }
+
+    return value;
+};
 
 module.exports = {
-    getNextRecurrences
+    createTicket
 };

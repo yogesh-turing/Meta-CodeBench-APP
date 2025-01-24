@@ -1,51 +1,57 @@
-/**
- * Calculates the next recurrences based on the given start date, frequency, and count.
- * 
- * @param {Date} startDate The start date from which to calculate recurrences.
- * @param {number} frequency The interval in days between each recurrence.
- * @param {number} count The number of recurrences to calculate.
- * @param {boolean} [onlyWeekDays=false] If true, only consider weekdays (Monday to Friday).
- * @returns {Date[]} An array of dates representing the next recurrences.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined.");
-    }
-    if (!(startDate instanceof Date)) {
-        throw new Error("startDate must be a valid Date object.");
-    }
-    if (isNaN(startDate.getTime())) {
-        throw new Error("startDate is an invalid date.");
-    }
-    if (frequency <= 0) {
-        throw new Error("frequency must be a positive number.");
-    }
-    if (count <= 0) {
-        throw new Error("count must be a positive number.");
+const Joi = require('joi');
+const uuid = require('uuid');
+
+const TICKET = Joi.object({
+    _id: Joi.string().optional().default(null).allow(null),
+    name: Joi.string().min(3).max(100).required(),
+    due_date: Joi.date(),
+    start_date: Joi.date()
+  })
+
+  function createTicket (ticket) {
+    if (!ticket) {
+      throw new Error('Ticket is required');
     }
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+    // Validate ticket object using Joi
+    const { error } = TICKET.validate(ticket);
 
-    while (recurrences.length < count) {
-        // If onlyWeekDays is true, check if the current date is a weekday
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // If it's a weekend, skip to the next day
-            currentDate.setDate(currentDate.getDate() + 1);
-            continue;
-        }
-
-        // Add the current date to the recurrences array
-        recurrences.push(new Date(currentDate));
-
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+    if (error) {
+        throw error;
     }
 
-    return recurrences;
+    // Check if start date is present and due date is not present
+    if (ticket.start_date && !ticket.due_date) {
+        throw new Error('Due date is required if start date is present');
+    }
+
+    // Check if due date is present and start date is not present
+    if (ticket.due_date && !ticket.start_date) {
+        throw new Error('Start date is required if due date is present');
+    }
+
+    // Check if start date and due date are in the future
+    if (ticket.start_date && new Date(ticket.start_date) <= new Date()) {
+        throw new Error('Start date must be in the future');
+    }
+
+    if (ticket.due_date && new Date(ticket.due_date) <= new Date()) {
+        throw new Error('Due date must be in the future');
+    }
+
+    // Check if due date is after start date
+    if (ticket.start_date && ticket.due_date && new Date(ticket.due_date) <= new Date(ticket.start_date)) {
+        throw new Error('Due date must be after start date');
+    }
+
+    // Auto-generate id if not present
+    if (!ticket._id) {
+        ticket._id = uuid.v4();
+    }
+
+    return ticket;
 }
 
 module.exports = {
-    getNextRecurrences
-};
+    createTicket
+}

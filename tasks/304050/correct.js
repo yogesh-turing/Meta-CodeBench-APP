@@ -1,62 +1,74 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (!isValidDate(startDate)) {
-        throw new Error('Invalid start date');
+const Joi = require('joi');
+const crypto = require('crypto');
+
+// Helper function to generate UUID
+const generateId = () => crypto.randomBytes(16).toString('hex');
+
+// Custom validation function for dates
+const dateValidation = (value, helpers) => {
+    const now = new Date();
+    if (value <= now) {
+        return helpers.error('date.future');
     }
-    if (!isValidFrequency(frequency)) {
-        throw new Error('Invalid frequency');
+    return value;
+};
+
+const TICKET = Joi.object({
+    _id: Joi.string().optional().default(null).allow(null),
+    name: Joi.string().min(3).max(100).required()
+        .messages({
+            'string.min': 'Name must be at least 3 characters long',
+            'string.max': 'Name cannot exceed 100 characters',
+            'any.required': 'Name is required'
+        }),
+    start_date: Joi.date().custom(dateValidation)
+        .messages({
+            'date.future': 'Start date must be in the future'
+        }),
+    due_date: Joi.date().custom(dateValidation)
+        .messages({
+            'date.future': 'Due date must be in the future'
+        })
+}).custom((obj, helpers) => {
+    // Validate that both dates are present if one is present
+    if ((obj.start_date && !obj.due_date) || (!obj.start_date && obj.due_date)) {
+        return helpers.error('object.dependency', {
+            message: 'Both start_date and due_date must be provided together'
+        });
     }
-    if (!isValidCount(count)) {
-        throw new Error('Invalid count');
+
+    // Validate that due_date is after start_date
+    if (obj.start_date && obj.due_date && obj.due_date <= obj.start_date) {
+        return helpers.error('object.dateOrder', {
+            message: 'Due date must be after start date'
+        });
     }
 
-    const recurrences = [];
-    let currentDate = adjustToWeekday(new Date(startDate), onlyWeekDays);
+    return obj;
+});
 
-    while (recurrences.length < count) {
-        if (shouldAddDate(currentDate, onlyWeekDays)) {
-            recurrences.push(new Date(currentDate));
-        }
-        currentDate = getNextDate(currentDate, frequency, onlyWeekDays);
+const createTicket = (ticket) => {
+    if (!ticket) {
+        throw new Error('Ticket is required');
     }
 
-    return recurrences;
-}
+    // Add ID if not present
+    const ticketWithId = {
+        ...ticket,
+        _id: ticket._id || generateId()
+    };
 
-function isValidDate(date) {
-    return date && !isNaN(new Date(date));
-}
+    const { error, value } = TICKET.validate(ticketWithId, {
+        abortEarly: false // This will collect all errors instead of stopping at the first one
+    });
 
-function isValidFrequency(frequency) {
-    return typeof frequency === 'number' && frequency > 0;
-}
-
-function isValidCount(count) {
-    return typeof count === 'number' && count > 0;
-}
-
-function adjustToWeekday(date, onlyWeekDays) {
-    if (onlyWeekDays && (date.getDay() === 0 || date.getDay() === 6)) {
-        date.setDate(date.getDate() + 1);
+    if (error) {
+        throw new Error(error.details.map(err => err.message).join('; '));
     }
-    return date;
-}
 
-function shouldAddDate(date, onlyWeekDays) {
-    return !onlyWeekDays || (date.getDay() !== 0 && date.getDay() !== 6);
-}
-
-function getNextDate(date, frequency, onlyWeekDays) {
-    for (let i = 0; i < frequency; i++) {
-        date.setDate(date.getDate() + 1);
-        if (onlyWeekDays) {
-            while (date.getDay() === 0 || date.getDay() === 6) {
-                date.setDate(date.getDate() + 1);
-            }
-        }
-    }
-    return date;
-}
+    return value;
+};
 
 module.exports = {
-    getNextRecurrences
-}
+    createTicket
+};

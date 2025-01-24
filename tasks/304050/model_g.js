@@ -1,38 +1,48 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-      throw new Error("startDate cannot be null or undefined");
-    }
-  
-    if (frequency < 0) {
-      throw new Error("frequency cannot be negative");
-    }
-  
-    if (count < 0) {
-      throw new Error("count cannot be negative");
-    }
-  
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-      throw new Error("startDate must be a valid Date object");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-      if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-        // Skip weekends
-        currentDate.setDate(currentDate.getDate() + 1);
-        i--; // Decrement the counter to ensure we get the correct number of recurrences
-        continue;
-      }
-  
-      recurrences.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + frequency);
-    }
-  
-    return recurrences;
-  }
+const Joi = require('joi');
+const uuid = require('uuid');
 
-  module.exports = {
-    getNextRecurrences
-};
+const TICKET = Joi.object({
+    _id: Joi.string().optional().default(null).allow(null),
+    name: Joi.string().min(3).max(100).required(),
+    due_date: Joi.date().when('start_date', {
+        is: Joi.exist(),
+        then: Joi.date().required().greater(Joi.ref('start_date')),
+        otherwise: Joi.optional()
+    }),
+    start_date: Joi.date().when('due_date', {
+        is: Joi.exist(),
+        then: Joi.date().required().less(Joi.ref('due_date')),
+        otherwise: Joi.optional()
+    })
+  })
+
+const createTicket = (ticket) => {
+    if (!ticket) {
+      throw new Error('Ticket is required');
+    }
+
+    // Generate id if not present
+    if (!ticket._id) {
+        ticket._id = uuid.v4();
+    }
+
+    // Validate the ticket object
+    const result = TICKET.validate(ticket, { abortEarly: false });
+    if (result.error) {
+      throw new Error(result.error.details.map(detail => detail.message).join(', '));
+    }
+
+    // Check if dates are in the future
+    if (ticket.start_date && ticket.start_date <= new Date()) {
+        throw new Error('Start date should be in the future');
+    }
+    if (ticket.due_date && ticket.due_date <= new Date()) {
+        throw new Error('Due date should be in the future');
+    }
+
+    return ticket;
+}
+
+module.exports = {
+    createTicket
+}

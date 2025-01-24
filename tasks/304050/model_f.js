@@ -1,30 +1,45 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("Null or undefined input values are not allowed");
-    }
+const Joi = require('joi');
+const { v4: uuidv4 } = require('uuid');
 
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error("Invalid date");
-    }
+const TICKET = Joi.object({
+  _id: Joi.string().optional().default(() => uuidv4()).allow(null),
+  name: Joi.string().min(3).max(100).required(),
+  due_date: Joi.date().when('start_date', {
+    is: Joi.date().required(),
+    then: Joi.date().required().greater(Joi.ref('start_date')),
+    otherwise: Joi.date().optional()
+  }),
+  start_date: Joi.date().when('due_date', {
+    is: Joi.date().required(),
+    then: Joi.date().required(),
+    otherwise: Joi.date().optional()
+  })
+});
 
-    if (frequency < 0 || count < 0) {
-        throw new Error("Negative frequency and count values are not allowed");
-    }
+const createTicket = (ticket) => {
+  if (!ticket) {
+    throw new Error('Ticket is required');
+  }
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+  const { error, value } = TICKET.validate(ticket, {
+    abortEarly: false
+  });
 
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || (currentDate.getDay() >= 1 && currentDate.getDay() <= 5)) {
-            recurrences.push(new Date(currentDate));
-        }
+  if (error) {
+    throw new Error(error.message);
+  }
 
-        currentDate.setDate(currentDate.getDate() + frequency);
-    }
+  const now = new Date();
+  if (value.start_date && value.start_date <= now) {
+    throw new Error('Start date must be in the future');
+  }
+  if (value.due_date && value.due_date <= now) {
+    throw new Error('Due date must be in the future');
+  }
 
-    return recurrences;
-}
+  return value;
+};
 
 module.exports = {
-    getNextRecurrences
+  createTicket
 };

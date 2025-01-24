@@ -1,53 +1,56 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
+const Joi = require('joi');
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+// Helper function to generate a simple UUID
+const generateId = () => {
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+    });
+};
 
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
+const TICKET = Joi.object({
+    _id: Joi.string().optional().allow(null),
+    name: Joi.string().min(3).max(100).required(),
+    due_date: Joi.date().when('start_date', {
+        is: Joi.exist(),
+        then: Joi.required(),
+        otherwise: Joi.optional()
+    }).min('now').when('start_date', {
+        is: Joi.exist(),
+        then: Joi.date().greater(Joi.ref('start_date'))
+    }),
+    start_date: Joi.date().when('due_date', {
+        is: Joi.exist(),
+        then: Joi.required(),
+        otherwise: Joi.optional()
+    }).min('now')
+});
 
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
+const createTicket = (ticket) => {
+    if (!ticket) {
+        throw new Error('Ticket is required');
     }
 
-    return recurrences;
-}
+    // Add ID if not present
+    const ticketWithId = {
+        ...ticket,
+        _id: ticket._id || generateId()
+    };
+
+    // Validate ticket
+    const { error, value } = TICKET.validate(ticketWithId, {
+        abortEarly: false,
+        presence: 'required'
+    });
+
+    if (error) {
+        throw new Error(error.details.map(detail => detail.message).join(', '));
+    }
+
+    return value;
+};
 
 module.exports = {
-    getNextRecurrences
+    createTicket
 };

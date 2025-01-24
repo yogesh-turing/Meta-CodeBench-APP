@@ -1,157 +1,118 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const { createTicket } = require(process.env.TARGET_FILE);
 
-describe('getNextRecurrences', () => {
+jest.mock('crypto', () => ({
+    randomBytes: jest.fn(() => Buffer.from('12345678901234567890123456789012'))
+}));
 
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
+describe('createTicket', () => {
+    test('should create a ticket with valid data', () => {
+        const ticket = {
+            name: 'Task 1',
+            start_date: new Date(Date.now() + 86400000).toISOString(), // 1 day in the future
+            due_date: new Date(Date.now() + 172800000).toISOString() // 2 days in the future
+        };
+        const result = createTicket(ticket);
+        expect(result._id.length > 0).toBe(true);
+        delete result._id;
+        expect(result.name).toBe(ticket.name);
+        expect(new Date(result.start_date).getTime()).toBe(new Date(ticket.start_date).getTime());
+        expect(new Date(result.due_date).getTime()).toBe(new Date(ticket.due_date).getTime());
     });
 
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    test('should create a ticket with valid data and _id', () => {
+      const ticket = {
+          _id: '12345678901234567890123456789012',
+          name: 'Task 1',
+          start_date: new Date(Date.now() + 86400000).toISOString(), // 1 day in the future
+          due_date: new Date(Date.now() + 172800000).toISOString() // 2 days in the future
+      };
+      const result = createTicket(ticket);
+      expect(result._id.length > 0).toBe(true);
+      expect(result._id).toBe(ticket._id);      
+      expect(result.name).toBe(ticket.name);
+      expect(new Date(result.start_date).getTime()).toBe(new Date(ticket.start_date).getTime());
+      expect(new Date(result.due_date).getTime()).toBe(new Date(ticket.due_date).getTime());
+  });
+
+    test('should throw an error if the name is too short', () => {
+        const ticket = {
+            name: 'T',
+            start_date: new Date(Date.now() + 86400000).toISOString(), // 1 day in the future
+            due_date: new Date(Date.now() + 172800000).toISOString() // 2 days in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
+    test('should throw an error if the name is too long', () => {
+        const ticket = {
+            name: 'T'.repeat(101),
+            start_date: new Date(Date.now() + 86400000).toISOString(), // 1 day in the future
+            due_date: new Date(Date.now() + 172800000).toISOString() // 2 days in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
+    test('should throw an error if the name is missing', () => {
+        const ticket = {
+            start_date: new Date(Date.now() + 86400000).toISOString(), // 1 day in the future
+            due_date: new Date(Date.now() + 172800000).toISOString() // 2 days in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
+    test('should throw an error if the name is null', () => {
+        const ticket = {
+            name: null,
+            start_date: new Date(Date.now() + 86400000).toISOString(), // 1 day in the future
+            due_date: new Date(Date.now() + 172800000).toISOString() // 2 days in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
+    test('should throw an error if the start date is not in the future', () => {
+        const ticket = {
+            name: 'Task 1',
+            start_date: new Date(Date.now() - 86400000).toISOString(), // 1 day in the past
+            due_date: new Date(Date.now() + 172800000).toISOString() // 2 days in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
+    test('should throw an error if the due date is not in the future', () => {
+        const ticket = {
+            name: 'Task 1',
+            start_date: new Date(Date.now() + 86400000).toISOString(), // 1 day in the future
+            due_date: new Date(Date.now() - 86400000).toISOString() // 1 day in the past
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    test('should throw an error if only start date is provided', () => {
+        const ticket = {
+            name: 'Task 1',
+            start_date: new Date(Date.now() + 86400000).toISOString() // 1 day in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+    test('should throw an error if only due date is provided', () => {
+        const ticket = {
+            name: 'Task 1',
+            due_date: new Date(Date.now() + 86400000).toISOString() // 1 day in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+    test('should throw an error if due date is before start date', () => {
+        const ticket = {
+            name: 'Task 1',
+            start_date: new Date(Date.now() + 172800000).toISOString(), // 2 days in the future
+            due_date: new Date(Date.now() + 86400000).toISOString() // 1 day in the future
+        };
+        expect(() => createTicket(ticket)).toThrow(Error);
     });
 
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+    test('should throw an error if ticket is not provided', () => {
+        expect(() => createTicket()).toThrow(Error);
     });
 });
