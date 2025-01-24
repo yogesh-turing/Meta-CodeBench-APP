@@ -4,7 +4,7 @@ The incorrect solution contains several issues:
 
 - The check for cyclic dependencies should be performed within the dfs function. The incorrect solution attempts to detect cyclic dependencies using the taskDependencies map, which is not updated during the execution of the dfs function.
 
-- The incorrect solution sorts tasks by priority after the dfs function has been called. However, tasks should be sorted by priority before being passed to the dfs function to ensure that dependencies are added to the result before their dependent task
+- The incorrect solution sorts tasks by priority after the dfs function has been called. However, tasks should be sorted by priority before being passed to the dfs function to ensure that dependencies are added to the result before their dependent task.
 
 ----------------------------------------------------------------------------------------------------------------
 
@@ -75,3 +75,15 @@ The model failed to return scheduled taks in correct order when tasks have same 
 For the test case, `should schedule tasks based on priority`, task B, C and D have dependency on task A. So task A should be executed first then remaining tasks depdending on their priorities.
 
 The model returned all the tasks sorted by priorities.
+
+
+
+
+
+
+
+
+
+
+
+The model failed to detect dependency cycles between the tasks. The `dfs` function is not correctly implemented by the model to detect cyclic dependencies. The `dfs` function only checks if a task has been visited once.

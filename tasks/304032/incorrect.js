@@ -54,7 +54,6 @@ class TaskSchedulingSystem {
         const scheduledTasks = [];
         const visitedTasks = new Set();
         const taskDependencies = new Map();
-        const visiting = new Set();
         let totalExecutionTime = 0;
         // Build task dependencies map
         for (const task of this.tasks) {
@@ -62,25 +61,27 @@ class TaskSchedulingSystem {
         }
         // Define a recursive function to perform DFS
         function dfs(task) {
-            if (visitedTasks.has(task)) return;
-            if (visiting.has(task)) throw new Error('Cyclic dependency detected.');
-
-            visiting.add(task);
-
-            for (const dep of taskDependencies.get(task)) {
-                dfs(dep);
+            if (visitedTasks.has(task)) {
+                return;
             }
-
-            visiting.delete(task);
             visitedTasks.add(task);
+            // Visit all dependencies first
+            for (const dependency of taskDependencies.get(task)) {
+                dfs(dependency);
+            }
+            // Add task to scheduled tasks list
             scheduledTasks.push(task);
         }
-
         // Perform DFS for all tasks
         for (const task of this.tasks) {
             dfs(task);
         }
-        // Ch
+        // Check for cyclic dependencies
+        for (const task of this.tasks) {
+            if (taskDependencies.get(task).length > 0) {
+                throw new Error('Cyclic dependencies detected');
+            }
+        }
         // Sort scheduled tasks by priority
         scheduledTasks.sort((a, b) => {
             const priorityA = this.priorities.get(a);

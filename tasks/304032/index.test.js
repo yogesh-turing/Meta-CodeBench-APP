@@ -1,4 +1,4 @@
-const { TaskSchedulingSystem } = require('./correct');
+const { TaskSchedulingSystem } = require('./incorrect');
 
 describe('TaskSchedulingSystem', () => {
     let scheduler;
