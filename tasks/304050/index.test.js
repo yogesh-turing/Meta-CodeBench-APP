@@ -1,157 +1,299 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const { validateAndProcessInput } = require('./model_a');
 
-describe('getNextRecurrences', () => {
+const ERROR_MESSAGES = {
+    INVALID_NAME: 'Invalid name',
+    INVALID_DATE_OF_BIRTH: 'Invalid date of birth',
+    INVALID_EMAIL: 'Invalid email format',
+    INVALID_IP_ADDRESS: 'Invalid IP address format',
+    INVALID_ADDRESS: 'Invalid address',
+    INVALID_ADDRESSES: 'Invalid addresses',
+    INVALID_ZIP_CODE: 'Invalid zip code',
+    INVALID_ADDRESS_TYPE: 'Invalid address type',
+    INVALID_EMPLOYMENT_DETAILS: 'Invalid employment details',
+    INVALID_PHONE_NUMBER: 'Invalid phone number',
+    INVALID_PASSWORD: 'Invalid password',
+    INVALID_USERNAME: 'Invalid username',
+    INVALID_EMAIL_DOMAIN: 'Invalid email domain',
+    INVALID_AGE: 'User must be at least 18 years old'
+};
 
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
+const errorsCheck = (errors, error_startswith) => {
+    return errors.some(error => error.startsWith(error_startswith));
+};
+
+const formatDate = (date) => {
+    return new Date(date).toISOString().split('T')[0];
+};
+
+describe('validateAndProcessInput', () => {
+    test('should return success for valid input', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(true);
+        expect(result.data).toEqual({
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'johndoe'
+        });
     });
 
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    test('should return error for invalid name', () => {
+        const input = {
+            name: 'Jo',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_NAME)).toBe(true);
     });
 
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
+    test('should return error for invalid date of birth', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '2025-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_DATE_OF_BIRTH)).toBe(true);
     });
 
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
+    test('should return error for invalid email format', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@invalid',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_EMAIL)).toBe(true);
     });
 
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
+    test('should return error for invalid email domain', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@notexample.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_EMAIL_DOMAIN)).toBe(true);
     });
 
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
+    test('should return error for invalid IP address', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '999.999.999.999',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_IP_ADDRESS)).toBe(true);
     });
 
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
+    test('should return error for invalid phone number', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '12345',
+            password: 'Password@123',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_PHONE_NUMBER)).toBe(true);
     });
 
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    test('should return error for invalid password', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'password',
+            username: 'johndoe'
+        };
+
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_PASSWORD)).toBe(true);
     });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
+    test('should return error for disallowed username', () => {
+        const input = {
+            name: 'John Doe',
+            dateOfBirth: '1990-01-01',
+            email: 'john.doe@example.com',
+            ipAddress: '192.168.1.1',
+            addresses: [
+                {
+                    city: 'New York',
+                    zipCode: '10001',
+                    type: 'home'
+                }
+            ],
+            isEmployed: true,
+            employmentDetails: {
+                position: 'Developer',
+                startDate: '2020-01-01'
+            },
+            phoneNumber: '+1234567890',
+            password: 'Password@123',
+            username: 'admin'
+        };
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+        const result = validateAndProcessInput(input);
+        expect(result.success).toBe(false);
+        expect(errorsCheck(result.errors, ERROR_MESSAGES.INVALID_USERNAME)).toBe(true);
     });
 });
