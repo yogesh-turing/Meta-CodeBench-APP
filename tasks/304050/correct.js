@@ -1,62 +1,52 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (!isValidDate(startDate)) {
-        throw new Error('Invalid start date');
+const Joi = require('joi');
+
+const validateOrder = (payload) => {
+    const itemSchema = Joi.object({
+        name: Joi.string().min(3).required(),
+        quantity: Joi.number().integer().min(1).required(),
+        price: Joi.number().positive().required(),
+    });
+
+    const creditCardSchema = Joi.object({
+        cardNumber: Joi.string().pattern(/^\d{16}$/).required(),
+        expiryDate: Joi.string().pattern(/^(0[1-9]|1[0-2])\/\d{2}$/).required(),
+        cvv: Joi.string().pattern(/^\d{3}$/).required(),
+    });
+
+    const paypalSchema = Joi.object({
+        paypalId: Joi.string().email().required(),
+    });
+
+    const deliveryOptionsSchema = Joi.object({
+        method: Joi.string().valid('standard', 'express').required(),
+        address: Joi.string().min(10).required(),
+    });
+
+    const orderSchema = Joi.object({
+        orderId: Joi.string().pattern(/^[a-zA-Z0-9]{8,12}$/).required(),
+        customerName: Joi.string().pattern(/^[^\d]+$/).required(),
+        email: Joi.string().email().optional(),
+        items: Joi.array().items(itemSchema).min(1).required(),
+        paymentDetails: Joi.object()
+            .keys({
+                creditCard: creditCardSchema,
+                paypal: paypalSchema,
+            })
+            .xor('creditCard', 'paypal')
+            .required(),
+        deliveryOptions: deliveryOptionsSchema.optional(),
+    }).when(Joi.object({ deliveryOptions: Joi.exist() }).unknown(), {
+        then: Joi.object({ items: Joi.array().min(1).required() }),
+    });
+
+    const { error } = orderSchema.validate(payload);
+    if (error) {
+        throw new Error(error.details[0].message);
     }
-    if (!isValidFrequency(frequency)) {
-        throw new Error('Invalid frequency');
-    }
-    if (!isValidCount(count)) {
-        throw new Error('Invalid count');
-    }
 
-    const recurrences = [];
-    let currentDate = adjustToWeekday(new Date(startDate), onlyWeekDays);
-
-    while (recurrences.length < count) {
-        if (shouldAddDate(currentDate, onlyWeekDays)) {
-            recurrences.push(new Date(currentDate));
-        }
-        currentDate = getNextDate(currentDate, frequency, onlyWeekDays);
-    }
-
-    return recurrences;
-}
-
-function isValidDate(date) {
-    return date && !isNaN(new Date(date));
-}
-
-function isValidFrequency(frequency) {
-    return typeof frequency === 'number' && frequency > 0;
-}
-
-function isValidCount(count) {
-    return typeof count === 'number' && count > 0;
-}
-
-function adjustToWeekday(date, onlyWeekDays) {
-    if (onlyWeekDays && (date.getDay() === 0 || date.getDay() === 6)) {
-        date.setDate(date.getDate() + 1);
-    }
-    return date;
-}
-
-function shouldAddDate(date, onlyWeekDays) {
-    return !onlyWeekDays || (date.getDay() !== 0 && date.getDay() !== 6);
-}
-
-function getNextDate(date, frequency, onlyWeekDays) {
-    for (let i = 0; i < frequency; i++) {
-        date.setDate(date.getDate() + 1);
-        if (onlyWeekDays) {
-            while (date.getDay() === 0 || date.getDay() === 6) {
-                date.setDate(date.getDate() + 1);
-            }
-        }
-    }
-    return date;
-}
+    return true;
+};
 
 module.exports = {
-    getNextRecurrences
-}
+    validateOrder
+};

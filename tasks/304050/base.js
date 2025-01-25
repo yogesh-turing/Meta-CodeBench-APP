@@ -1,128 +1,128 @@
-const ERROR_MESSAGES = {
-  INVALID_NAME: 'Invalid name',
-  INVALID_DATE_OF_BIRTH: 'Invalid date of birth',
-  INVALID_EMAIL: 'Invalid email format',
-  INVALID_IP_ADDRESS: 'Invalid IP address format',
+const ERRORS = {
+  INVALID_ORDER_ID: 'Invalid order Id',
+  INVALID_CUSTOMER_NAME: 'Invalid customer name',
+  INVALID_EMAIL: 'Invalid email',
+  INVALID_ITEMS: 'Invalid items',
+  INVALID_ITEM_NAME: 'Invalid item name',
+  INVALID_ITEM_QUANTITY: 'Invalid item quantity',
+  INVALID_ITEM_PRICE: 'Invalid item price',
+  INVALID_PAYMENT_DETAILS: 'Invalid payment details',
+  INVALID_CREDIT_CARD_NUMBER: 'Invalid credit card number',
+  INVALID_EXPIRY_DATE: 'Invalid expiry date',
+  INVALID_CVV: 'Invalid CVV',
+  INVALID_PAYPAL_ID: 'Invalid PayPal ID',
+  INVALID_DELIVERY_METHOD: 'Invalid delivery method',
   INVALID_ADDRESS: 'Invalid address',
-  INVALID_ADDRESSES: 'Invalid addresses',
-  INVALID_ZIP_CODE: 'Invalid zip code',
-  INVALID_ADDRESS_TYPE: 'Invalid address type',
-  INVALID_EMPLOYMENT_DETAILS: 'Invalid employment details',
-  INVALID_PHONE_NUMBER: 'Invalid phone number',
-  INVALID_PASSWORD: 'Invalid password',
-  INVALID_USERNAME: 'Invalid username',
-  INVALID_EMAIL_DOMAIN: 'Invalid email domain',
-  INVALID_AGE: 'User must be at least 18 years old'
+  INVALID_PAYMENT_METHOD: 'Only one payment method is allowed',
+  INVALID_ORDER_DATE: 'Invalid order date',
+  INVALID_DELIVERY_DATE: 'Invalid delivery date',
+  INVALID_TOTAL_PRICE: 'Invalid total price',
+  INVALID_DISCOUNT_CODE: 'Invalid discount code',
+  INVALID_CUSTOMER_AGE: 'Invalid customer age'
 };
 
-function validateAndProcessInput(input) {
-  const errors = [];
-
-  // Validate name
-  if (!input.name || typeof input.name !== 'string' || input.name.length < 3) {
-    errors.push(ERROR_MESSAGES.INVALID_NAME + " Name must be at least 3 characters long.");
-  }
-
-  // Validate date of birth
-  const dob = new Date(input.dateOfBirth);
-  const age = new Date().getFullYear() - dob.getFullYear();
-  if (isNaN(dob) || dob >= new Date() || age < 18) {
-    errors.push(ERROR_MESSAGES.INVALID_DATE_OF_BIRTH + " Date of birth must be a valid past date and user must be at least 18 years old.");
-  }
-
-  // Validate email
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const allowedDomain = "example.com";
-  const emailDomain = input.email.split("@")[1];
-  if (!emailRegex.test(input.email)) {
-    errors.push(ERROR_MESSAGES.INVALID_EMAIL + " Invalid email format.");
-  } else if (emailDomain !== allowedDomain) {
-    errors.push(ERROR_MESSAGES.INVALID_EMAIL_DOMAIN + ` Email must be from the domain ${allowedDomain}.`);
-  }
-
-  // Validate IP address
-  const ipRegex = /^(25[0-5]|2[0-4][0-9]|[0-1]?[0-9][0-9]?)\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/;
-  const ipv6Regex = /^(([0-9a-fA-F]{1,4}:){7,7}[0-9a-fA-F]{1,4}|... other IPv6 formats ...)$/; // Simplified
-  if (!ipRegex.test(input.ipAddress) && !ipv6Regex.test(input.ipAddress)) {
-    errors.push(ERROR_MESSAGES.INVALID_IP_ADDRESS + " Invalid IP address format.");
-  }
-
-  // Validate addresses
-  if (!Array.isArray(input.addresses) || input.addresses.length === 0) {
-    errors.push(ERROR_MESSAGES.INVALID_ADDRESSES + " At least one address is required.");
-  } else {
-    input.addresses.forEach((address, index) => {
-      if (!address.city || typeof address.city !== 'string') {
-        errors.push(ERROR_MESSAGES.INVALID_ADDRESS + ` Address ${index + 1}: City is required.`);
-      }
-      if (!address.zipCode || !/^\d{5}(-\d{4})?$/.test(address.zipCode)) {
-        errors.push(ERROR_MESSAGES.INVALID_ADDRESS + ` Address ${index + 1}: Invalid zip code.`);
-      }
-      if (!['home', 'work'].includes(address.type)) {
-        errors.push(ERROR_MESSAGES.INVALID_ADDRESS + ` Address ${index + 1}: Type must be 'home' or 'work'.`);
-      }
-    });
-  }
-
-  // Validate employment details
-  if (input.isEmployed) {
-    if (
-      !input.employmentDetails ||
-      typeof input.employmentDetails.position !== 'string' ||
-      input.employmentDetails.position.length === 0
-    ) {
-      errors.push(ERROR_MESSAGES.INVALID_EMPLOYMENT_DETAILS + " Employment details must include a valid position.");
+function validateOrder(payload) {
+  try {
+    if (!payload.orderId || typeof payload.orderId !== 'string' || !/^[a-zA-Z0-9]{8,12}$/.test(payload.orderId)) {
+      throw new Error(ERRORS.INVALID_ORDER_ID);
     }
-    if (
-      !input.employmentDetails.startDate ||
-      isNaN(new Date(input.employmentDetails.startDate))
-    ) {
-      errors.push(ERROR_MESSAGES.INVALID_EMPLOYMENT_DETAILS + " Employment details must include a valid start date.");
-    } else {
-      input.employmentDetails.startDate = new Date(input.employmentDetails.startDate).toISOString().split('T')[0];
+
+    if (!payload.customerName || typeof payload.customerName !== 'string' || /\d/.test(payload.customerName)) {
+        throw new Error(ERRORS.INVALID_CUSTOMER_NAME);
     }
-  }
 
-  // Validate phone number
-  const phoneRegex = /^\+\d{1,3}\d{9}$/;
-  if (!phoneRegex.test(input.phoneNumber)) {
-    errors.push(ERROR_MESSAGES.INVALID_PHONE_NUMBER + " Phone number must be in a valid international format.");
-  }
+    if (payload.email && !/^\S+@\S+\.\S+$/.test(payload.email)) {
+        throw new Error(ERRORS.INVALID_EMAIL);
+    }
 
-  // Validate password
-  const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
-  if (!passwordRegex.test(input.password)) {
-    errors.push(ERROR_MESSAGES.INVALID_PASSWORD + " Password must be at least 8 characters long, contain at least one uppercase letter, one lowercase letter, one number, and one special character.");
-  }
+    if (!Array.isArray(payload.items) || payload.items.length === 0) {
+        throw new Error(ERRORS.INVALID_ITEMS);
+    }
 
-  // Validate username
-  const disallowedUsernames = ["admin", "root"];
-  if (disallowedUsernames.includes(input.username.toLowerCase())) {
-    errors.push(ERROR_MESSAGES.INVALID_USERNAME + " Username is not allowed.");
-  }
+    let totalPrice = 0;
+    for (const item of payload.items) {
+        if (!item.name || typeof item.name !== 'string' || item.name.length < 3) {
+            throw new Error(ERRORS.INVALID_ITEM_NAME);
+        }
+        if (typeof item.quantity !== 'number' || item.quantity < 1) {
+            throw new Error(ERRORS.INVALID_ITEM_QUANTITY);
+        }
+        if (typeof item.price !== 'number' || item.price <= 0) {
+            throw new Error(ERRORS.INVALID_ITEM_PRICE);
+        }
+        totalPrice += item.price * item.quantity;
+    }
 
-  // Return errors if any
-  if (errors.length > 0) {
-    return { success: false, errors };
-  }
+    if (payload.totalPrice !== totalPrice) {
+        throw new Error(ERRORS.INVALID_TOTAL_PRICE);
+    }
 
-  // Process and return the valid data
-  return {
-    success: true,
-    data: {
-      name: input.name.trim(),
-      dateOfBirth: dob.toISOString().split('T')[0],
-      email: input.email,
-      ipAddress: input.ipAddress,
-      addresses: input.addresses,
-      employmentDetails: input.isEmployed ? input.employmentDetails : null,
-      phoneNumber: input.phoneNumber,
-      password: input.password,
-      username: input.username
-    },
-  };
+    if (payload.discountCode && totalPrice < 100) {
+        throw new Error(ERRORS.INVALID_DISCOUNT_CODE);
+    }
+
+    if (!payload.paymentDetails || (!payload.paymentDetails.creditCard && !payload.paymentDetails.paypal)) {
+        throw new Error(ERRORS.INVALID_PAYMENT_DETAILS);
+    }
+
+    if (payload.paymentDetails.creditCard) {
+        const { cardNumber, expiryDate, cvv } = payload.paymentDetails.creditCard;
+        if (!/^\d{16}$/.test(cardNumber)) {
+            throw new Error(ERRORS.INVALID_CREDIT_CARD_NUMBER);
+        }
+        if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(expiryDate)) {
+            throw new Error(ERRORS.INVALID_EXPIRY_DATE);
+        }
+        if (!/^\d{3}$/.test(cvv)) {
+            throw new Error(ERRORS.INVALID_CVV);
+        }
+    }
+
+    if (payload.paymentDetails.paypal) {
+        if (!/^\S+@\S+\.\S+$/.test(payload.paymentDetails.paypal)) {
+            throw new Error(ERRORS.INVALID_PAYPAL_ID);
+        }
+    }
+
+    if (payload.paymentDetails.creditCard && payload.paymentDetails.paypal) {
+        throw new Error(ERRORS.INVALID_PAYMENT_METHOD);
+    }
+
+    if (payload.deliveryOptions) {
+        const { method, address } = payload.deliveryOptions;
+        if (!['standard', 'express'].includes(method)) {
+            throw new Error(ERRORS.INVALID_DELIVERY_METHOD);
+        }
+        if (!address || address.length < 10) {
+            throw new Error(ERRORS.INVALID_ADDRESS);
+        }
+    }
+
+    if (payload.orderDate && payload.deliveryDate) {
+        const orderDate = new Date(payload.orderDate);
+        const deliveryDate = new Date(payload.deliveryDate);
+        if (deliveryDate <= orderDate) {
+            throw new Error(ERRORS.INVALID_DELIVERY_DATE);
+        }
+    }
+
+    if (payload.customerAge && payload.items.some(item => item.ageRestricted)) {
+        if (payload.customerAge < 18) {
+            throw new Error(ERRORS.INVALID_CUSTOMER_AGE);
+        }
+    }
+
+    return {
+        success: true
+    };
+  } catch (error) {
+    return {
+        success: false,
+        error: error.message
+    };
+  }
 }
 
 module.exports = {
-  validateAndProcessInput
+  validateOrder
 };
