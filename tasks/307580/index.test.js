@@ -1,4 +1,4 @@
-const { validateOrder } = require('./model_a');
+const { validateOrder } = require('./incorrect');
 
 const ERRORS = {
     INVALID_ORDER_ID: 'Invalid order Id',

@@ -1,6 +1,25 @@
 const Joi = require('joi');
 const ERRORS = {
-  // ... existing error messages
+  INVALID_ORDER_ID: 'Invalid order Id',
+  INVALID_CUSTOMER_NAME: 'Invalid customer name',
+  INVALID_EMAIL: 'Invalid email',
+  INVALID_ITEMS: 'Invalid items',
+  INVALID_ITEM_NAME: 'Invalid item name',
+  INVALID_ITEM_QUANTITY: 'Invalid item quantity',
+  INVALID_ITEM_PRICE: 'Invalid item price',
+  INVALID_PAYMENT_DETAILS: 'Invalid payment details',
+  INVALID_CREDIT_CARD_NUMBER: 'Invalid credit card number',
+  INVALID_EXPIRY_DATE: 'Invalid expiry date',
+  INVALID_CVV: 'Invalid CVV',
+  INVALID_PAYPAL_ID: 'Invalid PayPal ID',
+  INVALID_DELIVERY_METHOD: 'Invalid delivery method',
+  INVALID_ADDRESS: 'Invalid address',
+  INVALID_PAYMENT_METHOD: 'Only one payment method is allowed',
+  INVALID_ORDER_DATE: 'Invalid order date',
+  INVALID_DELIVERY_DATE: 'Invalid delivery date',
+  INVALID_TOTAL_PRICE: 'Invalid total price',
+  INVALID_DISCOUNT_CODE: 'Invalid discount code',
+  INVALID_CUSTOMER_AGE: 'Invalid customer age'
 };
 
 const orderSchema = Joi.object({
