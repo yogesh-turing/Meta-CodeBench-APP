@@ -1,53 +1,55 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
+const daysInWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function validateInput(year, month) {
+    if (year == null || month == null || isNaN(year) || isNaN(month)) throw new Error("Year and month must be valid numbers");
+    if (year <= 0 || month <= 0 || month > 12) throw new Error("Invalid year or month value");
+}
+
+function getPreviousMonthDays(year, month) {
+    const firstDayOfMonth = new Date(year, month - 1, 1);
+    const previousMonthDays = [];
+    for (let i = firstDayOfMonth.getDay() - 1; i >= 0; i--) {
+        const date = new Date(year, month - 1, 0).getDate() - i;
+        const day = daysInWeek[(firstDayOfMonth.getDay() - i - 1 + 7) % 7];
+        const monthValue = month - 1 === 0 ? 12 : month - 1;
+        const yearValue = month - 1 === 0 ? year - 1 : year;
+        previousMonthDays.push({ date, day, month: monthValue, year: yearValue });
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
+    return previousMonthDays;
+}
+
+function getCurrentMonthDays(year, month) {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const currentMonthDays = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+        const date = new Date(year, month - 1, day);
+        const dayOfWeek = daysInWeek[date.getDay()];
+        currentMonthDays.push({ date: day, day: dayOfWeek, month, year });
     }
-    if (typeof count !== 'number' || count <= 0 || !Number.isInteger(count)) {
-        throw new Error("Count must be a positive integer");
+    return currentMonthDays;
+}
+
+function getNextMonthDays(year, month, totalDays) {
+    const nextMonthDays = [];
+    for (let i = 1; i <= (42 - totalDays); i++) {
+        const date = new Date(year, month, i);
+        const dayOfWeek = daysInWeek[date.getDay()];
+        const monthValue = month + 1 > 12 ? 1 : month + 1;
+        const yearValue = month + 1 > 12 ? year + 1 : year;
+        nextMonthDays.push({ date: i, day: dayOfWeek, month: monthValue, year: yearValue });
     }
+    return nextMonthDays;
+}
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
-    }
-
-    return recurrences;
+function getMonthlyCalendar(year, month) {
+    validateInput(year, month);
+    const previousMonthDays = getPreviousMonthDays(year, month);
+    const currentMonthDays = getCurrentMonthDays(year, month);
+    const totalDays = previousMonthDays.length + currentMonthDays.length;
+    const nextMonthDays = getNextMonthDays(year, month, totalDays);
+    return [...previousMonthDays, ...currentMonthDays, ...nextMonthDays];
 }
 
 module.exports = {
-    getNextRecurrences
+    getMonthlyCalendar
 };
