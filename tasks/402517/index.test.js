@@ -1,4 +1,4 @@
-const { getMonthlyCalendar } = require('./incorrect');
+const { getMonthlyCalendar } = require('./correct');
 
 describe('getMonthlyCalendar', () => {
     it('should generate a calendar for October 2023 starting on Sunday', () => {

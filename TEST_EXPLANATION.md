@@ -1,6 +1,42 @@
 ``` javascript
 ```
 
+In comparison with an incorrect solution, the ideal solution correctly calculated previous, current and next month's days. 
+It correctly calculated the days in current month by calling `getDaysInMonth` function with correct month value.
+```javascript
+function getCurrentMonthDays(year, month) {
+    const currentMonthDays = [];
+    for (let day = 1; day <= getDaysInMonth(year, month); day++) {
+        currentMonthDays.push({
+            date: day,
+            day: daysInWeek[new Date(year, month - 1, day).getDay()],
+            month: month,
+            year: year
+        });
+    }
+    return currentMonthDays;
+}
+```
+It also added next months data correctly by lopping for loop for required number of times.
+```javascript
+function getNextMonthDays(firstDayOfMonth, currentMonthDays) {
+    const nextMonthDays = [];
+    const nextMonthYear = firstDayOfMonth.getMonth() + 1 > 11 ? firstDayOfMonth.getFullYear() + 1 : firstDayOfMonth.getFullYear();
+    const nextMonth = firstDayOfMonth.getMonth() + 1 > 11 ? 1 : firstDayOfMonth.getMonth() + 2;
+    for (let i = 1; i <= 42 - currentMonthDays.length - firstDayOfMonth.getDay(); i++) {
+        nextMonthDays.push({
+            date: i,
+            day: daysInWeek[(firstDayOfMonth.getDay() + currentMonthDays.length + i - 1) % 7],
+            month: nextMonth,
+            year: nextMonthYear
+        });
+    }
+    return nextMonthDays;
+}
+```
+
+
+
 Model B
 ---------------------
 The model failed to return correct results for 1 month of the year i.e. when output has data from months Dec, Jan and Feb. The days from last month should have month=12, the model return month=0.
