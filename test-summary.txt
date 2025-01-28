@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402517:
+base       : 9/9 tests passed [PASSED]
+correct    : 9/9 tests passed [PASSED]
+incorrect  : 1/9 tests passed [FAILED]
+model_a    : 9/9 tests passed [PASSED]
+model_b    : 8/9 tests passed [FAILED]
+model_c    : 9/9 tests passed [PASSED]
+model_d    : 9/9 tests passed [PASSED]
+model_e    : 2/9 tests passed [FAILED]
+model_f    : 2/9 tests passed [FAILED]
+model_g    : 1/9 tests passed [FAILED]
+model_h    : 1/9 tests passed [FAILED]
+model_i    : 1/9 tests passed [FAILED]
+model_j    : 9/9 tests passed [PASSED]
+

@@ -1,118 +1,52 @@
 const daysInWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-/**
- * Validate the input year and month.
- * @param {number} year - The year to validate.
- * @param {number} month - The month to validate.
- */
+function getMonthlyCalendar(year, month) {
+    validateInput(year, month);
+    const firstDate = new Date(year, month - 1, 1);
+    const lastDate = new Date(year, month, 0);
+
+    const previousMonthDays = getPreviousMonthDays(firstDate, lastDate);
+    const currentMonthDays = getCurrentMonthDays(firstDate, lastDate);
+    const nextMonthDays = getNextMonthDays(firstDate, lastDate, previousMonthDays.length + currentMonthDays.length);
+
+    return [...previousMonthDays, ...currentMonthDays, ...nextMonthDays];
+}
+
 function validateInput(year, month) {
-    if (year == null || month == null || isNaN(year) || isNaN(month)) {
-        throw new Error("Year and month must be valid numbers");
-    }
-    if (year <= 0 || month <= 0 || month > 12) {
+    if (isNaN(year) || isNaN(month) || year <= 0 || month <= 0 || month > 12) {
         throw new Error("Invalid year or month value");
     }
 }
 
-/**
- * Fill the calendar with the previous month's days.
- * @param {number} year - The current year.
- * @param {number} month - The current month.
- * @param {Date} firstDayOfMonth - The first day of the current month.
- * @param {number} lastDayOfPrevMonth - The last day of the previous month.
- * @param {Array} calendar - The calendar array to fill.
- */
-function fillPrevMonthDays(year, month, firstDayOfMonth, lastDayOfPrevMonth, calendar) {
-    const prevMonthDays = firstDayOfMonth.getDay();
-    const prevMonth = month - 1 <= 0 ? 12 : month - 1;
-    const prevYear = month - 1 <= 0 ? year - 1 : year;
-
-    Array.from({ length: prevMonthDays }).forEach((_, i) => {
-        calendar.push({
-            date: lastDayOfPrevMonth - (prevMonthDays - 1 - i),
-            day: daysInWeek[(i + 7) % 7],
-            month: prevMonth,
-            year: prevYear
-        });
-    });
-
-    return calendar;
+function getPreviousMonthDays(firstDate, lastDate) {
+    const previousMonthLastDate = new Date(firstDate.getFullYear(), firstDate.getMonth(), 0);
+    const days = Array.from({ length: firstDate.getDay() }, (_, i) => ({
+        date: previousMonthLastDate.getDate() - i,
+        day: daysInWeek[(firstDate.getDay() - i - 1 + 7) % 7],
+        month: previousMonthLastDate.getMonth() + 1,
+        year: previousMonthLastDate.getFullYear()
+    }));
+    return days.reverse();
 }
 
-/**
- * Fill the calendar with the current month's days.
- * @param {number} year - The current year.
- * @param {number} month - The current month.
- * @param {number} daysInMonth - The number of days in the current month.
- * @param {Array} calendar - The calendar array to fill.
- */
-function fillCurrentMonthDays(year, month, daysInMonth, calendar) {
-    Array.from({ length: daysInMonth }).forEach((_, i) => {
-        const day = i + 1;
-        const date = new Date(year, month - 1, day);
-        calendar.push({
-            date: day,
-            day: daysInWeek[date.getDay()],
-            month: month,
-            year: year
-        });
-    });
-    return calendar;
+function getCurrentMonthDays(firstDate, lastDate) {
+    return Array.from({ length: lastDate.getDate() }, (_, i) => ({
+        date: i + 1,
+        day: daysInWeek[(new Date(firstDate.getFullYear(), firstDate.getMonth(), i + 1)).getDay()],
+        month: firstDate.getMonth() + 1,
+        year: firstDate.getFullYear()
+    }));
 }
 
-/**
- * Fill the calendar with the next month's days.
- * @param {number} year - The current year.
- * @param {number} month - The current month.
- * @param {Date} firstDayOfMonth - The first day of the current month.
- * @param {number} daysInMonth - The number of days in the current month.
- * @param {Array} calendar - The calendar array to fill.
- */
-function fillNextMonthDays(year, month, firstDayOfMonth, daysInMonth, calendar) {
-    const nextMonthDays = 42 - calendar.length;
-    Array.from({ length: nextMonthDays }).forEach((_, i) => {
-        const day = i + 1;
-        const nextMonth = month + 1 > 12 ? 1 : month + 1;
-        const nextYear = month + 1 > 12 ? year + 1 : year;
-        calendar.push({
-            date: day,
-            day: daysInWeek[(firstDayOfMonth.getDay() + daysInMonth + i) % 7],
-            month: nextMonth,
-            year: nextYear
-        });
-    });
-    return calendar;
+function getNextMonthDays(firstDate, lastDate, currentLength) {
+    const nextMonthFirstDate = new Date(firstDate.getFullYear(), firstDate.getMonth() + 1, 1);
+    const daysNeeded = 42 - currentLength;
+    return Array.from({ length: daysNeeded }, (_, i) => ({
+        date: i + 1,
+        day: daysInWeek[(nextMonthFirstDate.getDay() + i) % 7],
+        month: nextMonthFirstDate.getMonth() + 1,
+        year: nextMonthFirstDate.getFullYear()
+    }));
 }
 
-/**
- * Get the monthly calendar for a given year and month.
- * @param {number} year - The year for the calendar.
- * @param {number} month - The month for the calendar.
- * @returns {Array} The calendar array.
- */
-function getMonthlyCalendar(year, month) {
-    validateInput(year, month);
-
-    const calendar = [];
-    const firstDayOfMonth = new Date(year, month - 1, 1);
-    const daysInMonth = new Date(year, month, 0).getDate();
-    const lastDayOfPrevMonth = new Date(year, month - 1, 0).getDate();
-
-    fillPrevMonthDays(year, month, firstDayOfMonth, lastDayOfPrevMonth, calendar);
-    fillCurrentMonthDays(year, month, daysInMonth, calendar);
-    
-    fillNextMonthDays(year, month, firstDayOfMonth, daysInMonth, calendar);
-    return calendar;
-}
-
-let calendar;
-calendar = getMonthlyCalendar(2023, 2);
-
-
-module.exports = {
-    getMonthlyCalendar,
-    validateInput,
-    fillPrevMonthDays,
-    fillCurrentMonthDays,
-    fillNextMonthDays
-};
+module.exports = { getMonthlyCalendar };

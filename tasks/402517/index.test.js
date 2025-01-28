@@ -1,4 +1,4 @@
-const { getMonthlyCalendar } = require(process.env.TARGET_FILE);
+const { getMonthlyCalendar } = require('./incorrect');
 
 describe('getMonthlyCalendar', () => {
     it('should generate a calendar for October 2023 starting on Sunday', () => {
