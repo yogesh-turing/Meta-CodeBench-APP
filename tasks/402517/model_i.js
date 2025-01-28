@@ -1,51 +1,64 @@
-/**
- * Calculates the next recurrences based on the given start date, frequency, and count.
- * 
- * @param {Date} startDate The start date from which to calculate recurrences.
- * @param {number} frequency The interval in days between each recurrence.
- * @param {number} count The number of recurrences to calculate.
- * @param {boolean} [onlyWeekDays=false] If true, only consider weekdays (Monday to Friday).
- * @returns {Date[]} An array of dates representing the next recurrences.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined.");
-    }
-    if (!(startDate instanceof Date)) {
-        throw new Error("startDate must be a valid Date object.");
-    }
-    if (isNaN(startDate.getTime())) {
-        throw new Error("startDate is an invalid date.");
-    }
-    if (frequency <= 0) {
-        throw new Error("frequency must be a positive number.");
-    }
-    if (count <= 0) {
-        throw new Error("count must be a positive number.");
-    }
+const daysInWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    while (recurrences.length < count) {
-        // If onlyWeekDays is true, check if the current date is a weekday
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // If it's a weekend, skip to the next day
-            currentDate.setDate(currentDate.getDate() + 1);
-            continue;
-        }
-
-        // Add the current date to the recurrences array
-        recurrences.push(new Date(currentDate));
-
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+function validateInput(year, month) {
+    if (year == null || month == null || isNaN(year) || isNaN(month)) {
+        throw new Error("Year and month must be valid numbers");
     }
+    if (year <= 0 || month <= 0 || month > 12) {
+        throw new Error("Invalid year or month value");
+    }
+}
 
-    return recurrences;
+function getPreviousMonthDays(year, month) {
+    const firstDayOfMonth = new Date(year, month - 1, 1);
+    const previousMonthDays = [];
+    for (let i = firstDayOfMonth.getDay() - 1; i >= 0; i--) {
+        previousMonthDays.push({
+            date: new Date(year, month - 1, 0).getDate() - i,
+            day: daysInWeek[(firstDayOfMonth.getDay() - i - 1 + 7) % 7],
+            month: month - 1 === 0 ? 12 : month - 1,
+            year: month - 1 === 0 ? year - 1 : year
+        });
+    }
+    return previousMonthDays;
+}
+
+function getCurrentMonthDays(year, month) {
+    const daysInMonth = new Date(year, month, 0).getDate();
+    const currentMonthDays = [];
+    for (let day = 1; day <= daysInMonth; day++) {
+        currentMonthDays.push({
+            date: day,
+            day: daysInWeek[new Date(year, month - 1, day).getDay()],
+            month: month,
+            year: year
+        });
+    }
+    return currentMonthDays;
+}
+
+function getNextMonthDays(year, month, currentMonthDays) {
+    const nextMonthDays = [];
+    const totalDays = 42 - currentMonthDays.length;
+    for (let i = 1; i <= totalDays; i++) {
+        nextMonthDays.push({
+            date: i,
+            day: daysInWeek[(new Date(year, month - 1, 1).getDay() + currentMonthDays.length + i - 1) % 7],
+            month: month + 1 > 12 ? 1 : month + 1,
+            year: month + 1 > 12 ? year + 1 : year
+        });
+    }
+    return nextMonthDays;
+}
+
+function getMonthlyCalendar(year, month) {
+    validateInput(year, month);
+    const previousMonthDays = getPreviousMonthDays(year, month);
+    const currentMonthDays = getCurrentMonthDays(year, month);
+    const nextMonthDays = getNextMonthDays(year, month, currentMonthDays);
+    return [...previousMonthDays, ...currentMonthDays, ...nextMonthDays];
 }
 
 module.exports = {
-    getNextRecurrences
+    getMonthlyCalendar
 };

@@ -1,53 +1,84 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
+const DAYS_IN_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKS_IN_CALENDAR = 42; // 6 weeks * 7 days
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
+function validateInput(year, month) {
+    if (year == null || month == null || isNaN(year) || isNaN(month)) {
+        throw new Error("Year and month must be valid numbers");
     }
-
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
+    if (year <= 0 || month <= 0 || month > 12) {
+        throw new Error("Invalid year or month value");
     }
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
-    }
-
-    return recurrences;
 }
 
-module.exports = {
-    getNextRecurrences
-};
+function getPreviousMonthDates(year, month) {
+    const firstDayOfMonth = new Date(year, month - 1, 1);
+    const firstDayWeekday = firstDayOfMonth.getDay();
+    
+    if (firstDayWeekday === 0) return [];
+
+    const previousMonth = month - 1;
+    const previousMonthYear = previousMonth === 0 ? year - 1 : year;
+    const previousMonthValue = previousMonth === 0 ? 12 : previousMonth;
+    const lastDayOfPreviousMonth = new Date(year, month - 1, 0).getDate();
+
+    return Array.from({ length: firstDayWeekday }, (_, index) => {
+        const date = lastDayOfPreviousMonth - firstDayWeekday + index + 1;
+        return {
+            date,
+            day: DAYS_IN_WEEK[(firstDayWeekday + index) % 7],
+            month: previousMonthValue,
+            year: previousMonthYear
+        };
+    });
+}
+
+function getCurrentMonthDates(year, month) {
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
+    
+    return Array.from({ length: lastDayOfMonth }, (_, index) => {
+        const date = index + 1;
+        return {
+            date,
+            day: DAYS_IN_WEEK[new Date(year, month - 1, date).getDay()],
+            month,
+            year
+        };
+    });
+}
+
+function getNextMonthDates(year, month, currentCalendarLength) {
+    const remainingDays = WEEKS_IN_CALENDAR - currentCalendarLength;
+    if (remainingDays <= 0) return [];
+
+    const nextMonth = month + 1;
+    const nextMonthYear = nextMonth > 12 ? year + 1 : year;
+    const nextMonthValue = nextMonth > 12 ? 1 : nextMonth;
+    const firstDayOfCurrentMonth = new Date(year, month - 1, 1);
+
+    return Array.from({ length: remainingDays }, (_, index) => {
+        const date = index + 1;
+        const dayIndex = (firstDayOfCurrentMonth.getDay() + new Date(year, month, 0).getDate() + date - 1) % 7;
+        return {
+            date,
+            day: DAYS_IN_WEEK[dayIndex],
+            month: nextMonthValue,
+            year: nextMonthYear
+        };
+    });
+}
+
+function getMonthlyCalendar(year, month) {
+    validateInput(year, month);
+    
+    const previousMonthDates = getPreviousMonthDates(year, month);
+    const currentMonthDates = getCurrentMonthDates(year, month);
+    const nextMonthDates = getNextMonthDates(
+        year, 
+        month, 
+        previousMonthDates.length + currentMonthDates.length
+    );
+
+    return [...previousMonthDates, ...currentMonthDates, ...nextMonthDates];
+}
+
+module.exports = { getMonthlyCalendar };

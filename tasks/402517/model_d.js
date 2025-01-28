@@ -1,53 +1,75 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
+const DAYS_IN_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const WEEKS_IN_CALENDAR = 42; // 6 weeks * 7 days
+
+const validateInput = (year, month) => {
+    if (year == null || month == null || isNaN(year) || isNaN(month)) {
+        throw new Error("Year and month must be valid numbers");
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
+    if (year <= 0 || month <= 0 || month > 12) {
+        throw new Error("Invalid year or month value");
     }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function getNextWeekday(date) {
-        do {
-            date.setDate(date.getDate() + 1);
-        } while (!isWeekday(date));
-        return date;
-    }
-
-    for (let i = 0; i < count; i++) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate.setDate(currentDate.getDate() + 1);
-                if (isWeekday(currentDate)) {
-                    frequency--;
-                }
-            } while (frequency > 0);
-        } else {
-            currentDate.setDate(currentDate.getDate() + frequency);
-        }
-
-        if (onlyWeekDays && !isWeekday(currentDate)) {
-            currentDate = getNextWeekday(currentDate);
-        }
-    }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
 };
+
+const getAdjustedYearMonth = (year, month, adjustment) => {
+    const adjustedMonth = month + adjustment;
+    return {
+        year: year + Math.floor((adjustedMonth - 1) / 12),
+        month: ((adjustedMonth - 1 + 12) % 12) + 1
+    };
+};
+
+const getDaysFromPreviousMonth = (year, month) => {
+    const firstDayOfMonth = new Date(year, month - 1, 1);
+    const firstDayWeekday = firstDayOfMonth.getDay();
+    
+    if (firstDayWeekday === 0) return [];
+
+    const { year: prevYear, month: prevMonth } = getAdjustedYearMonth(year, month, -1);
+    const lastDayPrevMonth = new Date(year, month - 1, 0).getDate();
+    
+    return Array.from({ length: firstDayWeekday }, (_, index) => ({
+        date: lastDayPrevMonth - firstDayWeekday + index + 1,
+        day: DAYS_IN_WEEK[(index + 7) % 7],
+        month: prevMonth,
+        year: prevYear
+    }));
+};
+
+const getDaysFromCurrentMonth = (year, month) => {
+    const lastDayOfMonth = new Date(year, month, 0).getDate();
+    
+    return Array.from({ length: lastDayOfMonth }, (_, index) => ({
+        date: index + 1,
+        day: DAYS_IN_WEEK[new Date(year, month - 1, index + 1).getDay()],
+        month: month,
+        year: year
+    }));
+};
+
+const getDaysFromNextMonth = (year, month, currentCalendarLength) => {
+    const remainingDays = WEEKS_IN_CALENDAR - currentCalendarLength;
+    const { year: nextYear, month: nextMonth } = getAdjustedYearMonth(year, month, 1);
+    
+    return Array.from({ length: remainingDays }, (_, index) => ({
+        date: index + 1,
+        day: DAYS_IN_WEEK[new Date(year, month, index + 1).getDay()],
+        month: nextMonth,
+        year: nextYear
+    }));
+};
+
+const getMonthlyCalendar = (year, month) => {
+    validateInput(year, month);
+    
+    const previousMonthDays = getDaysFromPreviousMonth(year, month);
+    const currentMonthDays = getDaysFromCurrentMonth(year, month);
+    const nextMonthDays = getDaysFromNextMonth(
+        year, 
+        month, 
+        previousMonthDays.length + currentMonthDays.length
+    );
+    
+    return [...previousMonthDays, ...currentMonthDays, ...nextMonthDays];
+};
+
+module.exports = { getMonthlyCalendar };

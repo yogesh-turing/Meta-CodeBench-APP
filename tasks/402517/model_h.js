@@ -1,57 +1,88 @@
-/**
- * Returns an array of next recurrences based on the provided start date and frequency.
- * 
- * @param {Date} startDate The start date for calculating recurrences.
- * @param {number} frequency The frequency of recurrences in days.
- * @param {number} count The number of recurrences to generate.
- * @param {boolean} [onlyWeekDays=false] If true, only include weekdays (Monday to Friday) in the recurrences.
- * @returns {Date[]} An array of dates representing the next recurrences.
- * @throws {Error} If startDate is not a valid date, or if frequency or count is negative.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors accordingly
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
+const daysInWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function validateInput(year, month) {
+    if (year == null || month == null || isNaN(year) || isNaN(month)) {
+        throw new Error("Year and month must be valid numbers");
     }
-    if (frequency < 0) {
-        throw new Error('Frequency cannot be negative');
+    if (year <= 0 || month <= 0 || month > 12) {
+        throw new Error("Invalid year or month value");
     }
-    if (count < 0) {
-        throw new Error('Count cannot be negative');
+}
+
+function getDaysInMonth(year, month) {
+    return new Date(year, month, 0).getDate();
+}
+
+function getFirstDayOfMonth(year, month) {
+    return new Date(year, month - 1, 1).getDay();
+}
+
+function getLastDayOfMonth(year, month) {
+    return new Date(year, month, 0).getDay();
+}
+
+function getPreviousMonthDays(year, month) {
+    const firstDay = getFirstDayOfMonth(year, month);
+    const previousMonth = month - 1 === 0 ? 12 : month - 1;
+    const previousYear = month - 1 === 0 ? year - 1 : year;
+    const daysInPreviousMonth = getDaysInMonth(previousYear, previousMonth);
+    const previousMonthDays = [];
+
+    for (let i = firstDay - 1; i >= 0; i--) {
+        previousMonthDays.push({
+            date: daysInPreviousMonth - i,
+            day: daysInWeek[(firstDay - i - 1 + 7) % 7],
+            month: previousMonth,
+            year: previousYear
+        });
     }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-        // If onlyWeekDays is true, skip weekends
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // Adjust the current date to the next weekday
-            currentDate.setDate(currentDate.getDate() + (currentDate.getDay() === 0 ? 1 : 2));
-        }
-  
-        recurrences.push(new Date(currentDate));
-  
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+
+    return previousMonthDays;
+}
+
+function getCurrentMonthDays(year, month) {
+    const daysInMonth = getDaysInMonth(year, month);
+    const currentMonthDays = [];
+
+    for (let day = 1; day <= daysInMonth; day++) {
+        currentMonthDays.push({
+            date: day,
+            day: daysInWeek[new Date(year, month - 1, day).getDay()],
+            month: month,
+            year: year
+        });
     }
-  
-    return recurrences;
-  }
-  
-  // // Example usage:
-  // const startDate = new Date('2024-03-04'); // Monday
-  // const frequency = 3; // Every 3 days
-  // const count = 5;
-  
-  // // Get recurrences without considering weekdays
-  // const recurrences = getNextRecurrences(startDate, frequency, count);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-10, 2024-03-13, 2024-03-16]
-  
-  // // Get recurrences considering only weekdays
-  // const weekdayRecurrences = getNextRecurrences(startDate, frequency, count, true);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-11, 2024-03-14, 2024-03-18]
-  
-  module.exports = {
-    getNextRecurrences
-  };
+
+    return currentMonthDays;
+}
+
+function getNextMonthDays(year, month, totalDays) {
+    const nextMonth = month + 1 > 12 ? 1 : month + 1;
+    const nextYear = month + 1 > 12 ? year + 1 : year;
+    const nextMonthDays = [];
+
+    for (let i = 1; i <= (42 - totalDays); i++) {
+        nextMonthDays.push({
+            date: i,
+            day: daysInWeek[(getFirstDayOfMonth(year, month) + getDaysInMonth(year, month) + i - 1) % 7],
+            month: nextMonth,
+            year: nextYear
+        });
+    }
+
+    return nextMonthDays;
+}
+
+function getMonthlyCalendar(year, month) {
+    validateInput(year, month);
+    const previousMonthDays = getPreviousMonthDays(year, month);
+    const currentMonthDays = getCurrentMonthDays(year, month);
+    const totalDays = previousMonthDays.length + currentMonthDays.length;
+    const nextMonthDays = getNextMonthDays(year, month, totalDays);
+
+    return [...previousMonthDays, ...currentMonthDays, ...nextMonthDays];
+}
+
+module.exports = {
+    getMonthlyCalendar
+};
