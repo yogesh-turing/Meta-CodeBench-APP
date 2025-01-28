@@ -4,7 +4,7 @@ TEST SUMMARY
 307580:
 base       : 20/20 tests passed [PASSED]
 correct    : 20/20 tests passed [PASSED]
-incorrect  : 13/20 tests passed [FAILED]
+incorrect  : 15/20 tests passed [FAILED]
 model_a    : 18/20 tests passed [FAILED]
 model_b    : 20/20 tests passed [PASSED]
 model_c    : 15/20 tests passed [FAILED]

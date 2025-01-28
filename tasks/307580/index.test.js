@@ -1,4 +1,4 @@
-const { validateOrder } = require('./incorrect');
+const { validateOrder } = require(process.env.TARGET_FILE);
 
 const ERRORS = {
     INVALID_ORDER_ID: 'Invalid order Id',
