@@ -1,157 +1,178 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+const { validateData } = require(process.env.TARGET_FILE);
 
-describe('getNextRecurrences', () => {
-
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
+describe('validateData', () => {
+    it('should validate a correct email without plus addressing', async () => {
+        const data = { email: 'test@example.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('success');
+        expect(result.data).toEqual(data);
     });
 
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    it('should fail validation for email with plus addressing', async () => {
+        const data = { email: 'test+alias@example.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
+    it('should fail validation for invalid email format', async () => {
+        const data = { email: 'invalid-email' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
+    it('should validate a correct email with allowed domain', async () => {
+        const data = { email: 'test@allowed.com' };
+        const allowedDomains = ['allowed.com'];
+        const result = await validateData(data, allowedDomains);
+        expect(result.status).toBe('success');
+        expect(result.data).toEqual(data);
     });
 
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
+    it('should fail validation for email with disallowed domain', async () => {
+        const data = { email: 'test@disallowed.com' };
+        const allowedDomains = ['allowed.com'];
+        const result = await validateData(data, allowedDomains);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
+    it('should fail validation for email with allowed domain is empty', async () => {
+        const data = { email: 'test@allowed.com' };
+        const allowedDomains = [];
+        const result = await validateData(data, allowedDomains);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
+    it('should fail validation if allowedDomains array contains non-string values', async () => {
+        const data = { email: 'test@allowed.com' };
+        const allowedDomains = ['allowed.com', 123];
+        const result = await validateData(data, allowedDomains);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    it('should validate a correct email without domain restrictions', async () => {
+        const data = { email: 'test@anydomain.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('success');
+        expect(result.data).toEqual(data);
     });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+    it('should fail validation for missing email field', async () => {
+        const data = {};
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+    it('should fail validation for empty email field', async () => {
+        const data = { email: '' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+    it('should fail validation for email with invalid domain', async () => {
+        const data = { email: 'test@invalid_domain.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+    it('should fail validation for invalid allowedDomains parameter', async () => {
+        const data = { email: 'test@invalid_domain.com' };
+        const allowedDomains = 'invalid';
+        const result = await validateData(data, allowedDomains);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+    it('should fail validation for email with length more than 256', async () => {
+        const data = { email: 'a'.repeat(257) + '@example.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+    it('should fail validation for email with consecutive dots', async () => {
+        const data = { email: 'test..t@example.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+    it('should fail validation for email with invalid TLD', async () => {
+        const data = { email: 'test@test.test' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
     });
+
+    it('should fail validation for email with special characters', async () => {
+        const data = { email: 'test@ex!ample.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+    });
+
+    it('should validate a correct email with subdomain', async () => {
+        const data = { email: 'test@mail.example.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('success');
+        expect(result.data).toEqual(data);
+    });
+
+    it('should fail validation for email with spaces', async () => {
+        const data = { email: 'test @example.com' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+    });
+
+
+    // credit card tests
+    it('should validate a correct credit card', async () => {
+        const data = { email: 'test@example.com', creditCard: '1234-5678-1234-5678' };
+        const result = await validateData(data);
+        expect(result.status).toBe('success');
+        expect(result.data).toEqual(data);
+    });
+
+    it('should fail validation for invalid credit card format', async () => {
+        const data = { email: 'test@example.com', creditCard: '1234-5678-1234' };
+        const result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+    });
+
+    it('should fail validation for invalid credit card format', async () => {
+        let data = { email: 'test@example.com', creditCard: '1234-5678-1234' };
+        let result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+
+        data = { email: 'test@example.com', creditCard: '1234-5678-1234-5678-1234' };
+        result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+
+        data = { email: 'test@example.com', creditCard: '1234-5678-1234-5678-1234-5678' };
+        result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+
+        data = { email: 'test@example.com', creditCard: '' };
+        result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+
+        data = { email: 'test@example.com', creditCard: 'abcd-pqrs-abcd' };
+        result = await validateData(data);
+        expect(result.status).toBe('failed');
+        expect(result.message.length).toBeGreaterThan(0);
+    });
+
 });

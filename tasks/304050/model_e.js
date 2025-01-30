@@ -1,53 +1,63 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-  
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
+const yup = require('yup');
+
+const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
+
+const isValidDomain = (domain) => {
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) return false;
+    return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
+};
+
+const createSchema = (allowedDomains = null) => {
+    // Validate allowedDomains parameter
+    if (allowedDomains !== null) {
+        if (!Array.isArray(allowedDomains) || 
+            !allowedDomains.every((domain) => typeof domain === "string") || 
+            allowedDomains.length === 0) {
+            throw new Error("Invalid allowedDomains parameter");
         }
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+
+    return yup.object().shape({
+        email: yup
+            .string()
+            .required()
+            .max(254, "Email length must be less than 255 characters")
+            .test('no-plus-addressing', 'Plus addressing is not allowed', 
+                value => !value.includes('+'))
+            .test('no-consecutive-dots', 'Email cannot contain consecutive dots', 
+                value => !value.includes('..'))
+            .test('valid-domain-format', 'Invalid email domain format', 
+                value => {
+                    const domain = value.split('@')[1];
+                    return isValidDomain(domain);
+                })
+            .test('valid-tld', 'Email must have a valid top-level domain', 
+                value => {
+                    const domain = value.split('@')[1];
+                    const tld = domain.split('.').pop();
+                    return validTlds.has(tld);
+                })
+            .test('allowed-domains', `Email domain must be one of: ${allowedDomains?.join(", ")}`,
+                value => {
+                    if (!allowedDomains) return true;
+                    const domain = value.split('@')[1];
+                    return allowedDomains.includes(domain);
+                }),
+        creditCard: yup
+            .string()
+            .nullable()
+            .matches(/^\d{4}-\d{4}-\d{4}-\d{4}$/, 'Invalid creditCard format')
+    });
+};
+
+const validateData = async (data, allowedDomains = null) => {
+    try {
+        const schema = createSchema(allowedDomains);
+        const validatedData = await schema.validate(data);
+        return { status: "success", data: validatedData };
+    } catch (error) {
+        return { status: "failed", message: error.message };
+    }
+};
+
+module.exports = { validateData };

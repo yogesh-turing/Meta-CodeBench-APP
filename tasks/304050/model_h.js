@@ -1,57 +1,48 @@
-/**
- * Returns an array of next recurrences based on the provided start date and frequency.
- * 
- * @param {Date} startDate The start date for calculating recurrences.
- * @param {number} frequency The frequency of recurrences in days.
- * @param {number} count The number of recurrences to generate.
- * @param {boolean} [onlyWeekDays=false] If true, only include weekdays (Monday to Friday) in the recurrences.
- * @returns {Date[]} An array of dates representing the next recurrences.
- * @throws {Error} If startDate is not a valid date, or if frequency or count is negative.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors accordingly
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
+const yup = require('yup');
+
+const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
+
+const emailSchema = yup.string()
+    .email()
+    .test('plus addressing', 'Plus addressing is not allowed', (value) => !value.includes('+'))
+    .test('consecutive dots', 'Email cannot contain consecutive dots', (value) => !value.includes('..'))
+    .test('length', 'Email length must be less than 255 characters', (value) => value.length < 255)
+    .test('domain', 'Invalid email domain format', (value) => {
+        const domain = value.split('@')[1];
+        return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
+    })
+    .test('tld', 'Email must have a valid top-level domain', (value) => {
+        const domain = value.split('@')[1];
+        const tld = domain.split('.').pop();
+        return validTlds.has(tld);
+    });
+
+const creditCardSchema = yup.string().matches(/^\d{4}-\d{4}-\d{4}-\d{4}$/, 'Invalid creditCard format');
+
+const validateData = async (data, allowedDomains) => {
+    if (allowedDomains && (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string") || allowedDomains.length === 0)) {
+        return { status: "failed", message: "Invalid allowedDomains parameter" };
     }
-    if (frequency < 0) {
-        throw new Error('Frequency cannot be negative');
-    }
-    if (count < 0) {
-        throw new Error('Count cannot be negative');
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-        // If onlyWeekDays is true, skip weekends
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // Adjust the current date to the next weekday
-            currentDate.setDate(currentDate.getDate() + (currentDate.getDay() === 0 ? 1 : 2));
+
+    try {
+        const schema = yup.object({
+            email: emailSchema,
+            creditCard: creditCardSchema,
+        });
+
+        await schema.validate(data);
+
+        if (allowedDomains?.length) {
+            const domain = data.email.split('@')[1];
+            if (!allowedDomains.includes(domain)) {
+                return { status: "failed", message: `Email domain must be one of: ${allowedDomains.join(', ')}` };
+            }
         }
-  
-        recurrences.push(new Date(currentDate));
-  
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+
+        return { status: "success", data };
+    } catch (error) {
+        return { status: "failed", message: error.message };
     }
-  
-    return recurrences;
-  }
-  
-  // // Example usage:
-  // const startDate = new Date('2024-03-04'); // Monday
-  // const frequency = 3; // Every 3 days
-  // const count = 5;
-  
-  // // Get recurrences without considering weekdays
-  // const recurrences = getNextRecurrences(startDate, frequency, count);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-10, 2024-03-13, 2024-03-16]
-  
-  // // Get recurrences considering only weekdays
-  // const weekdayRecurrences = getNextRecurrences(startDate, frequency, count, true);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-11, 2024-03-14, 2024-03-18]
-  
-  module.exports = {
-    getNextRecurrences
-  };
+};
+
+module.exports = { validateData };

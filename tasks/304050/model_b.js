@@ -1,53 +1,75 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
+const yup = require('yup');
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
 
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
+const isValidEmailFormat = (email) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
 
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
+const isValidDomain = (domain) => {
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) return false;
+    return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
+};
 
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+const validateEmail = (email) => {
+    if (!isValidEmailFormat(email)) return "Invalid email format";
+    if (email.includes("+")) return "Plus addressing is not allowed";
+    if (email.includes("..")) return "Email cannot contain consecutive dots";
+    if (email.length > 254) return "Email length must be less than 255 characters";
+    const domain = email.split("@")[1];
+    if (!isValidDomain(domain)) return "Invalid email domain format";
+    const tld = domain.split(".").pop();
+    if (!validTlds.has(tld)) return "Email must have a valid top-level domain";
+    return null;
+};
+
+const validateData = (data, allowedDomains = null) => {
+    // Validate allowedDomains parameter
+    if (allowedDomains !== null) {
+        const allowedDomainsSchema = yup.array().of(yup.string()).min(1).required();
+        try {
+            allowedDomainsSchema.validateSync(allowedDomains);
+        } catch (error) {
+            return { status: "failed", message: "Invalid allowedDomains parameter" };
         }
+    }
 
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
+    // Create dynamic schema based on allowedDomains
+    const emailSchema = yup.string()
+        .required()
+        .test('custom-email-validation', 'Invalid email', function(value) {
+            const error = validateEmail(value);
+            if (error) {
+                return this.createError({ message: error });
+            }
+            return true;
+        })
+        .test('allowed-domains', 'Invalid domain', function(value) {
+            if (allowedDomains?.length) {
+                const domain = value.split('@')[1];
+                if (!allowedDomains.includes(domain)) {
+                    return this.createError({
+                        message: `Email domain must be one of: ${allowedDomains.join(", ")}`
+                    });
                 }
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
+            return true;
+        });
+
+    const schema = yup.object().shape({
+        email: emailSchema,
+        creditCard: yup.string()
+            .matches(/^\d{4}-\d{4}-\d{4}-\d{4}$/, 'Invalid creditCard format')
+            .nullable()
+    });
+
+    try {
+        const validatedData = schema.validateSync(data, { abortEarly: false });
+        return { status: "success", data: validatedData };
+    } catch (error) {
+        return {
+            status: "failed",
+            message: error.errors[0] // Return first error message
+        };
     }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
 };
+
+module.exports = { validateData };

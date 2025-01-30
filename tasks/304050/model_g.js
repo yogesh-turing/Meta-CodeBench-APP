@@ -1,38 +1,52 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-      throw new Error("startDate cannot be null or undefined");
-    }
-  
-    if (frequency < 0) {
-      throw new Error("frequency cannot be negative");
-    }
-  
-    if (count < 0) {
-      throw new Error("count cannot be negative");
-    }
-  
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-      throw new Error("startDate must be a valid Date object");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    for (let i = 0; i < count; i++) {
-      if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-        // Skip weekends
-        currentDate.setDate(currentDate.getDate() + 1);
-        i--; // Decrement the counter to ensure we get the correct number of recurrences
-        continue;
-      }
-  
-      recurrences.push(new Date(currentDate));
-      currentDate.setDate(currentDate.getDate() + frequency);
-    }
-  
-    return recurrences;
-  }
+const yup = require('yup');
 
-  module.exports = {
-    getNextRecurrences
+const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
+const validEmailFormat = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const validDomainFormat = /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+const validCreditCardFormat = /^\d{4}-\d{4}-\d{4}-\d{4}$/;
+
+const emailSchema = yup.string()
+    .required()
+    .matches(validEmailFormat, 'Invalid email format')
+    .test('plus addressing', 'Plus addressing is not allowed', (email) => !email.includes("+"))
+    .test('consecutive dots', 'Email cannot contain consecutive dots', (email) => !email.includes(".."))
+    .test('length', 'Email length must be less than 255 characters', (email) => email.length < 255)
+    .test('domain', 'Invalid email domain format', (email) => {
+        const domain = email.split("@")[1];
+        return validDomainFormat.test(domain);
+    })
+    .test('tld', 'Email must have a valid top-level domain', (email) => {
+        const tld = email.split('.').pop();
+        return validTlds.has(tld);
+    });
+
+const creditCardSchema = yup.string()
+    .required()
+    .matches(validCreditCardFormat, 'Invalid creditCard format');
+
+const validateData = async (data, allowedDomains = null) => {
+    if (allowedDomains && (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string") || allowedDomains.length === 0)) {
+        return { status: "failed", message: "Invalid allowedDomains parameter" };
+    }
+
+    const schema = yup.object().shape({
+        email: emailSchema,
+        creditCard: creditCardSchema,
+    });
+
+    if (allowedDomains?.length) {
+        schema.fields.email.test('allowedDomains', `Email domain must be one of: ${allowedDomains.join(", ")}`, (email) => {
+            const domain = email.split("@")[1];
+            return allowedDomains.includes(domain);
+        });
+    }
+
+    try {
+        await schema.validate(data);
+        return { status: "success", data };
+    } catch (error) {
+        return { status: "failed", message: error.message };
+    }
 };
+
+module.exports = { validateData };

@@ -1,51 +1,49 @@
-/**
- * Calculates the next recurrences based on the given start date, frequency, and count.
- * 
- * @param {Date} startDate The start date from which to calculate recurrences.
- * @param {number} frequency The interval in days between each recurrence.
- * @param {number} count The number of recurrences to calculate.
- * @param {boolean} [onlyWeekDays=false] If true, only consider weekdays (Monday to Friday).
- * @returns {Date[]} An array of dates representing the next recurrences.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined.");
-    }
-    if (!(startDate instanceof Date)) {
-        throw new Error("startDate must be a valid Date object.");
-    }
-    if (isNaN(startDate.getTime())) {
-        throw new Error("startDate is an invalid date.");
-    }
-    if (frequency <= 0) {
-        throw new Error("frequency must be a positive number.");
-    }
-    if (count <= 0) {
-        throw new Error("count must be a positive number.");
-    }
+const yup = require("yup");
+const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+// Define a custom validation function for email
+const isValidEmail = (email) => {
+    if (!/^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email)) return false;
+    if (email.includes("+")) return false;
+    if (email.includes("..")) return false;
+    if (email.length > 254) return false;
+    const domain = email.split("@")[1];
+    if (!/^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain)) return false;
+    const tld = domain.split(".").pop();
+    if (!validTlds.has(tld)) return false;
+    return true;
+};
 
-    while (recurrences.length < count) {
-        // If onlyWeekDays is true, check if the current date is a weekday
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // If it's a weekend, skip to the next day
-            currentDate.setDate(currentDate.getDate() + 1);
-            continue;
+// Define a custom validation function for domain
+const isValidDomain = (domain) => {
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) return false;
+    return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
+};
+
+// Create a yup schema for the data object
+const dataSchema = yup.object().shape({
+    email: yup.string().required().test("email", "Invalid email", isValidEmail),
+    creditCard: yup.string().required().matches(/^\d{4}-\d{4}-\d{4}-\d{4}$/),
+});
+
+// Refactored validateData function using yup schema
+const validateData = async (data, allowedDomains = null) => {
+    try {
+        // Validate the data object using the yup schema
+        const validatedData = await dataSchema.validate(data, { abortEarly: false });
+
+        // Additional validation for allowed domains
+        if (allowedDomains?.length) {
+            const domain = validatedData.email.split("@")[1];
+            if (!allowedDomains.includes(domain)) {
+                return { status: "failed", message: `Email domain must be one of: ${allowedDomains.join(", ")}` };
+            }
         }
 
-        // Add the current date to the recurrences array
-        recurrences.push(new Date(currentDate));
-
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+        return { status: "success", data: validatedData };
+    } catch (error) {
+        return { status: "failed", message: error.message };
     }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
 };
+
+module.exports = { validateData };

@@ -1,40 +1,34 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
+const yup = require("yup");
+const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
+
+const emailSchema = yup.string().required().email().test("plus addressing", "Plus addressing is not allowed", (value) => !value.includes("+"))
+    .test("consecutive dots", "Email cannot contain consecutive dots", (value) => !value.includes(".."))
+    .test("length", "Email length must be less than 255 characters", (value) => value.length <= 254)
+    .test("domain", "Invalid email domain format", (value) => /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value.split("@")[1]))
+    .test("tld", "Email must have a valid top-level domain", (value) => validTlds.has(value.split(".").pop()));
+
+const creditCardSchema = yup.string().required().test("format", "Invalid creditCard format", (value) => /^\d{4}-\d{4}-\d{4}-\d{4}$/.test(value));
+
+const validateData = async (data, allowedDomains = null) => {
+    if (allowedDomains && (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string") || allowedDomains.length === 0)) {
+        return { status: "failed", message: "Invalid allowedDomains parameter" };
     }
 
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
-    }
+    try {
+        await emailSchema.validate(data.email);
+        await creditCardSchema.validate(data.creditCard);
 
-    if (count < 0) {
-        throw new Error("count cannot be negative");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
+        if (allowedDomains?.length) {
+            const domain = data.email.split("@")[1];
+            if (!allowedDomains.includes(domain)) {
+                return { status: "failed", message: `Email domain must be one of: ${allowedDomains.join(", ")}` };
             }
         }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
+    } catch (error) {
+        return { status: "failed", message: error.message };
     }
 
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
+    return { status: "success", data };
 };
+
+module.exports = { validateData };
