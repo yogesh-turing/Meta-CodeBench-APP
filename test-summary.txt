@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+402583:
+base       : 8/15 tests passed [FAILED]
+correct    : 15/15 tests passed [PASSED]
+incorrect  : 14/15 tests passed [FAILED]
+model_a    : 13/15 tests passed [FAILED]
+model_b    : 15/15 tests passed [PASSED]
+model_c    : 14/15 tests passed [FAILED]
+model_d    : 15/15 tests passed [PASSED]
+model_e    : 15/15 tests passed [PASSED]
+model_f    : 15/15 tests passed [PASSED]
+model_g    : 14/15 tests passed [FAILED]
+model_h    : 13/15 tests passed [FAILED]
+model_i    : 14/15 tests passed [FAILED]
+model_j    : 13/15 tests passed [FAILED]
+
