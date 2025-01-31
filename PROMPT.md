@@ -1,10 +1,17 @@
 Base Code:
 ```javascript
 const fs = require('fs');
+const moment = require('moment');
 const path = require('path');
 
-function csvToJson(filePath) {
+function csvToJson(filePath, config) {
+    
     return new Promise((resolve, reject) => {
+
+        if (!config || typeof config !== 'object') {
+            throw new Error('Invalid configuration');
+        }
+
         if (!filePath || typeof filePath !== 'string') {
             reject(new Error('Invalid file path'));
             return;
@@ -29,6 +36,16 @@ function csvToJson(filePath) {
             }
 
             const headers = lines[0].split(',');
+            if (headers.length === 0) {
+                reject(new Error('Invalid CSV format'));
+                return;
+            }
+
+            if (headers.length !== Object.keys(config).length) {
+                reject(new Error('Invalid configuration'));
+                return;
+            }
+
             const result = [];
             for (let i = 1; i < lines.length; i++) {
                 let obj = {};
@@ -43,10 +60,20 @@ function csvToJson(filePath) {
                     let value = values[j].trim();
 
                     // Convert numbers properly
-                    if (!isNaN(value) && value !== '') {
+                    if (config[key].type === 'integer') {
                         value = Number(value);
-                    } else if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
+                    } else if (config[key].type === 'decimal') {
+                        value = parseFloat(value);
+                    } else if (config[key].type === 'boolean') {
                         value = value.toLowerCase() === 'true';
+                    } else if (config[key].type === 'string') {
+                        value = value.toString();
+                    } else if (config[key].type === 'date') {
+                        value = moment(value).format(config[key].format || 'YYYY-MM-DD');
+                    } else if (config[key].type === 'datetime') {
+                        value = moment(value).format(config[key].format || 'YYYY-MM-DD HH:mm:ss');
+                    } else if (config[key].type === 'currency') {
+                        value = `${config[key].format || 'USD'} ${parseFloat(value).toFixed(2)}`;
                     }
 
                     obj[key] = value;
@@ -65,15 +92,20 @@ module.exports = {
 ```
 Prompt:
 
-Refactor the `csvToJson` function, to improve readability, maintainability, and performance while ensuring that all functionality remains intact. The function must:
-1. Efficiently parse a CSV file into JSON format
-2. Handle various data types dynamically
-3. Remove redundant logic and unnecessary loops
-4. Improve error handling and logging
-5. Ensure testability with Jest
+The `csvToJson` function reads the given csv file, validates the file then creates JSON with the help of config object.
+Please help to refactor the `csvToJson` function, to improve readability, maintainability, and performance while ensuring that all functionality remains intact. The function must:
+1. Efficiently parse a CSV file into JSON format.
+2. Handle various data types dynamically.
+3. Remove redundant logic and unnecessary loops.
+4. Improve error handling and logging.
+5. Ensure testability with Jest.
 
 For refactoring the function consider the following:
-1. Use streaming for efficient large file processing
-2. Identify and remove duplicate code
-3. Use async/await instead of callbacks
-4. Improve data type detection
+1. Validate the inputs early and clearly.
+2. Use async/await instead of callbacks/promises.
+3. Remove `fs.existsSync` as it is not recommended for asynchronous workflows, instead, handle file read errors properly.
+4. Create helper functions:
+    - `parseCSV` function for CSV parsing logic
+    - `transformRow` function for data transformation logic
+5. Remove moment.js: Use `Date` and `Intl.DateTimeFormat` instead of `moment.js`, which is considered outdated for simple date formatting.
+

@@ -67,17 +67,11 @@ function csvToJson(filePath, config) {
                     } else if (config[key].type === 'string') {
                         value = value.toString();
                     } else if (config[key].type === 'date') {
-                        config[key].format = config[key].format || 'YYYY-MM-DD';
-                        value = moment(value, config[key].format).toDate();
+                        value = moment(value).format(config[key].format || 'YYYY-MM-DD');
                     } else if (config[key].type === 'datetime') {
-                        config[key].format = config[key].format || 'YYYY-MM-DD HH:mm:ss';
-                        value = moment(value, config[key].format).toDate();
-                    } else if (config[key].type === 'time') {
-                        config[key].format = config[key].format || 'HH:mm:ss';
-                        value = moment(value, config[key].format).toDate();
+                        value = moment(value).format(config[key].format || 'YYYY-MM-DD HH:mm:ss');
                     } else if (config[key].type === 'currency') {
-                        config[key].format = config[key].format || 'USD';
-                        value = `${config[key].format} ${parseFloat(value).toFixed(2)}`;
+                        value = `${config[key].format || 'USD'} ${parseFloat(value).toFixed(2)}`;
                     }
 
                     obj[key] = value;
