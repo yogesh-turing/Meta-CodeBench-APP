@@ -22,7 +22,7 @@ async function analyzeLogs(filePath) {
     // Parse log lines into structured objects
     const logs = lines
         .map(line => {
-            const match = line.match(/$(.+)$ "GET (.+)" (\d+) (\d+)ms/);
+            const match = line.match(/\[(.+)\] "GET (.+)" (\d+) (\d+)ms/);
             if (!match) return null;
             const [_, timestamp, path, status, responseTime] = match;
             return {
