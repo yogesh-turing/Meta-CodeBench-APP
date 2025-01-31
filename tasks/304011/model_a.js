@@ -1,53 +1,56 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0 || !Number.isInteger(count)) {
-        throw new Error("Count must be a positive integer");
-    }
+const fs = require('fs');
+const path = require('path');
+const { createReadStream } = require('fs');
+const { join } = require('path');
+const { EOL } = require('os');
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+/**
+ * Converts a CSV file to JSON format
+ * @param {string} filePath - Path to the CSV file
+ * @returns {Promise<object[]>} - A promise resolving to an array of objects
+ */
+async function csvToJson(filePath) {
+  if (!filePath || typeof filePath !== 'string') {
+    throw new Error('Invalid file path');
+  }
 
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
+  const fullPath = path.resolve(filePath);
+  if (!fs.existsSync(fullPath)) {
+    throw new Error('File does not exist');
+  }
 
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
+  const readStream = createReadStream(fullPath, 'utf8');
+  const headers = [];
+  const result = [];
 
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+  for await (const chunk of readStream) {
+    const lines = chunk.split(EOL);
+    for (const line of lines) {
+      if (headers.length === 0) {
+        headers = line.split(',').map(header => header.trim());
+      } else {
+        const values = line.split(',');
+        if (values.length !== headers.length) {
+          continue; // Skip malformed rows
         }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
+        const obj = {};
+        for (let i = 0; i < headers.length; i++) {
+          let value = values[i].trim();
+          if (!isNaN(value) && value !== '') {
+            value = Number(value);
+          } else if (value.toLowerCase() === 'true' || value.toLowerCase() === 'false') {
+            value = value.toLowerCase() === 'true';
+          }
+          obj[headers[i]] = value;
         }
+        result.push(obj);
+      }
     }
+  }
 
-    return recurrences;
+  return result;
 }
 
 module.exports = {
-    getNextRecurrences
+  csvToJson
 };
