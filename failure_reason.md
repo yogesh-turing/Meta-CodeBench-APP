@@ -1,3 +1,91 @@
+
+The model failed to check the cyclic dependency correctly. It should be checked in dfs function by keeping the track of visiting tasks. 
+
+The model checked for cyclic dependency outside dfs function using taskDependencies map, the `taskDependencies` map always has the dependencies so line number 81
+
+`if (taskDependencies.get(task).length > 0) {` returns true when there is any task which has dependency. So it incorrectly returns an 'Cyclic dependencies detected' error.
+
+
+The model failed to return scheduled tasks with dependencies in the correct order.
+
+The `scheduleTasksWithDependencies` function creates a list `noIncoming` of tasks with no dependencies. However, instead of holding tasks that have no dependencies, it incorrectly includes tasks that have dependencies.
+
+The function then iterates over the `noIncoming` a while loop.
+Inside the while loop, it attempts to process all tasks that depend on the current task. However, since the current task does not block other tasks, the `noIncoming` list does not get updated. As a result, the function processes only tasks that do not block others.
+
+Then, at line 105, the code checks whether `scheduledTasks.length !== this.tasks.length`, which returns `true` because the `scheduledTasks` array contains only non-blocking tasks.
+
+
+
+
+----
+The model failed to return scheduled tasks with dependencies in the correct order.
+
+The `scheduleTasksWithDependencies` function creates priority `noIncomingEdges` queues for each priority level that holds the tasks with no dependencies. However, instead of holding tasks that have no dependencies, it incorrectly includes tasks that have dependencies.
+------
+
+
+
+The model failed to return scheduled tasks with dependencies in the correct order.
+
+The `scheduleTasksWithDependencies` function creates a priority queue that should contain a list of tasks without dependencies. However, instead of holding tasks that have no dependencies, it incorrectly includes tasks that have dependencies.
+
+Since the `queue` contains an incorrect list of tasks, the subsequent code does not function as expected.
+
+The function then iterates over these tasks in a while loop.
+
+Inside the while loop, it attempts to retrieve the list of tasks that depend on the current tasks. However, because the current task does not block other tasks, the `noIncomingEdges` map does not get updated. As a result, the function processes only tasks that do not block others.
+
+Finally, at line 124, the code checks whether `scheduledTasks.length !== this.tasks.length`, which evaluates to `true` because the `scheduledTasks` array contains only non-blocking tasks.
+
+
+
+
+
+---------
+The model failed to return scheduled tasks with dependencies in the correct order.
+
+The `scheduleTasksWithDependencies` function creates priority `noIncomingEdges` queues for each priority level that holds the tasks with no dependencies. However, instead of holding tasks that have no dependencies, it incorrectly includes tasks that have dependencies.
+
+Since the `queue` contains an incorrect list of tasks, the subsequent code does not function as expected.
+
+The function then iterates over these tasks in a while loop.
+
+Inside the while loop, it attempts to retrieve the list of tasks that depend on the current tasks. However, because the current task does not block other tasks, the `noIncomingEdges` map does not get updated. As a result, the function processes only tasks that do not block others.
+
+Finally, at line 124, the code checks whether `scheduledTasks.length !== this.tasks.length`, which evaluates to `true` because the `scheduledTasks` array contains only non-blocking tasks.
+
+
+
+-----
+The model failed to return scheduled tasks with dependencies in the correct order.
+
+The `scheduleTasksWithDependencies` function creates a queue `noIncoming` of tasks with no dependencies.
+
+The function then iterates over the `noIncoming` a while loop.
+Inside the while loop, it attempts to process all tasks that depend on the current task. However, since the current task does not block other tasks, the `noIncoming` list does not get updated. As a result, the function processes only tasks that do not block others.
+
+Then, at line 107, the code checks whether `scheduledTasks.length !== this.tasks.length`, which returns `true` because the `scheduledTasks` array contains only non-blocking tasks.
+
+
+
+
+correct order.
+
+The output `scheduledTasks` is derived from `queue` (the priority queue created at line number 67), which always has tasks without dependencies.
+
+Later in the code at line number 105, it checks the `scheduledTasks` length with `this.tasks` it does not match and throws a `Cyclic dependency detected` error.
+
+Hence it returned an incorrect response for the test case.
+
+
+
+
+
+
+
+
+
 The incorrect solution contains several issues:
 
 - The dfs function is not implemented correctly. It fails to detect cyclic dependencies because it only checks if a task has been visited once. To properly detect cycles, it needs to differentiate between tasks that are currently being visited (part of the current DFS path) and tasks that have been fully processed.
