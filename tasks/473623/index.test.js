@@ -7,6 +7,11 @@ describe('filterAndTransformRequests', () => {
         expect(() => filterAndTransformRequests([1, 2, 3])).toThrow(Error);
     });
 
+    test('should return an empty array if there are no requests', () => {
+        const result = filterAndTransformRequests([]);
+        expect(result).toHaveLength(0);
+    });
+
     test('should filter and transform requests correctly', () => {
         const requests = [
             {
