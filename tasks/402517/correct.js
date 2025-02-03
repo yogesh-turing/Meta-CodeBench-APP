@@ -20,27 +20,27 @@ function getDaysInMonth(year, month) {
 
 function getPreviousMonthDays(firstDayOfMonth, lastDayOfPreviousMonth) {
     const previousMonthDays = [];
-    for (let i = firstDayOfMonth.getDay() - 1; i >= 0; i--) {
+    Array.from({ length: firstDayOfMonth.getDay() }, (_, i) => i).reverse().forEach(i => {
         previousMonthDays.push({
             date: lastDayOfPreviousMonth.getDate() - i,
             day: daysInWeek[(firstDayOfMonth.getDay() - i - 1 + 7) % 7],
             month: lastDayOfPreviousMonth.getMonth() + 1,
             year: lastDayOfPreviousMonth.getFullYear()
         });
-    }
+    });
     return previousMonthDays;
 }
 
 function getCurrentMonthDays(year, month) {
     const currentMonthDays = [];
-    for (let day = 1; day <= getDaysInMonth(year, month); day++) {
+    Array.from({ length: getDaysInMonth(year, month) }, (_, i) => i + 1).forEach(day => {
         currentMonthDays.push({
             date: day,
             day: daysInWeek[new Date(year, month - 1, day).getDay()],
             month: month,
             year: year
         });
-    }
+    });
     return currentMonthDays;
 }
 
@@ -48,14 +48,14 @@ function getNextMonthDays(firstDayOfMonth, currentMonthDays) {
     const nextMonthDays = [];
     const nextMonthYear = firstDayOfMonth.getMonth() + 1 > 11 ? firstDayOfMonth.getFullYear() + 1 : firstDayOfMonth.getFullYear();
     const nextMonth = firstDayOfMonth.getMonth() + 1 > 11 ? 1 : firstDayOfMonth.getMonth() + 2;
-    for (let i = 1; i <= 42 - currentMonthDays.length - firstDayOfMonth.getDay(); i++) {
+    Array.from({ length: 42 - currentMonthDays.length - firstDayOfMonth.getDay() }, (_, i) => i + 1).forEach(i => {
         nextMonthDays.push({
             date: i,
             day: daysInWeek[(firstDayOfMonth.getDay() + currentMonthDays.length + i - 1) % 7],
             month: nextMonth,
             year: nextMonthYear
         });
-    }
+    });
     return nextMonthDays;
 }
 
