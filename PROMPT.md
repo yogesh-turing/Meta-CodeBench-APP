@@ -1,111 +1,57 @@
 Base Code:
 ```javascript
-const fs = require('fs');
-const moment = require('moment');
-const path = require('path');
+function convertCsvToJson(csvString) {
+    const rows = csvString.split('\n');
+    const headers = rows[0].split(',');
+    let jsonData = [];
 
-function csvToJson(filePath, config) {
-    
-    return new Promise((resolve, reject) => {
+    for (let i = 1; i < rows.length; i++) {
+        if (!rows[i].trim()) continue;
+        const values = rows[i].split(',');
+        let jsonObject = {};
 
-        if (!config || typeof config !== 'object') {
-            throw new Error('Invalid configuration');
-        }
+        for (let j = 0; j < headers.length; j++) {
+            let key = headers[j].trim();
+            let value = values[j] ? values[j].trim() : '';
 
-        if (!filePath || typeof filePath !== 'string') {
-            reject(new Error('Invalid file path'));
-            return;
-        }
-
-        const fullPath = path.resolve(filePath);
-        if (!fs.existsSync(fullPath)) {
-            reject(new Error('File does not exist'));
-            return;
-        }
-
-        fs.readFile(fullPath, 'utf8', (err, data) => {
-            if (err) {
-                reject(err);
-                return;
-            }
-
-            const lines = data.split('\n');
-            if (lines.length < 2) {
-                reject(new Error('Invalid CSV format'));
-                return;
-            }
-
-            const headers = lines[0].split(',');
-            if (headers.length === 0) {
-                reject(new Error('Invalid CSV format'));
-                return;
-            }
-
-            if (headers.length !== Object.keys(config).length) {
-                reject(new Error('Invalid configuration'));
-                return;
-            }
-
-            const result = [];
-            for (let i = 1; i < lines.length; i++) {
-                let obj = {};
-                let values = lines[i].split(',');
-
-                if (values.length !== headers.length) {
-                    continue; // Skip malformed rows
+            if (key === "amount") {
+                value = parseFloat(value) || 0;
+            } else if (key === "date") {
+                let parts = value.split('/');
+                if (parts.length === 3) {
+                    value = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
                 }
-
-                for (let j = 0; j < headers.length; j++) {
-                    let key = headers[j].trim();
-                    let value = values[j].trim();
-
-                    // Convert numbers properly
-                    if (config[key].type === 'integer') {
-                        value = Number(value);
-                    } else if (config[key].type === 'decimal') {
-                        value = parseFloat(value);
-                    } else if (config[key].type === 'boolean') {
-                        value = value.toLowerCase() === 'true';
-                    } else if (config[key].type === 'string') {
-                        value = value.toString();
-                    } else if (config[key].type === 'date') {
-                        value = moment(value).format(config[key].format || 'YYYY-MM-DD');
-                    } else if (config[key].type === 'datetime') {
-                        value = moment(value).format(config[key].format || 'YYYY-MM-DD HH:mm:ss');
-                    } else if (config[key].type === 'currency') {
-                        value = `${config[key].format || 'USD'} ${parseFloat(value).toFixed(2)}`;
-                    }
-
-                    obj[key] = value;
+            } else if (key === "category") {
+                if (value === "1") {
+                    value = "Food";
+                } else if (value === "2") {
+                    value = "Transport";
+                } else if (value === "3") {
+                    value = "Entertainment";
+                } else {
+                    value = "Other";
                 }
-                result.push(obj);
             }
 
-            resolve(result);
-        });
-    });
+            jsonObject[key] = value;
+        }
+
+        jsonData.push(jsonObject);
+    }
+    return jsonData;
 }
 
 module.exports = {
-    csvToJson
+    convertCsvToJson
 };
+
 ```
 Prompt:
 
-The `csvToJson` function reads the given csv file, validates the file then creates JSON with the help of config object.
-Please help to refactor the `csvToJson` function, to improve readability, maintainability, and performance while ensuring that all functionality remains intact. The function must:
-1. Efficiently parse a CSV file into JSON format.
-2. Handle various data types dynamically.
-3. Remove redundant logic and unnecessary loops.
-4. Improve error handling and logging.
-5. Ensure testability with Jest.
-
-For refactoring the function consider the following:
-1. Validate the inputs early and clearly.
-2. Use async/await instead of callbacks/promises.
-3. Remove `fs.existsSync` as it is not recommended for asynchronous workflows, instead, handle file read errors properly.
-4. Create helper functions:
-    - `parseCSV` function for CSV parsing logic
-    - `transformRow` function for data transformation logic
-5. Remove moment.js: Use `Date` and `Intl.DateTimeFormat` instead of `moment.js`, which is considered outdated for simple date formatting.
-
+The `convertCsvToJson` function parses CSV data into JSON format. It applies custom transformations for specific fields (e.g., date formatting, numeric conversion, and category mapping) and returnsa  JSON array.
+Please help to refactor this function to improve its readability, maintainability, and efficiency. The function should produce the same output.
+Consider the following points for refactoring:
+1. Avoid nested loops, current functions have nested loops, making them harder to read and maintain.
+2. Created helper functions for mapping transformations.
+3. Use the `map`, and `reduce` functions instead of `for` loops.
+4. Make the function more generic (e.g., allowing dynamic category mappings).
