@@ -1,44 +1,63 @@
-function convertCsvToJson(csvString) {
-    const rows = csvString.split('\n');
-    const headers = rows[0].split(',');
-    let jsonData = [];
-
-    for (let i = 1; i < rows.length; i++) {
-        if (!rows[i].trim()) continue;
-        const values = rows[i].split(',');
-        let jsonObject = {};
-
-        for (let j = 0; j < headers.length; j++) {
-            let key = headers[j].trim();
-            let value = values[j] ? values[j].trim() : '';
-
-            if (key === "amount") {
-                value = parseFloat(value) || 0;
-            } else if (key === "date") {
-                let parts = value.split('/');
-                if (parts.length === 3) {
-                    value = `${parts[2]}-${parts[0].padStart(2, '0')}-${parts[1].padStart(2, '0')}`;
-                }
-            } else if (key === "category") {
-                if (value === "1") {
-                    value = "Food";
-                } else if (value === "2") {
-                    value = "Transport";
-                } else if (value === "3") {
-                    value = "Entertainment";
-                } else {
-                    value = "Other";
-                }
-            }
-
-            jsonObject[key] = value;
-        }
-
-        jsonData.push(jsonObject);
+function calculateFinalPrice(product, user, location) {
+    if (product.price === 0) {
+        return { finalPrice: 0 };
     }
-    return jsonData;
+
+    let basePrice = product.price;
+    let discount = 0;
+    
+    if (user.type === 'premium') {
+        discount = 0.1;
+    } else if (user.type === 'wholesale') {
+        discount = 0.2;
+    } else if (user.loyaltyPoints > 100) {
+        discount = 0.05;
+    }
+
+    let discountedPrice = basePrice - (basePrice * discount);
+
+    let taxRate = 0;
+    if (product.category === 'electronics') {
+        taxRate = 0.15;
+    } else if (product.category === 'clothing') {
+        taxRate = 0.05;
+    } else {
+        taxRate = 0.1;
+    }
+
+    let taxAmount = discountedPrice * taxRate;
+    
+    let shippingCost = 10;
+    if (location.country === 'US') {
+        if (location.state === 'CA') {
+            shippingCost = 5;
+        } else if (location.state === 'NY') {
+            shippingCost = 8;
+        }
+    } else {
+        shippingCost = 15;
+    }
+
+    if (product.weight > 5) {
+        shippingCost += 5;
+    }
+
+    if (user.type === 'premium') {
+        shippingCost *= 0.9;
+    }
+
+    return {
+        finalPrice: discountedPrice + taxAmount + shippingCost,
+        breakdown: {
+            basePrice,
+            discountApplied: basePrice * discount,
+            taxAmount,
+            shippingCost
+        }
+    };
 }
 
+
 module.exports = {
-    convertCsvToJson
+    calculateFinalPrice
 };

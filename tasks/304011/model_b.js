@@ -1,53 +1,86 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
+class DiscountCalculator {
+    calculateDiscount(product, user) {
+        if (user.type === 'premium') return 0.1;
+        if (user.type === 'wholesale') return 0.2;
+        if (user.loyaltyPoints > 100) return 0.05;
+        return 0;
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
-            }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
-    }
-
-    return recurrences;
 }
 
-module.exports = {
-    getNextRecurrences
-};
+class TaxCalculator {
+    getTaxRate(category) {
+        const taxRates = {
+            'electronics': 0.15,
+            'clothing': 0.05,
+            'default': 0.1
+        };
+        return taxRates[category] || taxRates.default;
+    }
+}
+
+class ShippingCalculator {
+    calculateShippingCost(location, product, user) {
+        let shippingCost = this.getBaseShippingCost(location);
+        
+        if (product.weight > 5) {
+            shippingCost += 5;
+        }
+
+        if (user.type === 'premium') {
+            shippingCost *= 0.9;
+        }
+
+        return shippingCost;
+    }
+
+    getBaseShippingCost(location) {
+        if (location.country !== 'US') return 15;
+        
+        const stateRates = {
+            'CA': 5,
+            'NY': 8,
+            'default': 10
+        };
+        return stateRates[location.state] || stateRates.default;
+    }
+}
+
+class PriceCalculator {
+    constructor() {
+        this.discountCalculator = new DiscountCalculator();
+        this.taxCalculator = new TaxCalculator();
+        this.shippingCalculator = new ShippingCalculator();
+    }
+
+    calculateFinalPrice(product, user, location) {
+        if (product.price === 0) {
+            return { finalPrice: 0 };
+        }
+
+        const basePrice = product.price;
+        const discount = this.discountCalculator.calculateDiscount(product, user);
+        const discountedPrice = basePrice - (basePrice * discount);
+        
+        const taxRate = this.taxCalculator.getTaxRate(product.category);
+        const taxAmount = discountedPrice * taxRate;
+        
+        const shippingCost = this.shippingCalculator.calculateShippingCost(location, product, user);
+
+        return {
+            finalPrice: discountedPrice + taxAmount + shippingCost,
+            breakdown: {
+                basePrice,
+                discountApplied: basePrice * discount,
+                taxAmount,
+                shippingCost
+            }
+        };
+    }
+}
+
+function calculateFinalPrice(product, user, location) {
+    const calculator = new PriceCalculator();
+    return calculator.calculateFinalPrice(product, user, location);
+}
+
+module.exports = { calculateFinalPrice };

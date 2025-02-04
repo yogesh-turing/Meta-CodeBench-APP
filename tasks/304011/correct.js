@@ -1,65 +1,70 @@
-const fs = require('fs').promises;
-const path = require('path');
-
-async function csvToJson(filePath, config) {
-    if (!config || typeof config !== 'object') {
-        throw new Error('Invalid configuration');
-    }
-
-    if (!filePath || typeof filePath !== 'string') {
-        throw new Error('Invalid file path');
-    }
-
-    const fullPath = path.resolve(filePath);
-
-    try {
-        const data = await fs.readFile(fullPath, 'utf8');
-        return parseCSV(data, config);
-    } catch (err) {
-        throw new Error(`Error reading file: ${err.message}`);
+class DiscountCalculator {
+    static getDiscount(user) {
+        if (user.type === 'premium') return 0.1;
+        if (user.type === 'wholesale') return 0.2;
+        if (user.loyaltyPoints > 100) return 0.05;
+        return 0;
     }
 }
 
-function parseCSV(data, config) {
-    const lines = data.trim().split('\n');
-    if (lines.length < 2) {
-        throw new Error('Invalid CSV format');
+class TaxCalculator {
+    static getTaxRate(category) {
+        const taxRates = {
+            electronics: 0.15,
+            clothing: 0.05,
+            other: 0.1
+        };
+        return taxRates[category] || 0.1; // Default tax rate if category is unknown
     }
-
-    const headers = lines[0].split(',').map(header => header.trim());
-    if (headers.length !== Object.keys(config).length) {
-        throw new Error('Invalid configuration: header length mismatch');
-    }
-
-    return lines.slice(1).map(line => transformRow(line, headers, config)).filter(Boolean);
 }
 
-function transformRow(line, headers, config) {
-    const values = line.split(',').map(value => value.trim());
-    if (values.length !== headers.length) {
-        return null; // Skip malformed rows
-    }
+class ShippingCalculator {
+    static getShippingCost(location, weight, userType) {
+        let shippingCost = 10;
+        
+        if (location.country === 'US') {
+            const stateShippingRates = { CA: 5, NY: 8 };
+            shippingCost = stateShippingRates[location.state] || 10;
+        } else {
+            shippingCost = 15;
+        }
 
-    return headers.reduce((obj, key, index) => {
-        obj[key] = formatValue(values[index], config[key]);
-        return obj;
-    }, {});
+        if (weight > 5) {
+            shippingCost += 5;
+        }
+
+        if (userType === 'premium') {
+            shippingCost *= 0.9; // 10% discount for premium users
+        }
+
+        return shippingCost;
+    }
 }
 
-function formatValue(value, config) {
-    if (!config || !config.type) return value;
+class PriceCalculator {
+    static calculateFinalPrice(product, user, location) {
+        const basePrice = product.price;
+        if (basePrice === 0) {
+            return { finalPrice: 0 };
+        }
+        const discountRate = DiscountCalculator.getDiscount(user);
+        const discountedPrice = basePrice * (1 - discountRate);
+        const taxRate = TaxCalculator.getTaxRate(product.category);
+        const taxAmount = discountedPrice * taxRate;
+        const shippingCost = ShippingCalculator.getShippingCost(location, product.weight, user.type);
 
-    switch (config.type) {
-        case 'integer': return parseInt(value, 10) || 0;
-        case 'decimal': return parseFloat(value) || 0.0;
-        case 'boolean': return value.toLowerCase() === 'true';
-        case 'date': return new Date(value).toISOString().split('T')[0]; // YYYY-MM-DD
-        case 'datetime': return new Date(value).toISOString(); // Full ISO format
-        case 'currency': return `${config.format || 'USD'} ${parseFloat(value).toFixed(2)}`;
-        default: return value.toString();
+        return {
+            finalPrice: discountedPrice + taxAmount + shippingCost,
+            breakdown: {
+                basePrice,
+                discountApplied: basePrice * discountRate,
+                taxAmount,
+                shippingCost
+            }
+        };
     }
 }
 
 module.exports = {
-    csvToJson
+    calculateFinalPrice: PriceCalculator.calculateFinalPrice
 };

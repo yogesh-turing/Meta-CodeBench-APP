@@ -1,61 +1,92 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Input validation
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("startDate, frequency, and count must be provided");
+class DiscountStrategy {
+    static getPremiumDiscount() { return 0.1; }
+    static getWholesaleDiscount() { return 0.2; }
+    static getLoyaltyDiscount() { return 0.05; }
+
+    calculate(user) {
+        if (user.type === 'premium') return this.getPremiumDiscount();
+        if (user.type === 'wholesale') return this.getWholesaleDiscount();
+        if (user.loyaltyPoints > 100) return this.getLoyaltyDiscount();
+        return 0;
     }
-    
-    const start = new Date(startDate);
-    if (isNaN(start.getTime())) {
-        throw new Error("Invalid startDate");
+}
+
+class TaxCalculator {
+    static getTaxRate(category) {
+        const taxRates = {
+            'electronics': 0.15,
+            'clothing': 0.05,
+            'default': 0.1
+        };
+        return taxRates[category] || taxRates.default;
     }
-    
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("frequency must be a positive number");
+
+    calculate(product, price) {
+        const taxRate = TaxCalculator.getTaxRate(product.category);
+        return price * taxRate;
     }
-    
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("count must be a positive number");
+}
+
+class ShippingCalculator {
+    static getBaseShippingCost(location) {
+        if (location.country !== 'US') return 15;
+        
+        const stateCosts = {
+            'CA': 5,
+            'NY': 8,
+            'default': 10
+        };
+        return stateCosts[location.state] || stateCosts.default;
     }
-  
-    const recurrences = [];
-    let currentDate = new Date(start);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+
+    calculate(location, product, user) {
+        let cost = ShippingCalculator.getBaseShippingCost(location);
+        
+        if (product.weight > 5) {
+            cost += 5;
         }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--; // Don't count weekend days
-                }
+
+        if (user.type === 'premium') {
+            cost *= 0.9;
+        }
+
+        return cost;
+    }
+}
+
+class PriceCalculator {
+    constructor() {
+        this.discountStrategy = new DiscountStrategy();
+        this.taxCalculator = new TaxCalculator();
+        this.shippingCalculator = new ShippingCalculator();
+    }
+
+    calculate(product, user, location) {
+        if (product.price === 0) {
+            return { finalPrice: 0 };
+        }
+
+        const basePrice = product.price;
+        const discount = this.discountStrategy.calculate(user);
+        const discountedPrice = basePrice - (basePrice * discount);
+        const taxAmount = this.taxCalculator.calculate(product, discountedPrice);
+        const shippingCost = this.shippingCalculator.calculate(location, product, user);
+
+        return {
+            finalPrice: discountedPrice + taxAmount + shippingCost,
+            breakdown: {
+                basePrice,
+                discountApplied: basePrice * discount,
+                taxAmount,
+                shippingCost
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
-        }
+        };
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+}
+
+function calculateFinalPrice(product, user, location) {
+    const calculator = new PriceCalculator();
+    return calculator.calculate(product, user, location);
+}
+
+module.exports = { calculateFinalPrice };

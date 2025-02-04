@@ -1,53 +1,86 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
+class PriceCalculator {
+    constructor(product, user, location) {
+        this.product = product;
+        this.user = user;
+        this.location = location;
     }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+
+    calculate() {
+        if (this.product.price === 0) {
+            return { finalPrice: 0 };
         }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-  
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
+
+        let discountedPrice = this.applyDiscount(this.product.price);
+        let taxAmount = this.calculateTax(discountedPrice);
+        let shippingCost = this.calculateShippingCost();
+
+        let finalPrice = discountedPrice + taxAmount + shippingCost;
+
+        return {
+            finalPrice,
+            breakdown: {
+                basePrice: this.product.price,
+                discountApplied: this.product.price - discountedPrice,
+                taxAmount,
+                shippingCost
+            }
+        };
+    }
+
+    applyDiscount(basePrice) {
+        let discount = 0;
+
+        if (this.user.type === 'premium') {
+            discount = 0.1;
+        } else if (this.user.type === 'wholesale') {
+            discount = 0.2;
+        } else if (this.user.loyaltyPoints > 100) {
+            discount = 0.05;
+        }
+
+        return basePrice - (basePrice * discount);
+    }
+
+    calculateTax(price) {
+        let taxRate = this.getTaxRate();
+        return price * taxRate;
+    }
+
+    getTaxRate() {
+        if (this.product.category === 'electronics') {
+            return 0.15;
+        } else if (this.product.category === 'clothing') {
+            return 0.05;
+        } else {
+            return 0.1;
+        }
+    }
+
+    calculateShippingCost() {
+        let shippingCost = 10;
+
+        if (this.location.country === 'US') {
+            if (this.location.state === 'CA') {
+                shippingCost = 5;
+            } else if (this.location.state === 'NY') {
+                shippingCost = 8;
             }
         } else {
-            currentDate = addDays(currentDate, frequency);
+            shippingCost = 15;
         }
+
+        if (this.product.weight > 5) {
+            shippingCost += 5;
+        }
+
+        if (this.user.type === 'premium') {
+            shippingCost *= 0.9;
+        }
+
+        return shippingCost;
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+}
+
+module.exports = {
+    calculateFinalPrice: PriceCalculator.calculate
+};
