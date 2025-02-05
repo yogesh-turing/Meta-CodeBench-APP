@@ -1,40 +1,37 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
+function minCohesiveGroups(sequence) {
+    if (!sequence || sequence.length === 0) {
+        return 0;
     }
 
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
-    }
+    const n = sequence.length;
+    const dp = Array(n + 1).fill(0);
+    dp[0] = 0;
 
-    if (count < 0) {
-        throw new Error("count cannot be negative");
-    }
+    // Loop through each position in the sequence
+    for (let i = 1; i <= n; i++) {
+        // Initialize with worst case: each task in its own group
+        dp[i] = dp[i - 1] + 1;
 
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
+        // Try to form cohesive groups ending at position i
+        for (let j = 0; j < i - 1; j++) {
+            if (isCohesive(sequence, j, i - 1)) {
+                dp[i] = Math.min(dp[i], dp[j] + 1);
             }
         }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
     }
 
-    return recurrences;
+    return dp[n];
 }
 
-module.exports = {
-    getNextRecurrences
+function isCohesive(sequence, start, end) {
+    while (start < end) {
+        if (sequence[start] !== sequence[end]) {
+            return false;
+        }
+        start++;
+        end--;
+    }
+    return true;
 }
+
+module.exports = { minCohesiveGroups };

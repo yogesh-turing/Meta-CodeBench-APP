@@ -1,157 +1,50 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
+// const { minCohesiveGroups } = require(process.env.TARGET_FILE);
+const { minCohesiveGroups } = require('./correct');
 
-describe('getNextRecurrences', () => {
-
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
+describe('minCohesiveGroups Tests', () => {
+    it('should return 1 for ["A", "B", "A", "B", "A"]', () => {
+        expect(minCohesiveGroups(["A", "B", "A", "B", "A"])).toBe(1);
     });
 
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    it('should return 0 for an empty array', () => {
+        expect(minCohesiveGroups([])).toBe(0);
     });
 
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
+    it('should return 2 for ["A", "B", "A", "B", "A", "B"]', () => {
+        expect(minCohesiveGroups(["A", "B", "A", "B", "A", "B"])).toBe(2);
     });
 
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
+    it('should return 2 for ["A", "B"]', () => {
+        expect(minCohesiveGroups(["A", "B"])).toBe(2);
     });
 
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
+    it('should return 1 for ["A"]', () => {
+        expect(minCohesiveGroups(["A"])).toBe(1);
     });
 
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
+    it('should return 5 for ["A", "B", "C", "D", "E"]', () => {
+        expect(minCohesiveGroups(["A", "B", "C", "D", "E"])).toBe(5);
     });
 
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
+    it('should return 1 for ["A", "B", "A"]', () => {
+        expect(minCohesiveGroups(["A", "B", "A"])).toBe(1);
     });
 
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+    it('should return 2 for ["@", "#", "@", "#"]', () => {
+        expect(minCohesiveGroups(["@", "#", "@", "#"])).toBe(2);
     });
 
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
+    it('should return 234 for a long sequence', () => {
+        const sequence = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(9)];
+        expect(minCohesiveGroups(sequence)).toBe(234);
     });
 
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
+    it('should return 1 for ["A", "A", "A"]', () => {
+        expect(minCohesiveGroups(["A", "A", "A"])).toBe(1);
     });
 
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
+    it('should return 1 for a large repetitive sequence of "A"', () => {
+        const sequence = Array(300).fill("A");
+        expect(minCohesiveGroups(sequence)).toBe(1);
     });
 });

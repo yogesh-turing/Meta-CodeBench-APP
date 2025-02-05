@@ -1,15 +1,7 @@
-function getNextRecurrences(startDate, frequency, count) {
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    for (let i = 0; i < count; i++) {
-        recurrences.push(new Date(currentDate));
-        currentDate.setDate(currentDate.getDate() + frequency);
-    }
-
-    return recurrences;
+function minCohesiveGroups(sequence) {
+    // Determine the minimum number of cohesive groups
 }
 
 module.exports = {
-    getNextRecurrences
+    minCohesiveGroups
 }

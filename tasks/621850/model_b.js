@@ -1,53 +1,33 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+function minCohesiveGroups(sequence) {
+    if (!sequence || sequence.length === 0) return 0;
+    
+    // Helper function to check if a sequence is cohesive (palindromic)
+    function isCohesive(start, end) {
+        while (start < end) {
+            if (sequence[start] !== sequence[end]) return false;
+            start++;
+            end--;
         }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const remainingDays = frequency - 1;
-            for (let i = 0; i < remainingDays; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
+        return true;
+    }
+    
+    // Create memoization array
+    const dp = new Array(sequence.length).fill(Infinity);
+    
+    // Dynamic programming solution
+    for (let end = 0; end < sequence.length; end++) {
+        if (isCohesive(0, end)) {
+            dp[end] = 1;
+        } else {
+            for (let split = 0; split < end; split++) {
+                if (isCohesive(split + 1, end)) {
+                    dp[end] = Math.min(dp[end], dp[split] + 1);
                 }
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
         }
     }
-
-    return recurrences;
+    
+    return dp[sequence.length - 1];
 }
 
-module.exports = {
-    getNextRecurrences
-};
+module.exports = { minCohesiveGroups };

@@ -1,30 +1,19 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("Null or undefined input values are not allowed");
-    }
+function minCohesiveGroups(sequence) {
+    let count = 0;
+    let left = 0;
+    let right = sequence.length - 1;
 
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    if (frequency < 0 || count < 0) {
-        throw new Error("Negative frequency and count values are not allowed");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || (currentDate.getDay() >= 1 && currentDate.getDay() <= 5)) {
-            recurrences.push(new Date(currentDate));
+    while (left <= right) {
+        if (sequence[left] === sequence[right]) {
+            left++;
+            right--;
+        } else {
+            count++;
+            left++;
         }
-
-        currentDate.setDate(currentDate.getDate() + frequency);
     }
 
-    return recurrences;
+    return count + 1;
 }
 
-module.exports = {
-    getNextRecurrences
-};
+module.exports = { minCohesiveGroups };

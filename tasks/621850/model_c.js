@@ -1,61 +1,34 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Input validation
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("startDate, frequency, and count must be provided");
-    }
+function minCohesiveGroups(sequence) {
+    if (!sequence || sequence.length === 0) return 0;
     
-    const start = new Date(startDate);
-    if (isNaN(start.getTime())) {
-        throw new Error("Invalid startDate");
-    }
-    
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("frequency must be a positive number");
-    }
-    
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("count must be a positive number");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(start);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+    // Helper function to check if a subsequence is cohesive (palindromic)
+    function isCohesive(start, end) {
+        while (start < end) {
+            if (sequence[start] !== sequence[end]) return false;
+            start++;
+            end--;
         }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-            
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--; // Don't count weekend days
-                }
+        return true;
+    }
+    
+    const n = sequence.length;
+    // dp[i] represents minimum groups needed for sequence[0...i]
+    const dp = new Array(n).fill(Infinity);
+    
+    // Process each ending position
+    for (let j = 0; j < n; j++) {
+        // Check if sequence from i to j forms a cohesive group
+        for (let i = 0; i <= j; i++) {
+            if (isCohesive(i, j)) {
+                // If it's the first segment (i = 0), it's just 1 group
+                // Otherwise, add 1 to the minimum groups needed up to position i-1
+                const prevGroups = i === 0 ? 0 : dp[i - 1];
+                dp[j] = Math.min(dp[j], prevGroups + 1);
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
         }
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+    
+    return dp[n - 1];
+}
+
+module.exports = { minCohesiveGroups };

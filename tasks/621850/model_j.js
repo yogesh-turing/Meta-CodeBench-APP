@@ -1,40 +1,21 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
-    }
+function minCohesiveGroups(sequence) {
+    // Initialize a stack to store the tasks
+    let stack = [];
 
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
-    }
-
-    if (count < 0) {
-        throw new Error("count cannot be negative");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
-            }
+    // Iterate through the tasks in the sequence
+    for (let i = 0; i < sequence.length; i++) {
+        // If the stack is empty or the current task is not equal to the top of the stack
+        if (stack.length === 0 || stack[stack.length - 1] !== sequence[i]) {
+            // Push the current task to the stack
+            stack.push(sequence[i]);
+        } else {
+            // If the current task is equal to the top of the stack, pop the top of the stack
+            stack.pop();
         }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
     }
 
-    return recurrences;
+    // The minimum number of cohesive groups is the size of the stack
+    return stack.length;
 }
 
-module.exports = {
-    getNextRecurrences
-};
+module.exports = { minCohesiveGroups };

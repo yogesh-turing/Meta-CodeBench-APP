@@ -1,53 +1,37 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-
-    function getNextWeekday(date) {
-        do {
-            date.setDate(date.getDate() + 1);
-        } while (!isWeekday(date));
-        return date;
-    }
-
-    for (let i = 0; i < count; i++) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
+function minCohesiveGroups(sequence) {
+    if (!sequence || sequence.length === 0) return 0;
+    
+    // Helper function to check if a subsequence is cohesive (palindromic)
+    function isCohesive(start, end) {
+        while (start < end) {
+            if (sequence[start] !== sequence[end]) return false;
+            start++;
+            end--;
         }
-
-        if (onlyWeekDays) {
-            do {
-                currentDate.setDate(currentDate.getDate() + 1);
-                if (isWeekday(currentDate)) {
-                    frequency--;
-                }
-            } while (frequency > 0);
+        return true;
+    }
+    
+    // dp[i] represents the minimum number of splits needed up to index i
+    const dp = new Array(sequence.length).fill(Infinity);
+    
+    // Check all possible endings for subsequences
+    for (let i = 0; i < sequence.length; i++) {
+        // If the sequence from start to i is cohesive, we can make it one group
+        if (isCohesive(0, i)) {
+            dp[i] = 0;
         } else {
-            currentDate.setDate(currentDate.getDate() + frequency);
-        }
-
-        if (onlyWeekDays && !isWeekday(currentDate)) {
-            currentDate = getNextWeekday(currentDate);
+            // Try all possible splits before position i
+            for (let j = 0; j < i; j++) {
+                // If the sequence from j+1 to i is cohesive
+                if (isCohesive(j + 1, i)) {
+                    dp[i] = Math.min(dp[i], dp[j] + 1);
+                }
+            }
         }
     }
-
-    return recurrences;
+    
+    // Return the minimum number of groups (splits + 1)
+    return dp[sequence.length - 1] + 1;
 }
 
-module.exports = {
-    getNextRecurrences
-};
+module.exports = { minCohesiveGroups };

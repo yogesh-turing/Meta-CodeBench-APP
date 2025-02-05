@@ -1,53 +1,40 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || isNaN(new Date(startDate).getTime())) {
-        throw new Error("Invalid or null start date");
-    }
-    if (typeof frequency !== 'number' || frequency <= 0) {
-        throw new Error("Frequency must be a positive number");
-    }
-    if (typeof count !== 'number' || count <= 0) {
-        throw new Error("Count must be a positive number");
-    }
-  
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-  
-    function isWeekday(date) {
-        const day = date.getDay();
-        return day !== 0 && day !== 6;
-    }
-  
-    function addDays(date, days) {
-        const result = new Date(date);
-        result.setDate(result.getDate() + days);
-        return result;
-    }
-  
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || isWeekday(currentDate)) {
-            recurrences.push(new Date(currentDate));
-        }
-  
-        if (onlyWeekDays) {
-            do {
-                currentDate = addDays(currentDate, 1);
-            } while (!isWeekday(currentDate));
-  
-            const daysToAdd = frequency - 1;
-            for (let i = 0; i < daysToAdd; i++) {
-                currentDate = addDays(currentDate, 1);
-                if (!isWeekday(currentDate)) {
-                    i--;
-                }
+function minCohesiveGroups(sequence) {
+    if (!sequence || sequence.length === 0) return 0;
+    
+    // Helper function to check if a subsequence is cohesive (palindromic)
+    function isCohesive(start, end) {
+        while (start < end) {
+            if (sequence[start] !== sequence[end]) {
+                return false;
             }
-        } else {
-            currentDate = addDays(currentDate, frequency);
+            start++;
+            end--;
+        }
+        return true;
+    }
+    
+    const n = sequence.length;
+    // dp[i] represents the minimum number of cohesive groups needed for sequence[0...i]
+    const dp = new Array(n).fill(Infinity);
+    
+    // For each ending position
+    for (let i = 0; i < n; i++) {
+        // If the sequence from 0 to i is cohesive, we need only 1 group
+        if (isCohesive(0, i)) {
+            dp[i] = 1;
+            continue;
+        }
+        
+        // Try all possible splits before position i
+        for (let j = 0; j < i; j++) {
+            // If the sequence from j+1 to i is cohesive
+            if (isCohesive(j + 1, i)) {
+                dp[i] = Math.min(dp[i], dp[j] + 1);
+            }
         }
     }
-  
-    return recurrences;
-  }
-  
-  module.exports = {
-    getNextRecurrences
-  };
+    
+    return dp[n - 1];
+}
+
+module.exports = { minCohesiveGroups };
