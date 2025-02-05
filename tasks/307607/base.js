@@ -1,4 +1,3 @@
-
 function getDayAndWeekOfYear(date = new Date()) {
     if (!(date instanceof Date)) {
         throw new Error('Invalid date input');
@@ -13,4 +12,6 @@ function getDayAndWeekOfYear(date = new Date()) {
     return { dayOfYear, weekOfYear };
 }
 
-module.exports = {getDayAndWeekOfYear};
+module.exports = {
+    getDayAndWeekOfYear
+}

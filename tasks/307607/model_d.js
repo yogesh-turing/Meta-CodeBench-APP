@@ -1,43 +1,54 @@
-const { parse, differenceInDays, differenceInWeeks, startOfYear, isValid } = require('date-fns');
+const { parse, isValid, differenceInDays } = require('date-fns');
 
-function getDayAndWeekOfYear(dateString, format, startDateString = null) {
-    if (typeof dateString !== 'string' || typeof format !== 'string') {
-        throw new Error('Date and format must be strings');
-    }
-
-    const date = parse(dateString, format, new Date());
-    if (!isValid(date)) {
-        throw new Error('Invalid date or format');
-    }
-
-    let startDate;
-    if (startDateString) {
-        startDate = parse(startDateString, format, new Date());
-        if (!isValid(startDate)) {
-            throw new Error('Invalid start date');
+function getDayAndWeekOfYear(dateStr, format = 'yyyy-MM-dd', startDateStr = null) {
+    try {
+        // Parse the input date
+        let date;
+        if (dateStr instanceof Date) {
+            date = dateStr;
+        } else if (typeof dateStr === 'string') {
+            date = parse(dateStr, format, new Date());
+        } else {
+            return { error: 'Date must be a string or Date object' };
         }
-    } else {
-        startDate = startOfYear(date);
+
+        // Validate parsed date
+        if (!isValid(date)) {
+            return { error: 'Invalid date or format' };
+        }
+
+        // Handle start date
+        let startDate;
+        if (startDateStr) {
+            startDate = parse(startDateStr, format, new Date());
+            if (!isValid(startDate)) {
+                return { error: 'Invalid start date or format' };
+            }
+        } else {
+            startDate = new Date(date.getFullYear(), 0, 1);
+        }
+
+        // Validate date range
+        if (date < startDate) {
+            return { error: 'Date cannot be earlier than start date' };
+        }
+
+        // Calculate day of year
+        const dayOfYear = differenceInDays(date, startDate) + 1;
+
+        // Calculate week of year
+        const weekOfYear = Math.ceil((dayOfYear + startDate.getDay()) / 7);
+
+        return {
+            dayOfYear,
+            weekOfYear
+        };
+
+    } catch (error) {
+        return {
+            error: `Calculation error: ${error.message}`
+        };
     }
-
-    if (date < startDate) {
-        throw new Error('Date cannot be earlier than the start date');
-    }
-
-    const dayOfYear = differenceInDays(date, startDate) + 1;
-    const weekOfYear = Math.ceil(differenceInWeeks(date, startDate, { roundingMethod: 'ceil' }));
-
-    return { dayOfYear, weekOfYear };
 }
 
-// Example usage:
-// try {
-//     const result = getDayAndWeekOfYear('2023-05-15', 'yyyy-MM-dd');
-//     console.log(result);
-// } catch (error) {
-//     console.error('Error:', error.message);
-// }
-
-module.exports = {
-    getDayAndWeekOfYear
-}
+module.exports = { getDayAndWeekOfYear };

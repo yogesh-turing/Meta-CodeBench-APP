@@ -1,26 +1,36 @@
-function getDayAndWeekOfYear(dateString, dateFormat, startDateString) {
+function getDayAndWeekOfYear(date = new Date(), format = 'YYYY-MM-DD', startDate = null) {
     try {
-        // Parse date string into a Date object
-        const date = parseDate(dateString, dateFormat);
-        if (!(date instanceof Date)) {
+        // Check if date is a string and parse it to Date object
+        if (typeof date === 'string') {
+            date = parseDate(date, format);
+        }
+
+        // Check if date is a valid Date object
+        if (!(date instanceof Date) || isNaN(date.getTime())) {
             throw new Error('Invalid date input');
         }
 
-        // Parse start date string into a Date object if provided
-        let startDate;
-        if (startDateString) {
-            startDate = parseDate(startDateString, dateFormat);
-            if (!(startDate instanceof Date)) {
+        // Set start date to the first day of the year of the date parameter if not provided
+        if (!startDate) {
+            startDate = new Date(date.getFullYear(), 0, 1);
+        } else {
+            // Check if start date is a string and parse it to Date object
+            if (typeof startDate === 'string') {
+                startDate = parseDate(startDate, format);
+            }
+
+            // Check if start date is a valid Date object
+            if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
                 throw new Error('Invalid start date input');
             }
-        } else {
-            // Set start date to the first day of the year if not provided
-            startDate = new Date(date.getFullYear(), 0, 1);
         }
 
-        // Calculate day and week of the year
+        // Calculate day of the year
         const dayOfYear = Math.floor((date - startDate) / (24 * 60 * 60 * 1000)) + 1;
-        const weekOfYear = Math.ceil((((date - startDate) / (24 * 60 * 60 * 1000)) + startDate.getDay() + 1) / 7);
+
+        // Calculate week of the year
+        const startOfWeek = new Date(startDate.getFullYear(), 0, 1);
+        const weekOfYear = Math.ceil((((date - startOfWeek) / (24 * 60 * 60 * 1000)) + startOfWeek.getDay() + 1) / 7);
 
         return { dayOfYear, weekOfYear };
     } catch (error) {
@@ -28,17 +38,12 @@ function getDayAndWeekOfYear(dateString, dateFormat, startDateString) {
     }
 }
 
-// Helper function to parse date string into a Date object
-function parseDate(dateString, dateFormat) {
-    // Use a library like moment.js to parse date string in various formats
-    // For simplicity, this example assumes the date format is 'YYYY-MM-DD'
-    const dateParts = dateString.split('-');
-    if (dateParts.length !== 3) {
-        return null;
-    }
-    const year = parseInt(dateParts[0], 10);
-    const month = parseInt(dateParts[1], 10) - 1; // Month is zero-based in JavaScript
-    const day = parseInt(dateParts[2], 10);
+// Helper function to parse date string to Date object
+function parseDate(dateString, format) {
+    const dateParts = dateString.split(/[-/.]/);
+    const year = dateParts[0];
+    const month = dateParts[1] - 1; // Month is zero-based
+    const day = dateParts[2];
     return new Date(year, month, day);
 }
 

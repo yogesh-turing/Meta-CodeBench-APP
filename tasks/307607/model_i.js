@@ -1,42 +1,49 @@
-function getDayAndWeekOfYear(dateString, dateFormat, startDateString) {
-    // Check if date string is provided
-    if (!dateString) {
-        throw new Error('Date string is required');
-    }
+const moment = require('moment');
 
-    // Parse the date string into a Date object
-    let date;
+function getDayAndWeekOfYear(date, format, startDate) {
     try {
-        date = parseDate(dateString, dateFormat);
-    } catch (error) {
-        throw new Error(`Invalid date string: ${error.message}`);
-    }
-
-    // Check if start date string is provided
-    let startDate;
-    if (startDateString) {
-        try {
-            startDate = parseDate(startDateString, dateFormat);
-        } catch (error) {
-            throw new Error(`Invalid start date string: ${error.message}`);
+        // Check if date is a valid string
+        if (typeof date !== 'string') {
+            throw new Error('Invalid date input');
         }
-    } else {
-        // Set start date to the first day of the year if not provided
-        startDate = new Date(date.getFullYear(), 0, 1);
+
+        // Check if format is a valid string
+        if (typeof format !== 'string') {
+            throw new Error('Invalid format input');
+        }
+
+        // Parse date string using moment.js
+        const dateObject = moment(date, format);
+        if (!dateObject.isValid()) {
+            throw new Error('Invalid date input');
+        }
+
+        // If start date is not provided, set it to the first day of the year
+        if (!startDate) {
+            startDate = new Date(dateObject.year(), 0, 1);
+        } else {
+            // Parse start date string using moment.js
+            startDate = moment(startDate, format);
+            if (!startDate.isValid()) {
+                throw new Error('Invalid start date input');
+            }
+            startDate = startDate.toDate();
+        }
+
+        // Calculate day of year
+        const startOfYear = new Date(dateObject.year(), 0, 1);
+        const dayOfYear = Math.floor((dateObject.toDate() - startOfYear) / (24 * 60 * 60 * 1000)) + 1;
+
+        // Calculate week of year
+        const startOfWeek = new Date(dateObject.year(), 0, 1);
+        const weekOfYear = Math.ceil((((dateObject.toDate() - startOfWeek) / (24 * 60 * 60 * 1000)) + startOfWeek.getDay() + 1) / 7);
+
+        // Return the result
+        return { dayOfYear, weekOfYear };
+    } catch (error) {
+        // Return error message
+        return { error: error.message };
     }
-
-    // Calculate day and week of the year
-    const dayOfYear = Math.floor((date - startDate) / (24 * 60 * 60 * 1000)) + 1;
-    const weekOfYear = Math.ceil((((date - startDate) / (24 * 60 * 60 * 1000)) + startDate.getDay() + 1) / 7);
-
-    return { dayOfYear, weekOfYear };
-}
-
-// Helper function to parse date string into a Date object
-function parseDate(dateString, dateFormat) {
-    // Use a library like moment.js to parse the date string
-    // For simplicity, this example uses the Date constructor
-    return new Date(dateString);
 }
 
 module.exports = {

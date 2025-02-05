@@ -1,39 +1,55 @@
-import { parse, differenceInDays, differenceInWeeks, startOfYear, isValid } from 'date-fns';
+const { parse, isValid, differenceInDays } = require('date-fns');
 
-function getDayAndWeekOfYear(dateString, format, startDateString = null) {
+function getDayAndWeekOfYear(dateStr, format = 'yyyy-MM-dd', startDateStr = null) {
     try {
         // Parse the input date
-        const date = parse(dateString, format, new Date());
+        const date = format === 'ISO' 
+            ? new Date(dateStr)
+            : parse(dateStr, format, new Date());
+
+        // Validate parsed date
         if (!isValid(date)) {
-            throw new Error('Invalid date or format');
+            return { error: 'Invalid date input' };
         }
 
-        // Determine the start date
+        // Handle start date
         let startDate;
-        if (startDateString) {
-            startDate = parse(startDateString, format, new Date());
+        if (startDateStr) {
+            startDate = format === 'ISO' 
+                ? new Date(startDateStr)
+                : parse(startDateStr, format, new Date());
+            
             if (!isValid(startDate)) {
-                throw new Error('Invalid start date or format');
+                return { error: 'Invalid start date' };
             }
         } else {
-            startDate = startOfYear(date);
+            // Default to first day of the year
+            startDate = new Date(date.getFullYear(), 0, 1);
         }
 
-        // Ensure start date is not after the given date
-        if (startDate > date) {
-            throw new Error('Start date cannot be after the given date');
-        }
-
-        // Calculate day and week
+        // Calculate day of year
         const dayOfYear = differenceInDays(date, startDate) + 1;
-        const weekOfYear = Math.ceil(differenceInWeeks(date, startDate, { roundingMethod: 'ceil' }));
 
-        return { dayOfYear, weekOfYear };
+        // Calculate week of year
+        const weekOfYear = Math.ceil((dayOfYear + startDate.getDay()) / 7);
+
+        // Validate results
+        if (dayOfYear < 1) {
+            return { error: 'Date is before start date' };
+        }
+
+        return { 
+            dayOfYear, 
+            weekOfYear,
+            startDate: startDate.toISOString(),
+            calculatedDate: date.toISOString()
+        };
+
     } catch (error) {
-        return { error: error.message };
+        return { 
+            error: 'Error processing date: ' + error.message 
+        };
     }
 }
 
-module.exports = {
-    getDayAndWeekOfYear
-}
+module.exports = { getDayAndWeekOfYear };

@@ -1,37 +1,47 @@
-const { parse, differenceInDays, startOfWeek, getWeek } = require('date-fns');
+const { parse, isValid, differenceInDays } = require('date-fns');
 
-function getDayAndWeekOfYear(dateString, format, startDate = null) {
+function getDayAndWeekOfYear(dateStr, format = 'yyyy-MM-dd', startDate = null) {
     try {
-        // Parse the input date
-        const date = parse(dateString, format, new Date());
+        // Parse the input date string
+        const date = format ? parse(dateStr, format, new Date()) : new Date(dateStr);
 
-        if (isNaN(date.getTime())) {
-            throw new Error('Invalid date or format');
+        // Validate parsed date
+        if (!isValid(date)) {
+            return { error: 'Invalid date input' };
         }
 
-        // Set start date to the first day of the year if not provided
-        const calculationStartDate = startDate 
-            ? parse(startDate, format, new Date()) 
-            : new Date(date.getFullYear(), 0, 1);
+        // Set default start date if not provided
+        let calculationStartDate;
+        if (startDate) {
+            calculationStartDate = format ? 
+                parse(startDate, format, new Date()) : 
+                new Date(startDate);
 
-        if (isNaN(calculationStartDate.getTime())) {
-            throw new Error('Invalid start date or format');
+            if (!isValid(calculationStartDate)) {
+                return { error: 'Invalid start date' };
+            }
+        } else {
+            calculationStartDate = new Date(date.getFullYear(), 0, 1);
+        }
+
+        // Validate date order
+        if (calculationStartDate > date) {
+            return { error: 'Start date cannot be after the input date' };
         }
 
         // Calculate day of year
         const dayOfYear = differenceInDays(date, calculationStartDate) + 1;
 
         // Calculate week of year
-        const weekOfYear = getWeek(date, { weekStartsOn: 1, firstWeekContainsDate: 4 }) - 
-                           getWeek(calculationStartDate, { weekStartsOn: 1, firstWeekContainsDate: 4 }) + 1;
+        const weekOfYear = Math.ceil((dayOfYear + calculationStartDate.getDay()) / 7);
 
         return { dayOfYear, weekOfYear };
     } catch (error) {
-        console.error('Error in getDayAndWeekOfYear:', error.message);
-        return { error: error.message };
+        return { 
+            error: 'Error processing date: ' + 
+                (error.message || 'Unknown error occurred') 
+        };
     }
 }
 
-module.exports = {
-    getDayAndWeekOfYear
-}
+module.exports = { getDayAndWeekOfYear };
