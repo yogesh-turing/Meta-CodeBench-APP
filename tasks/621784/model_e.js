@@ -1,0 +1,62 @@
+class Event {
+    constructor(start, end, popularity) {
+        this.start = start;
+        this.end = end;
+        this.popularity = popularity;
+    }
+}
+
+class EventScheduler {
+    static maxPopularityScore(events) {
+        // Handle null/empty cases
+        if (!events || events.length === 0) {
+            return 0;
+        }
+
+        // Validate events
+        for (const event of events) {
+            if (event.end < event.start || 
+                event.start < 0 || 
+                event.end < 0 || 
+                event.popularity < 0) {
+                return -1;
+            }
+        }
+
+        // Sort events by end time
+        events.sort((a, b) => a.end - b.end);
+
+        const n = events.length;
+        // dp[i] represents the maximum popularity achievable considering events[0...i]
+        const dp = new Array(n).fill(0);
+        
+        // Base case: first event
+        dp[0] = events[0].popularity;
+
+        // Build solution for remaining events
+        for (let i = 1; i < n; i++) {
+            // Find the latest non-overlapping event before current event
+            let lastNonOverlap = -1;
+            for (let j = i - 1; j >= 0; j--) {
+                if (events[j].end <= events[i].start) {
+                    lastNonOverlap = j;
+                    break;
+                }
+            }
+
+            // Maximum popularity including current event
+            const includeCurrent = events[i].popularity + 
+                (lastNonOverlap !== -1 ? dp[lastNonOverlap] : 0);
+            
+            // Maximum popularity excluding current event
+            const excludeCurrent = dp[i - 1];
+
+            // Take maximum of including vs excluding current event
+            dp[i] = Math.max(includeCurrent, excludeCurrent);
+        }
+
+        return dp[n - 1];
+    }
+}
+
+module.exports = { Event, EventScheduler };
