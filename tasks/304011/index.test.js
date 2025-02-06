@@ -1,96 +1,156 @@
-const { calculateFinalPrice } = require('./model_a');
+const fs = require('fs-extra');
+// const {processFiles} = require(process.env.TARGET_FILE);
+const {processFiles} = require('./correct');
 
-describe('calculateFinalPrice', () => {
+jest.mock('fs-extra');
+global.console = {
+    log: jest.fn(),
+    warn: jest.fn(),
+    error: jest.fn()
+  }
 
-    test('Premium user buying electronics in NY', () => {
-        const product = { price: 200, category: 'electronics', weight: 3 };
-        const user = { type: 'premium', loyaltyPoints: 50 };
-        const location = { country: 'US', state: 'NY' };
-
-        const result = calculateFinalPrice(product, user, location);
-        console.log(result);
-        expect(result.finalPrice).toBeCloseTo(214.2, 2); // Base: 200, Discount: 20, Tax: 27, Shipping: 8*0.9
+describe('processFiles function', () => {
+    beforeEach(() => {
+        jest.clearAllMocks();
     });
 
-    test('Wholesale user buying clothing in CA', () => {
-        const product = { price: 100, category: 'clothing', weight: 2 };
-        const user = { type: 'wholesale', loyaltyPoints: 20 };
-        const location = { country: 'US', state: 'CA' };
+    test('Processes valid files and applies transformation', async () => {
+        const filePaths = ['file1.txt', 'file2.txt'];
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.finalPrice).toBeCloseTo(89, 2); // Base: 100, Discount: 20, Tax: 4, Shipping: 5
+        // Mock existing files
+        fs.pathExists.mockImplementation(async (file) => filePaths.includes(file));
+
+        // Mock file contents
+        fs.readFile.mockImplementation(async (file) => {
+            if (file === 'file1.txt') return 'hello';
+            if (file === 'file2.txt') return 'world';
+            return '';
+        });
+
+        // Mock writing to files
+        fs.writeFile.mockImplementation(async () => {});
+
+        // Transformation function
+        const mockTransform = (content) => content.toUpperCase();
+
+        await processFiles(filePaths, mockTransform);
+
+        // Check if file reads happened
+        expect(fs.readFile).toHaveBeenCalledTimes(2);
+
+        // Check if transformed content was written back
+        expect(fs.writeFile).toHaveBeenCalledWith('file1.txt', 'HELLO', 'utf8');
+        expect(fs.writeFile).toHaveBeenCalledWith('file2.txt', 'WORLD', 'utf8');
     });
 
-    test('Loyalty-based discount for a user buying other category in Texas', () => {
-        const product = { price: 150, category: 'other', weight: 4 };
-        const user = { type: 'regular', loyaltyPoints: 120 };
-        const location = { country: 'US', state: 'TX' };
+    test('Skips non-existent files', async () => {
+        const filePaths = ['file1.txt', 'file2.txt'];
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.finalPrice).toBeCloseTo(166.75, 2); // Base: 150, Discount: 7.5, Tax: 14.25, Shipping: 10
+        // Mock only one file exists
+        fs.pathExists.mockImplementation(async (file) => file === 'file1.txt');
+
+        fs.readFile.mockImplementation(async (file) => (file === 'file1.txt' ? 'hello' : ''));
+
+        fs.writeFile.mockImplementation(async () => {});
+
+        const mockTransform = (content) => content.toUpperCase();
+
+        await processFiles(filePaths, mockTransform);
+
+        expect(fs.readFile).toHaveBeenCalledTimes(1);
+        expect(fs.writeFile).toHaveBeenCalledWith('file1.txt', 'HELLO', 'utf8');
+        expect(fs.writeFile).not.toHaveBeenCalledWith('file2.txt', expect.anything());
     });
 
-    test('User buying heavy product (weight > 5) in UK', () => {
-        const product = { price: 250, category: 'electronics', weight: 6 };
-        const user = { type: 'regular', loyaltyPoints: 50 };
-        const location = { country: 'UK', state: '' };
+    test('Handles read file errors gracefully', async () => {
+        const filePaths = ['file1.txt'];
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.finalPrice).toBeCloseTo(307.5, 2); // Base: 250, Discount: 0, Tax: 37.5, Shipping: 15+5
+        fs.pathExists.mockResolvedValue(true);
+        fs.readFile.mockRejectedValue(new Error('Read error'));
+
+        fs.writeFile.mockImplementation(async () => {});
+
+        const mockTransform = (content) => content.toUpperCase();
+
+        await processFiles(filePaths, mockTransform);
+
+        expect(fs.writeFile).not.toHaveBeenCalled();
     });
 
-    test('Zero price product should return zero final price', () => {
-        const product = { price: 0, category: 'electronics', weight: 2 };
-        const user = { type: 'premium', loyaltyPoints: 50 };
-        const location = { country: 'US', state: 'NY' };
+    test('Handles write file errors gracefully', async () => {
+        const filePaths = ['file1.txt'];
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.finalPrice).toBe(0);
+        fs.pathExists.mockResolvedValue(true);
+        fs.readFile.mockResolvedValue('hello');
+        fs.writeFile.mockRejectedValue(new Error('Write error'));
+
+        const mockTransform = (content) => content.toUpperCase();
+
+        await processFiles(filePaths, mockTransform);
+
+        expect(fs.readFile).toHaveBeenCalledTimes(1);
+        expect(fs.writeFile).toHaveBeenCalledTimes(1);
     });
 
-    test('Very expensive product (boundary case)', () => {
-        const product = { price: 1000000, category: 'electronics', weight: 3 };
-        const user = { type: 'premium', loyaltyPoints: 50 };
-        const location = { country: 'US', state: 'NY' };
+    test('Processes empty file correctly', async () => {
+        const filePaths = ['empty.txt'];
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.finalPrice).toBeGreaterThan(1000000);
+        fs.pathExists.mockResolvedValue(true);
+        fs.readFile.mockResolvedValue('');
+        fs.writeFile.mockImplementation(async () => {});
+
+        const mockTransform = (content) => content.toUpperCase();
+
+        await processFiles(filePaths, mockTransform);
+
+        expect(fs.readFile).toHaveBeenCalledWith('empty.txt', 'utf8');
     });
 
-    test('Product with zero weight', () => {
-        const product = { price: 300, category: 'electronics', weight: 0 };
-        const user = { type: 'regular', loyaltyPoints: 50 };
-        const location = { country: 'US', state: 'NY' };
+    test('Handles non-string transformations', async () => {
+        const filePaths = ['file1.txt'];
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.finalPrice).toBeCloseTo(353, 2); // Base: 300, Discount: 0, Tax: 45, Shipping: 8
+        fs.pathExists.mockResolvedValue(true);
+        fs.readFile.mockResolvedValue('hello');
+
+        const mockTransform = () => 12345; // Invalid transformation
+
+        await processFiles(filePaths, mockTransform);
+
+        expect(fs.writeFile).toHaveBeenCalledWith('file1.txt', '12345', 'utf8');
     });
 
-    test('User from a different country (shipping should be high)', () => {
-        const product = { price: 500, category: 'clothing', weight: 4 };
-        const user = { type: 'premium', loyaltyPoints: 100 };
-        const location = { country: 'Germany', state: '' };
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.finalPrice).toBeCloseTo(486, 2); // Base: 500, Discount: 50, Tax: 22.5, Shipping: 15 * 0.9
-    });
+    test('Processes valid files and applies complex transformation', async () => {
+        const filePaths = ['file1.txt', 'file2.txt'];
 
-    test('Shipping cost increases when weight > 5', () => {
-        const product = { price: 100, category: 'other', weight: 6 };
-        const user = { type: 'wholesale', loyaltyPoints: 20 };
-        const location = { country: 'US', state: 'CA' };
+        // Mock existing files
+        fs.pathExists.mockImplementation(async (file) => filePaths.includes(file));
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.breakdown.shippingCost).toBe(10); // Base 5 + Extra 5 for weight
-    });
+        // Mock file contents
+        fs.readFile.mockImplementation(async (file) => {
+            if (file === 'file1.txt') return 'hello testing team';
+            if (file === 'file2.txt') return 'world is awesome';
+            return '';
+        });
 
-    test('Invalid product category defaults to standard tax rate', () => {
-        const product = { price: 200, category: 'unknown', weight: 3 };
-        const user = { type: 'regular', loyaltyPoints: 50 };
-        const location = { country: 'US', state: 'NY' };
+        // Mock writing to files
+        fs.writeFile.mockImplementation(async () => {});
 
-        const result = calculateFinalPrice(product, user, location);
-        expect(result.breakdown.taxAmount).toBeCloseTo(20, 2); // Tax rate 10%
+        // Transformation function
+        const mockTransform = (content) => {
+            return content.split(' ').map((word, index) => {
+                return index % 2 === 0 ? word.toUpperCase() : word;
+            }).join('_');
+        };
+
+        await processFiles(filePaths, mockTransform);
+
+        // Check if file reads happened
+        expect(fs.readFile).toHaveBeenCalledTimes(2);
+
+        // Check if transformed content was written back
+        expect(fs.writeFile).toHaveBeenCalledWith('file1.txt', 'HELLO_testing_TEAM', 'utf8');
+        expect(fs.writeFile).toHaveBeenCalledWith('file2.txt', 'WORLD_is_AWESOME', 'utf8');
     });
 
 });

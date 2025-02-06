@@ -1,40 +1,44 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
-    }
+const fs = require('fs-extra');
 
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
-    }
-
-    if (count < 0) {
-        throw new Error("count cannot be negative");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
+async function filterExistingFiles(filePaths) {
+    const existingFiles = [];
+    for (const filePath of filePaths) {
+        try {
+            if (await fs.pathExists(filePath)) {
+                existingFiles.push(filePath);
             }
+        } catch (error) {
+            console.error(`Error checking file ${filePath}: ${error}`);
         }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
     }
+    return existingFiles;
+}
 
-    return recurrences;
+async function readFile(filePath) {
+    try {
+        return await fs.readFile(filePath, 'utf8');
+    } catch (error) {
+        console.error(`Error reading file ${filePath}: ${error}`);
+        return null;
+    }
+}
+
+async function writeFile(filePath, content) {
+    try {
+        await fs.writeFile(filePath, content, 'utf8');
+    } catch (error) {
+        console.error(`Error writing file ${filePath}: ${error}`);
+    }
+}
+
+async function processFiles(filePaths, transformFn) {
+    const validFiles = await filterExistingFiles(filePaths);
+    const fileContents = await Promise.all(validFiles.map(readFile));
+    const transformedContents = fileContents.map((content) => (content ? transformFn(content) : null));
+    await Promise.all(validFiles.map((filePath, index) => writeFile(filePath, transformedContents[index])));
+    console.log('File processing completed.');
 }
 
 module.exports = {
-    getNextRecurrences
+    processFiles
 };

@@ -1,63 +1,48 @@
-function calculateFinalPrice(product, user, location) {
-    if (product.price === 0) {
-        return { finalPrice: 0 };
-    }
+const fs = require('fs-extra');
 
-    let basePrice = product.price;
-    let discount = 0;
-    
-    if (user.type === 'premium') {
-        discount = 0.1;
-    } else if (user.type === 'wholesale') {
-        discount = 0.2;
-    } else if (user.loyaltyPoints > 100) {
-        discount = 0.05;
-    }
-
-    let discountedPrice = basePrice - (basePrice * discount);
-
-    let taxRate = 0;
-    if (product.category === 'electronics') {
-        taxRate = 0.15;
-    } else if (product.category === 'clothing') {
-        taxRate = 0.05;
-    } else {
-        taxRate = 0.1;
-    }
-
-    let taxAmount = discountedPrice * taxRate;
-    
-    let shippingCost = 10;
-    if (location.country === 'US') {
-        if (location.state === 'CA') {
-            shippingCost = 5;
-        } else if (location.state === 'NY') {
-            shippingCost = 8;
+async function processFiles(filePaths, transformFn) {
+    const validFiles = [];
+    for (let i = 0; i < filePaths.length; i++) {
+        try {
+            const exists = await fs.pathExists(filePaths[i]);
+            if (exists) {
+                validFiles.push(filePaths[i]);
+            }
+        } catch (error) {
+            console.error('Error checking file:', error);
+            return;
         }
-    } else {
-        shippingCost = 15;
     }
 
-    if (product.weight > 5) {
-        shippingCost += 5;
-    }
-
-    if (user.type === 'premium') {
-        shippingCost *= 0.9;
-    }
-
-    return {
-        finalPrice: discountedPrice + taxAmount + shippingCost,
-        breakdown: {
-            basePrice,
-            discountApplied: basePrice * discount,
-            taxAmount,
-            shippingCost
+    const fileContents = [];
+    for (let i = 0; i < validFiles.length; i++) {
+        try {
+            const data = await fs.readFile(validFiles[i], 'utf8');
+            fileContents.push(data);
+        } catch (error) {
+            console.error('Error reading file:', error);
+            return null;
         }
-    };
+    }
+
+    const transformedContents = [];
+    for (let i = 0; i < fileContents.length; i++) {
+        const transformed = fileContents[i] ? transformFn(fileContents[i]) : null;
+        transformedContents.push(transformed);
+        
+    }
+
+    for (let i = 0; i < validFiles.length; i++) {
+        try {
+            await fs.writeFile(validFiles[i], `${transformedContents[i]}`, 'utf8');
+        } catch (error) {
+            console.error('Error writing file:', error);
+        }
+    }
+
+    console.log('File processing completed.');
 }
 
-
 module.exports = {
-    calculateFinalPrice
+    processFiles
 };

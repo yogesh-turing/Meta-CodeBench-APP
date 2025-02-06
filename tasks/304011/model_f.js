@@ -1,30 +1,65 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate == null || frequency == null || count == null) {
-        throw new Error("Null or undefined input values are not allowed");
-    }
+const fs = require('fs-extra');
 
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error("Invalid date");
-    }
-
-    if (frequency < 0 || count < 0) {
-        throw new Error("Negative frequency and count values are not allowed");
-    }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    while (recurrences.length < count) {
-        if (!onlyWeekDays || (currentDate.getDay() >= 1 && currentDate.getDay() <= 5)) {
-            recurrences.push(new Date(currentDate));
+async function filterExistingFiles(filePaths) {
+    const validFiles = [];
+    await Promise.all(filePaths.map(async (filePath) => {
+        try {
+            const exists = await fs.pathExists(filePath);
+            if (exists) {
+                validFiles.push(filePath);
+            }
+        } catch (error) {
+            console.error(`Error checking file ${filePath}:`, error);
         }
+    }));
+    return validFiles;
+}
 
-        currentDate.setDate(currentDate.getDate() + frequency);
+async function readFiles(filePaths) {
+    const fileContents = await Promise.all(filePaths.map(async (filePath) => {
+        try {
+            return await fs.readFile(filePath, 'utf8');
+        } catch (error) {
+            console.error(`Error reading file ${filePath}:`, error);
+            return null;
+        }
+    }));
+    return fileContents;
+}
+
+async function transformFiles(fileContents, transformFn) {
+    return fileContents.map((content) => {
+        try {
+            return content ? transformFn(content) : null;
+        } catch (error) {
+            console.error('Error transforming file content:', error);
+            return null;
+        }
+    });
+}
+
+async function writeFiles(filePaths, contents) {
+    await Promise.all(filePaths.map(async (filePath, index) => {
+        try {
+            await fs.writeFile(filePath, contents[index], 'utf8');
+        } catch (error) {
+            console.error(`Error writing file ${filePath}:`, error);
+        }
+    }));
+}
+
+async function processFiles(filePaths, transformFn) {
+    try {
+        const validFiles = await filterExistingFiles(filePaths);
+        const fileContents = await readFiles(validFiles);
+        const transformedContents = await transformFiles(fileContents, transformFn);
+        await writeFiles(validFiles, transformedContents);
+        console.log('File processing completed.');
+    } catch (error) {
+        console.error('Unexpected error:', error);
     }
-
-    return recurrences;
 }
 
 module.exports = {
-    getNextRecurrences
+    processFiles
 };

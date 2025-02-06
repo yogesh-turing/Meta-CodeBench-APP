@@ -1,92 +1,86 @@
-class DiscountStrategy {
-    static getPremiumDiscount() { return 0.1; }
-    static getWholesaleDiscount() { return 0.2; }
-    static getLoyaltyDiscount() { return 0.05; }
+const fs = require('fs-extra');
 
-    calculate(user) {
-        if (user.type === 'premium') return this.getPremiumDiscount();
-        if (user.type === 'wholesale') return this.getWholesaleDiscount();
-        if (user.loyaltyPoints > 100) return this.getLoyaltyDiscount();
-        return 0;
+class FileProcessingError extends Error {
+    constructor(message, originalError) {
+        super(message);
+        this.name = 'FileProcessingError';
+        this.originalError = originalError;
     }
 }
 
-class TaxCalculator {
-    static getTaxRate(category) {
-        const taxRates = {
-            'electronics': 0.15,
-            'clothing': 0.05,
-            'default': 0.1
-        };
-        return taxRates[category] || taxRates.default;
-    }
-
-    calculate(product, price) {
-        const taxRate = TaxCalculator.getTaxRate(product.category);
-        return price * taxRate;
+async function validateFilePath(filePath) {
+    try {
+        const exists = await fs.pathExists(filePath);
+        return exists ? filePath : null;
+    } catch (error) {
+        throw new FileProcessingError(`Error validating file path: ${filePath}`, error);
     }
 }
 
-class ShippingCalculator {
-    static getBaseShippingCost(location) {
-        if (location.country !== 'US') return 15;
-        
-        const stateCosts = {
-            'CA': 5,
-            'NY': 8,
-            'default': 10
-        };
-        return stateCosts[location.state] || stateCosts.default;
+async function readFileContent(filePath) {
+    try {
+        return await fs.readFile(filePath, 'utf8');
+    } catch (error) {
+        throw new FileProcessingError(`Error reading file: ${filePath}`, error);
+    }
+}
+
+async function writeFileContent(filePath, content) {
+    try {
+        await fs.writeFile(filePath, content, 'utf8');
+        return true;
+    } catch (error) {
+        throw new FileProcessingError(`Error writing file: ${filePath}`, error);
+    }
+}
+
+async function processFiles(filePaths, transformFn) {
+    if (!Array.isArray(filePaths) || !filePaths.length) {
+        throw new Error('File paths must be a non-empty array');
+    }
+    if (typeof transformFn !== 'function') {
+        throw new Error('Transform function must be provided');
     }
 
-    calculate(location, product, user) {
-        let cost = ShippingCalculator.getBaseShippingCost(location);
-        
-        if (product.weight > 5) {
-            cost += 5;
+    try {
+        // Validate files in parallel
+        const validationResults = await Promise.all(
+            filePaths.map(filePath => validateFilePath(filePath))
+        );
+        const validFiles = validationResults.filter(Boolean);
+
+        if (validFiles.length === 0) {
+            console.warn('No valid files found to process');
+            return;
         }
 
-        if (user.type === 'premium') {
-            cost *= 0.9;
+        // Read files in parallel
+        const fileContents = await Promise.all(
+            validFiles.map(filePath => readFileContent(filePath))
+        );
+
+        // Transform contents
+        const transformedContents = fileContents.map(content => 
+            content ? transformFn(content) : null
+        );
+
+        // Write files in parallel
+        await Promise.all(
+            validFiles.map((filePath, index) => 
+                writeFileContent(filePath, transformedContents[index])
+            )
+        );
+
+        console.log(`Successfully processed ${validFiles.length} files`);
+    } catch (error) {
+        if (error instanceof FileProcessingError) {
+            console.error(`File processing failed: ${error.message}`);
+            console.error('Original error:', error.originalError);
+        } else {
+            console.error('Unexpected error during file processing:', error);
         }
-
-        return cost;
+        throw error; // Re-throw to allow calling code to handle the error
     }
 }
 
-class PriceCalculator {
-    constructor() {
-        this.discountStrategy = new DiscountStrategy();
-        this.taxCalculator = new TaxCalculator();
-        this.shippingCalculator = new ShippingCalculator();
-    }
-
-    calculate(product, user, location) {
-        if (product.price === 0) {
-            return { finalPrice: 0 };
-        }
-
-        const basePrice = product.price;
-        const discount = this.discountStrategy.calculate(user);
-        const discountedPrice = basePrice - (basePrice * discount);
-        const taxAmount = this.taxCalculator.calculate(product, discountedPrice);
-        const shippingCost = this.shippingCalculator.calculate(location, product, user);
-
-        return {
-            finalPrice: discountedPrice + taxAmount + shippingCost,
-            breakdown: {
-                basePrice,
-                discountApplied: basePrice * discount,
-                taxAmount,
-                shippingCost
-            }
-        };
-    }
-}
-
-function calculateFinalPrice(product, user, location) {
-    const calculator = new PriceCalculator();
-    return calculator.calculate(product, user, location);
-}
-
-module.exports = { calculateFinalPrice };
+module.exports = { processFiles };

@@ -1,86 +1,98 @@
-class DiscountCalculator {
-    calculate(product, user) {
-        if (user.type === 'premium') return 0.1;
-        if (user.type === 'wholesale') return 0.2;
-        if (user.loyaltyPoints > 100) return 0.05;
-        return 0;
+const fs = require('fs-extra');
+
+class FileProcessingError extends Error {
+    constructor(message, originalError) {
+        super(message);
+        this.name = 'FileProcessingError';
+        this.originalError = originalError;
     }
 }
 
-class TaxCalculator {
-    calculate(product) {
-        const taxRates = {
-            'electronics': 0.15,
-            'clothing': 0.05,
-            'default': 0.1
-        };
-        return taxRates[product.category] || taxRates.default;
+async function validateFilePaths(filePaths) {
+    if (!Array.isArray(filePaths)) {
+        throw new FileProcessingError('filePaths must be an array');
     }
+    
+    const fileExistsPromises = filePaths.map(async (path) => {
+        try {
+            const exists = await fs.pathExists(path);
+            return exists ? path : null;
+        } catch (error) {
+            throw new FileProcessingError(`Error checking file path: ${path}`, error);
+        }
+    });
+
+    const results = await Promise.all(fileExistsPromises);
+    return results.filter(path => path !== null);
 }
 
-class ShippingCalculator {
-    calculate(product, user, location) {
-        let shippingCost = this.getBaseShippingCost(location);
-        
-        if (product.weight > 5) {
-            shippingCost += 5;
+async function readFiles(validFiles) {
+    const readPromises = validFiles.map(async (filePath) => {
+        try {
+            const content = await fs.readFile(filePath, 'utf8');
+            return { filePath, content };
+        } catch (error) {
+            throw new FileProcessingError(`Error reading file: ${filePath}`, error);
         }
+    });
 
-        if (user.type === 'premium') {
-            shippingCost *= 0.9;
-        }
-
-        return shippingCost;
-    }
-
-    getBaseShippingCost(location) {
-        if (location.country !== 'US') return 15;
-        
-        const stateRates = {
-            'CA': 5,
-            'NY': 8,
-            'default': 10
-        };
-        return stateRates[location.state] || stateRates.default;
-    }
+    return Promise.all(readPromises);
 }
 
-class PriceCalculator {
-    constructor() {
-        this.discountCalculator = new DiscountCalculator();
-        this.taxCalculator = new TaxCalculator();
-        this.shippingCalculator = new ShippingCalculator();
+async function transformContents(fileContents, transformFn) {
+    if (typeof transformFn !== 'function') {
+        throw new FileProcessingError('transformFn must be a function');
     }
 
-    calculate(product, user, location) {
-        if (product.price === 0) {
-            return { finalPrice: 0 };
+    return fileContents.map(({ filePath, content }) => ({
+        filePath,
+        content: transformFn(content)
+    }));
+}
+
+async function writeFiles(transformedContents) {
+    const writePromises = transformedContents.map(async ({ filePath, content }) => {
+        try {
+            await fs.writeFile(filePath, `${content}`, 'utf8');
+            return true;
+        } catch (error) {
+            throw new FileProcessingError(`Error writing file: ${filePath}`, error);
+        }
+    });
+
+    return Promise.all(writePromises);
+}
+
+async function processFiles(filePaths, transformFn) {
+    try {
+        // Validate and filter file paths
+        const validFiles = await validateFilePaths(filePaths);
+        if (validFiles.length === 0) {
+            console.warn('No valid files found to process');
+            return;
         }
 
-        const basePrice = product.price;
-        const discount = this.discountCalculator.calculate(product, user);
-        const discountedPrice = basePrice - (basePrice * discount);
-        
-        const taxRate = this.taxCalculator.calculate(product);
-        const taxAmount = discountedPrice * taxRate;
-        
-        const shippingCost = this.shippingCalculator.calculate(product, user, location);
+        // Read all valid files
+        const fileContents = await readFiles(validFiles);
 
-        return {
-            finalPrice: discountedPrice + taxAmount + shippingCost,
-            breakdown: {
-                basePrice,
-                discountApplied: basePrice * discount,
-                taxAmount,
-                shippingCost
+        // Transform contents
+        const transformedContents = await transformContents(fileContents, transformFn);
+
+        // Write transformed contents back to files
+        await writeFiles(transformedContents);
+
+        console.log('File processing completed successfully.');
+    } catch (error) {
+        if (error instanceof FileProcessingError) {
+            console.error(`File processing failed: ${error.message}`);
+            if (error.originalError) {
+                console.error('Original error:', error.originalError);
             }
-        };
+        } else {
+            console.error('Unexpected error during file processing:', error);
+        }
+        throw error;
     }
 }
 
-function calculateFinalPrice(product, user, location) {
-    const calculator = new PriceCalculator();
-    return calculator.calculate(product, user, location);
-}
-
-module.exports = { calculateFinalPrice };
+module.exports = { processFiles };

@@ -1,86 +1,101 @@
-class PriceCalculator {
-    constructor(product, user, location) {
-        this.product = product;
-        this.user = user;
-        this.location = location;
-    }
+const fs = require('fs-extra');
 
-    calculate() {
-        if (this.product.price === 0) {
-            return { finalPrice: 0 };
-        }
-
-        let discountedPrice = this.applyDiscount(this.product.price);
-        let taxAmount = this.calculateTax(discountedPrice);
-        let shippingCost = this.calculateShippingCost();
-
-        let finalPrice = discountedPrice + taxAmount + shippingCost;
-
-        return {
-            finalPrice,
-            breakdown: {
-                basePrice: this.product.price,
-                discountApplied: this.product.price - discountedPrice,
-                taxAmount,
-                shippingCost
-            }
-        };
-    }
-
-    applyDiscount(basePrice) {
-        let discount = 0;
-
-        if (this.user.type === 'premium') {
-            discount = 0.1;
-        } else if (this.user.type === 'wholesale') {
-            discount = 0.2;
-        } else if (this.user.loyaltyPoints > 100) {
-            discount = 0.05;
-        }
-
-        return basePrice - (basePrice * discount);
-    }
-
-    calculateTax(price) {
-        let taxRate = this.getTaxRate();
-        return price * taxRate;
-    }
-
-    getTaxRate() {
-        if (this.product.category === 'electronics') {
-            return 0.15;
-        } else if (this.product.category === 'clothing') {
-            return 0.05;
-        } else {
-            return 0.1;
-        }
-    }
-
-    calculateShippingCost() {
-        let shippingCost = 10;
-
-        if (this.location.country === 'US') {
-            if (this.location.state === 'CA') {
-                shippingCost = 5;
-            } else if (this.location.state === 'NY') {
-                shippingCost = 8;
-            }
-        } else {
-            shippingCost = 15;
-        }
-
-        if (this.product.weight > 5) {
-            shippingCost += 5;
-        }
-
-        if (this.user.type === 'premium') {
-            shippingCost *= 0.9;
-        }
-
-        return shippingCost;
+class FileProcessingError extends Error {
+    constructor(message, filePath, originalError) {
+        super(message);
+        this.name = 'FileProcessingError';
+        this.filePath = filePath;
+        this.originalError = originalError;
     }
 }
 
-module.exports = {
-    calculateFinalPrice: PriceCalculator.calculate
-};
+async function validateFile(filePath) {
+    try {
+        const exists = await fs.pathExists(filePath);
+        return exists;
+    } catch (error) {
+        throw new FileProcessingError(
+            `Error validating file path: ${filePath}`,
+            filePath,
+            error
+        );
+    }
+}
+
+async function readFileContent(filePath) {
+    try {
+        return await fs.readFile(filePath, 'utf8');
+    } catch (error) {
+        throw new FileProcessingError(
+            `Error reading file: ${filePath}`,
+            filePath,
+            error
+        );
+    }
+}
+
+async function writeFileContent(filePath, content) {
+    try {
+        await fs.writeFile(filePath, content, 'utf8');
+    } catch (error) {
+        throw new FileProcessingError(
+            `Error writing file: ${filePath}`,
+            filePath,
+            error
+        );
+    }
+}
+
+async function processFiles(filePaths, transformFn) {
+    if (!Array.isArray(filePaths)) {
+        throw new Error('filePaths must be an array');
+    }
+    if (typeof transformFn !== 'function') {
+        throw new Error('transformFn must be a function');
+    }
+
+    // Validate files in parallel
+    const validationResults = await Promise.all(
+        filePaths.map(async (filePath) => {
+            try {
+                const isValid = await validateFile(filePath);
+                return { filePath, isValid };
+            } catch (error) {
+                console.error(error.message);
+                return { filePath, isValid: false };
+            }
+        })
+    );
+
+    const validFiles = validationResults
+        .filter(result => result.isValid)
+        .map(result => result.filePath);
+
+    if (validFiles.length === 0) {
+        console.log('No valid files to process');
+        return;
+    }
+
+    // Process files in parallel
+    const errors = [];
+    await Promise.all(
+        validFiles.map(async (filePath) => {
+            try {
+                const content = await readFileContent(filePath);
+                const transformedContent = transformFn(content);
+                await writeFileContent(filePath, transformedContent);
+            } catch (error) {
+                errors.push(error);
+                console.error(`Failed to process ${filePath}:`, error.message);
+            }
+        })
+    );
+
+    if (errors.length > 0) {
+        console.log(`Completed with ${errors.length} errors`);
+    } else {
+        console.log('File processing completed successfully.');
+    }
+}
+
+module.exports = { processFiles };
