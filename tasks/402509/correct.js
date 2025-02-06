@@ -9,6 +9,8 @@ function getMonthlyCalendar(year, month) {
 
     const daysInWeek = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     const calendar = [];
+    month = +month; 
+    year = +year;
 
     // Get the first day of the month and the number of days in the month
     const firstDayOfMonth = new Date(year, month - 1, 1);
