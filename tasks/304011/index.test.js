@@ -1,6 +1,5 @@
 const fs = require('fs-extra');
-// const {processFiles} = require(process.env.TARGET_FILE);
-const {processFiles} = require('./correct');
+const {processFiles} = require(process.env.TARGET_FILE);
 
 jest.mock('fs-extra');
 global.console = {
