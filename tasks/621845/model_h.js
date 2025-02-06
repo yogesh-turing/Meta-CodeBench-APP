@@ -1,98 +1,108 @@
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
-const { z } = require("zod");
-
-class ApiAuthService {
-  constructor() {
-    this.apiKeys = new Map(); 
-    this.revokedTokens = new Set(); 
-    this.rateLimit = new Map(); 
+function aStar(grid, start, end) {
+  // Check for invalid inputs
+  if (!grid || !start || !end) {
+      return null;
   }
 
-  // Validates input using zod schema
-  validateApiKeyInput(email, apiKey) {
-    const schema = z.object({
-      email: z.string().email(),
-      apiKey: z.string().length(32, "API key must be 32 characters long"),
-    });
+  // Priority queue for open nodes
+  const openSet = new Set([start]);
+  // Set to keep track of visited nodes
+  const closedSet = new Set();
 
-    try {
-      schema.parse({ email, apiKey });
-      return { success: true };
-    } catch (error) {
-      return { success: false, errors: error.errors };
-    }
-  }
+  // Track path and scores
+  const cameFrom = new Map();
+  const gScore = new Map();
+  const fScore = new Map();
 
-  // Generates and registers a new API key
-  generateApiKey(email) {
-    if (!email) return { success: false, message: "Email is required" };
+  // Initialize scores
+  gScore.set(start, 0);
+  fScore.set(start, heuristic(start, end));
 
-    const apiKey = crypto.randomBytes(16).toString("hex");
-    const id = crypto.randomUUID();
-    this.apiKeys.set(email, { id, apiKey, createdAt: new Date() });
-
-    return { success: true, apiKey, userId: id };
-  }
-
-  // Authenticates API key and generates a JWT token
-  authenticateApiKey(email, apiKey) {
-    const user = this.apiKeys.get(email);
-
-    if (!user || user.apiKey !== apiKey) {
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Generate a JWT token
-    const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
-    return { success: true, token };
-  }
-
-  // Revokes a JWT token
-  revokeToken(token) {
-    this.revokedTokens.add(token);
-    return { success: true, message: "Token revoked successfully" };
-  }
-
-  // Verifies a JWT token
-  verifyToken(token) {
-    if (this.revokedTokens.has(token)) {
-      return { success: false, message: "Token is revoked" };
-    }
-
-    try {
-      const decoded = jwt.verify(token, "secretKey");
-      return { success: true, decoded };
-    } catch (error) {
-      return { success: false, message: "Invalid or expired token" };
-    }
-  }
-
-  // Rate limiting for authenticateApiKey method
-  rateLimitAuthenticateApiKey(email) {
-    const now = Date.now();
-    const limit = 5; 
-    const timeWindow = 15 * 60 * 1000; 
-    const key = `authenticateApiKey:${email}`; 
-
-    const current = this.rateLimit.get(key);
-    if (current) {
-      const { count, timestamp } = current;
-      if (now - timestamp < timeWindow) {
-        if (count >= limit) {
-          return { success: false, message: "Rate limit exceeded" };
-        } else {
-          this.rateLimit.set(key, { count: count + 1, timestamp });
-        }
-      } else {
-        this.rateLimit.set(key, { count: 1, timestamp: now });
+  while (openSet.size > 0) {
+      // Find node with lowest fScore in openSet
+      let current = null;
+      let lowestFScore = Infinity;
+      for (const node of openSet) {
+          const score = fScore.get(node);
+          if (score < lowestFScore) {
+              lowestFScore = score;
+              current = node;
+          }
       }
-    } else {
-      this.rateLimit.set(key, { count: 1, timestamp: now });
-    }
 
-    return { success: true };
+      // Check if we reached the end
+      if (current.x === end.x && current.y === end.y) {
+          return reconstructPath(cameFrom, current);
+      }
+
+      // Remove current from openSet
+      openSet.delete(current);
+      // Add current to closedSet
+      closedSet.add(current);
+
+      // Get neighbors of current node
+      const neighbors = getNeighbors(grid, current);
+
+      for (const neighbor of neighbors) {
+          // Skip if neighbor in closedSet
+          if (closedSet.has(neighbor)) {
+              continue;
+          }
+
+          // Calculate tentative gScore
+          const tentativeGScore = gScore.get(current) + 1;
+
+          // Check if new path is better
+          if (!openSet.has(neighbor) || tentativeGScore < gScore.get(neighbor)) {
+              // Update path and scores if better
+              cameFrom.set(neighbor, current);
+              gScore.set(neighbor, tentativeGScore);
+              fScore.set(neighbor, tentativeGScore + heuristic(neighbor, end));
+              openSet.add(neighbor);
+          }
+      }
   }
+
+  // Return null if no path found
+  return null;
 }
 
-module.exports = { ApiAuthService };
+// Helper function to calculate heuristic (Manhattan distance)
+function heuristic(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+// Helper function to reconstruct path
+function reconstructPath(cameFrom, current) {
+  const path = [current];
+  while (cameFrom.has(current)) {
+      current = cameFrom.get(current);
+      path.unshift(current);
+  }
+  return path;
+}
+
+// Helper function to get neighbors of a node
+function getNeighbors(grid, node) {
+  const neighbors = [];
+  const directions = [
+      { x: 0, y: -1 }, // up
+      { x: 0, y: 1 }, // down
+      { x: -1, y: 0 }, // left
+      { x: 1, y: 0 }, // right
+  ];
+
+  for (const direction of directions) {
+      const x = node.x + direction.x;
+      const y = node.y + direction.y;
+
+      // Check if neighbor is within grid boundaries and is walkable (0)
+      if (x >= 0 && x < grid.length && y >= 0 && y < grid[0].length && grid[x][y] === 0) {
+          neighbors.push({ x, y });
+      }
+  }
+
+  return neighbors;
+}
+
+module.exports = { aStar };

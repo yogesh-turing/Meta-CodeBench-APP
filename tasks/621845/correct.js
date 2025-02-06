@@ -1,104 +1,153 @@
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
-const { z } = require("zod");
-
-class ApiAuthService {
-  constructor() {
-    this.apiKeys = new Map(); // Stores API keys and metadata
-    this.revokedTokens = new Set(); // Tracks revoked JWT tokens
-    this.failedAttempts = new Map(); // Tracks failed authentication attempts
+function aStar(grid, start, end) {
+  // Input validation
+  if (!grid || !start || !end || !grid.length) {
+    return null;
   }
 
-  // Validates input using zod schema
-  validateApiKeyInput(email, apiKey) {
-    const schema = z.object({
-      email: z.string().email(),
-      apiKey: z.string().length(32, "API key must be 32 characters long"),
-    });
+  // Check for irregular grid shape
+  const rowLengths = grid.map((row) => row.length);
+  if (!rowLengths.every((length) => length === rowLengths[0])) {
+    return null;
+  }
 
-    try {
-      schema.parse({ email, apiKey });
-      return { success: true };
-    } catch (error) {
-      return { success: false, errors: error.errors };
+  if (
+    start.x < 0 ||
+    start.y < 0 ||
+    start.y >= grid.length ||
+    start.x >= grid[start.y].length ||
+    end.x < 0 ||
+    end.y < 0 ||
+    end.y >= grid.length ||
+    end.x >= grid[end.y].length
+  ) {
+    return null;
+  }
+
+  if (grid[start.y][start.x] === 1 || grid[end.y][end.x] === 1) {
+    return null;
+  }
+
+  // Special case for start and end being the same
+  if (start.x === end.x && start.y === end.y) {
+    return [{ x: start.x, y: start.y }];
+  }
+
+  // Priority queue for open nodes
+  let openSet = [
+    {
+      pos: start,
+      f: heuristic(start, end),
+      g: 0,
+    },
+  ];
+
+  // Track visited nodes and paths
+  const closedSet = new Set();
+  const cameFrom = new Map();
+  const gScore = new Map();
+
+  // Initialize scores
+  gScore.set(JSON.stringify(start), 0);
+
+  while (openSet.length > 0) {
+    // Find and remove node with lowest f score
+    openSet.sort((a, b) => a.f - b.f);
+    const current = openSet.shift();
+    const currentPos = current.pos;
+    const currentPosStr = JSON.stringify(currentPos);
+
+    // Check if we reached the end
+    if (currentPos.x === end.x && currentPos.y === end.y) {
+      return reconstructPath(cameFrom, currentPosStr);
+    }
+
+    closedSet.add(currentPosStr);
+
+    // Check all neighbors
+    const neighbors = getNeighbors(currentPos, grid);
+    for (const neighbor of neighbors) {
+      const neighborStr = JSON.stringify(neighbor);
+
+      // Skip if already evaluated
+      if (closedSet.has(neighborStr)) {
+        continue;
+      }
+
+      // Calculate g score for this path
+      const tentativeGScore = current.g + 1;
+
+      // Find if neighbor is in openSet
+      const neighborNode = openSet.find(
+        (node) => node.pos.x === neighbor.x && node.pos.y === neighbor.y
+      );
+
+      if (!neighborNode) {
+        // Discovered a new node
+        openSet.push({
+          pos: neighbor,
+          g: tentativeGScore,
+          f: tentativeGScore + heuristic(neighbor, end),
+        });
+        cameFrom.set(neighborStr, currentPosStr);
+        gScore.set(neighborStr, tentativeGScore);
+      } else if (tentativeGScore < neighborNode.g) {
+        // Found a better path
+        neighborNode.g = tentativeGScore;
+        neighborNode.f = tentativeGScore + heuristic(neighbor, end);
+        cameFrom.set(neighborStr, currentPosStr);
+        gScore.set(neighborStr, tentativeGScore);
+      }
     }
   }
 
-  // Generates and registers a new API key
-  generateApiKey(email) {
-    if (!email) return { success: false, message: "Email is required" };
-
-    const apiKey = crypto.randomBytes(16).toString("hex"); // Securely generate API key
-    const id = crypto.randomUUID(); // Unique identifier for the user
-    this.apiKeys.set(email, { id, apiKey, createdAt: new Date() });
-
-    return { success: true, apiKey, userId: id };
-  }
-
-  // Authenticates API key and generates a JWT token with rate limiting
-  authenticateApiKey(email, apiKey) {
-    const now = Date.now();
-
-    // Rate limiting: Check for too many failed attempts
-    const failedInfo = this.failedAttempts.get(email);
-    if (failedInfo && failedInfo.lockoutUntil && failedInfo.lockoutUntil > now) {
-      return {
-        success: false,
-        message: `Too many failed attempts. Try again after ${new Date(
-          failedInfo.lockoutUntil
-        ).toLocaleTimeString()}`,
-      };
-    }
-
-    const user = this.apiKeys.get(email);
-
-    // Validate API key
-    if (!user || user.apiKey !== apiKey) {
-      this.registerFailedAttempt(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Reset failed attempts on successful authentication
-    this.failedAttempts.delete(email);
-
-    // Generate a JWT token
-    const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
-    return { success: true, token };
-  }
-
-  // Registers a failed authentication attempt and enforces rate limiting
-  registerFailedAttempt(email) {
-    const now = Date.now();
-    const failedInfo = this.failedAttempts.get(email) || { count: 0, lockoutUntil: null };
-
-    failedInfo.count += 1;
-    if (failedInfo.count >= 5) {
-      failedInfo.lockoutUntil = now + 15 * 60 * 1000; // Lock account for 15 minutes
-      failedInfo.count = 0; // Reset attempt count after lockout
-    }
-
-    this.failedAttempts.set(email, failedInfo);
-  }
-
-  // Revokes a JWT token
-  revokeToken(token) {
-    this.revokedTokens.add(token);
-    return { success: true, message: "Token revoked successfully" };
-  }
-
-  // Verifies a JWT token
-  verifyToken(token) {
-    if (this.revokedTokens.has(token)) {
-      return { success: false, message: "Token is revoked" };
-    }
-
-    try {
-      const decoded = jwt.verify(token, "secretKey");
-      return { success: true, decoded };
-    } catch (error) {
-      return { success: false, message: "Invalid or expired token" };
-    }
-  }
+  // No path found
+  return null;
 }
 
-module.exports = { ApiAuthService };
+// Helper function to calculate Manhattan distance heuristic
+function heuristic(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+// Helper function to get valid neighbors
+function getNeighbors(node, grid) {
+  const neighbors = [];
+  const directions = [
+    { x: 0, y: -1 }, // up
+    { x: 1, y: 0 }, // right
+    { x: 0, y: 1 }, // down
+    { x: -1, y: 0 }, // left
+  ];
+
+  for (const dir of directions) {
+    const newX = node.x + dir.x;
+    const newY = node.y + dir.y;
+
+    // Check if within grid bounds and walkable
+    if (
+      newY >= 0 &&
+      newY < grid.length &&
+      newX >= 0 &&
+      newX < grid[newY].length &&
+      grid[newY][newX] === 0
+    ) {
+      neighbors.push({ x: newX, y: newY });
+    }
+  }
+
+  return neighbors;
+}
+
+// Helper function to reconstruct path
+function reconstructPath(cameFrom, current) {
+  const path = [JSON.parse(current)];
+
+  while (cameFrom.has(current)) {
+    current = cameFrom.get(current);
+    path.unshift(JSON.parse(current));
+  }
+
+  return path;
+}
+
+module.exports = { aStar };

@@ -1,183 +1,116 @@
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
-const { z } = require("zod");
-
-class ApiAuthService {
-  constructor() {
-    this.apiKeys = new Map();
-    this.revokedTokens = new Map(); // Changed to Map to store revocation timestamp
-    this.authAttempts = new Map(); // For rate limiting
-    
-    // Cleanup intervals
-    setInterval(() => this.cleanupRevokedTokens(), 3600000); // Cleanup every hour
-    setInterval(() => this.cleanupAuthAttempts(), 900000); // Cleanup every 15 minutes
+function aStar(grid, start, end) {
+  // Validate input parameters
+  if (!grid || !start || !end || !grid.length || !grid[0].length) {
+      return null;
+  }
+  
+  const rows = grid.length;
+  const cols = grid[0].length;
+  
+  // Validate start and end positions
+  if (start.x < 0 || start.x >= cols || start.y < 0 || start.y >= rows ||
+      end.x < 0 || end.x >= cols || end.y < 0 || end.y >= rows ||
+      grid[start.y][start.x] === 1 || grid[end.y][end.x] === 1) {
+      return null;
   }
 
-  validateApiKeyInput(email, apiKey) {
-    const schema = z.object({
-      email: z.string().email(),
-      apiKey: z.string().length(32, "API key must be 32 characters long"),
-    });
-
-    try {
-      schema.parse({ email, apiKey });
-      return { success: true };
-    } catch (error) {
-      return { success: false, errors: error.errors };
-    }
-  }
-
-  generateApiKey(email) {
-    const emailSchema = z.string().email();
-    
-    try {
-      emailSchema.parse(email);
-    } catch (error) {
-      return { success: false, message: "Email is required" };
-    }
-
-    // Generate a cryptographically secure API key
-    const apiKey = crypto.randomBytes(16).toString("hex");
-    const id = crypto.randomUUID();
-    
-    // Hash the API key before storing
-    const hashedKey = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex");
-
-    this.apiKeys.set(email, {
-      id,
-      apiKey: hashedKey,
-      createdAt: new Date(),
-    });
-
-    return { success: true, apiKey, userId: id };
-  }
-
-  authenticateApiKey(email, apiKey) {
-    // Check rate limiting
-    const attempts = this.getAuthAttempts(email);
-    if (attempts >= 5) {
-      return { success: false, message: "Too many attempts. Please try again later." };
-    }
-
-    // Validate input
-    const validation = this.validateApiKeyInput(email, apiKey);
-    if (!validation.success) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    const user = this.apiKeys.get(email);
-    if (!user) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Hash the provided API key and compare
-    const hashedKey = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex");
-
-    if (user.apiKey !== hashedKey) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Generate a JWT token with additional claims
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email,
-        iat: Math.floor(Date.now() / 1000),
-      },
-      "secretKey",
-      { expiresIn: "1h" }
-    );
-
-    return { success: true, token };
-  }
-
-  revokeToken(token) {
-    try {
-      const decoded = jwt.decode(token);
-      if (!decoded) {
-        return { success: false, message: "Invalid token format" };
+  const openSet = new Set([JSON.stringify(start)]);
+  const closedSet = new Set();
+  
+  const cameFrom = new Map();
+  const gScore = new Map();
+  const fScore = new Map();
+  
+  gScore.set(JSON.stringify(start), 0);
+  fScore.set(JSON.stringify(start), heuristic(start, end));
+  
+  while (openSet.size > 0) {
+      // Find node with lowest fScore in openSet
+      let current = null;
+      let lowestFScore = Infinity;
+      
+      for (const nodeStr of openSet) {
+          const score = fScore.get(nodeStr) || Infinity;
+          if (score < lowestFScore) {
+              lowestFScore = score;
+              current = JSON.parse(nodeStr);
+          }
       }
-
-      this.revokedTokens.set(token, {
-        timestamp: Date.now(),
-        exp: decoded.exp,
-      });
-
-      return { success: true, message: "Token revoked successfully" };
-    } catch (error) {
-      return { success: false, message: "Invalid token format" };
-    }
-  }
-
-  verifyToken(token) {
-    if (!token) {
-      return { success: false, message: "Token is required" };
-    }
-
-    if (this.revokedTokens.has(token)) {
-      return { success: false, message: "Token is revoked" };
-    }
-
-    try {
-      const decoded = jwt.verify(token, "secretKey");
-      return { success: true, decoded };
-    } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
-        return { success: false, message: "Invalid or expired token" };
+      
+      const currentStr = JSON.stringify(current);
+      
+      // Check if we reached the end
+      if (current.x === end.x && current.y === end.y) {
+          return reconstructPath(cameFrom, currentStr);
       }
-      return { success: false, message: "Invalid or expired token" };
-    }
-  }
-
-  // Helper methods for rate limiting
-  getAuthAttempts(email) {
-    const attempts = this.authAttempts.get(email);
-    if (!attempts) return 0;
-    
-    if (Date.now() - attempts.timestamp > 900000) {
-      this.authAttempts.delete(email);
-      return 0;
-    }
-    
-    return attempts.count;
-  }
-
-  incrementAuthAttempts(email) {
-    const currentAttempts = this.authAttempts.get(email);
-    if (!currentAttempts) {
-      this.authAttempts.set(email, { count: 1, timestamp: Date.now() });
-    } else {
-      currentAttempts.count += 1;
-    }
-  }
-
-  // Cleanup methods
-  cleanupRevokedTokens() {
-    const now = Date.now();
-    for (const [token, data] of this.revokedTokens.entries()) {
-      if (now >= data.exp * 1000) {
-        this.revokedTokens.delete(token);
+      
+      // Remove current from openSet and add to closedSet
+      openSet.delete(currentStr);
+      closedSet.add(currentStr);
+      
+      // Get neighbors
+      const directions = [
+          {x: 0, y: -1}, // up
+          {x: 0, y: 1},  // down
+          {x: -1, y: 0}, // left
+          {x: 1, y: 0}   // right
+      ];
+      
+      for (const dir of directions) {
+          const neighbor = {
+              x: current.x + dir.x,
+              y: current.y + dir.y
+          };
+          
+          // Skip if outside grid or blocked
+          if (neighbor.x < 0 || neighbor.x >= cols ||
+              neighbor.y < 0 || neighbor.y >= rows ||
+              grid[neighbor.y][neighbor.x] === 1) {
+              continue;
+          }
+          
+          const neighborStr = JSON.stringify(neighbor);
+          
+          // Skip if in closedSet
+          if (closedSet.has(neighborStr)) {
+              continue;
+          }
+          
+          // Calculate tentative gScore
+          const tentativeGScore = (gScore.get(currentStr) || Infinity) + 1;
+          
+          // Add to openSet if not there
+          if (!openSet.has(neighborStr)) {
+              openSet.add(neighborStr);
+          }
+          
+          // Check if new path is better
+          if (tentativeGScore < (gScore.get(neighborStr) || Infinity)) {
+              // Update path and scores
+              cameFrom.set(neighborStr, currentStr);
+              gScore.set(neighborStr, tentativeGScore);
+              fScore.set(neighborStr, tentativeGScore + heuristic(neighbor, end));
+          }
       }
-    }
   }
-
-  cleanupAuthAttempts() {
-    const now = Date.now();
-    for (const [email, data] of this.authAttempts.entries()) {
-      if (now - data.timestamp > 900000) {
-        this.authAttempts.delete(email);
-      }
-    }
-  }
+  
+  // No path found
+  return null;
 }
 
-module.exports = { ApiAuthService };
+function heuristic(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+function reconstructPath(cameFrom, current) {
+  const path = [JSON.parse(current)];
+  
+  while (cameFrom.has(current)) {
+      current = cameFrom.get(current);
+      path.unshift(JSON.parse(current));
+  }
+  
+  return path;
+}
+
+module.exports = {aStar};

@@ -1,83 +1,79 @@
+Base Code:
 ```javascript
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
-const { z } = require("zod");
-
-class ApiAuthService {
-  constructor() {
-    this.apiKeys = new Map(); 
-    this.revokedTokens = new Set(); 
-  }
-
-  // Validates input using zod schema
-  validateApiKeyInput(email, apiKey) {
-    const schema = z.object({
-      email: z.string().email(),
-      apiKey: z.string().length(32, "API key must be 32 characters long"),
-    });
-
-    try {
-      schema.parse({ email, apiKey });
-      return { success: true };
-    } catch (error) {
-      return { success: false, errors: error.errors };
+function aStar(grid, start, end) {
+    // Priority queue for open nodes
+    const openSet = new Set([start]);
+    // Set to keep track of visited nodes
+    const closedSet = new Set();
+    
+    // Track path and scores
+    const cameFrom = new Map();
+    const gScore = new Map();
+    const fScore = new Map();
+    
+    // Initialize scores
+    gScore.set(start, 0);
+    fScore.set(start, heuristic(start, end));
+    
+    while (openSet.size > 0) {
+        // TODO: Find node with lowest fScore in openSet
+        const current = null; // Implementation needed
+        
+        // TODO: Check if we reached the end
+        
+        // TODO: Remove current from openSet
+        // TODO: Add current to closedSet
+        
+        // TODO: Get neighbors of current node
+        const neighbors = []; // Implementation needed
+        
+        for (const neighbor of neighbors) {
+            // TODO: Skip if neighbor in closedSet
+            
+            // TODO: Calculate tentative gScore
+            
+            // TODO: Check if new path is better
+            
+            // TODO: Update path and scores if better
+        }
     }
-  }
-
-  // Generates and registers a new API key
-  generateApiKey(email) {
-    if (!email) return { success: false, message: "Email is required" };
-
-    const apiKey = crypto.randomBytes(16).toString("hex");
-    const id = crypto.randomUUID();
-    this.apiKeys.set(email, { id, apiKey, createdAt: new Date() });
-
-    return { success: true, apiKey, userId: id };
-  }
-
-  // Authenticates API key and generates a JWT token
-  authenticateApiKey(email, apiKey) {
-    const user = this.apiKeys.get(email);
-
-    if (!user || user.apiKey !== apiKey) {
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Generate a JWT token
-    const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
-    return { success: true, token };
-  }
-
-  // Revokes a JWT token
-  revokeToken(token) {
-    this.revokedTokens.add(token);
-    return { success: true, message: "Token revoked successfully" };
-  }
-
-  // Verifies a JWT token
-  verifyToken(token) {
-    if (this.revokedTokens.has(token)) {
-      return { success: false, message: "Token is revoked" };
-    }
-
-    try {
-      const decoded = jwt.verify(token, "secretKey");
-      return { success: true, decoded };
-    } catch (error) {
-      return { success: false, message: "Invalid or expired token" };
-    }
-  }
+    
+    // TODO: Return null if no path found
+    return null;
 }
 
-module.exports = { ApiAuthService };
+// Helper function to calculate heuristic (Manhattan distance)
+function heuristic(a, b) {
+    // TODO: Implement Manhattan distance calculation
+    return 0;
+}
 
+// Helper function to reconstruct path
+function reconstructPath(cameFrom, current) {
+    // TODO: Implement path reconstruction
+    return [];
+}
+
+module.exports = {aStar}
 ```
-I have an ApiAuthService class that provides basic API authentication functionality. While functional, I want to enhance it to meet production-level standards with the following improvements:
 
-1. Secure API Key Management: Ensure API keys are securely generated, stored, and validated. Include input validation for email and API key formats using zod.
-2. JWT Management: Add support for issuing, verifying, and securely revoking JWT tokens. Ensure tokens cannot be reused once revoked.
-3. Error Handling: Implement robust error handling for all operations, such as invalid API key input, revoked tokens, or expired JWT tokens.
-4. Rate Limiting: Introduce rate limiting to prevent abuse of the authenticateApiKey method, such as too many invalid attempts from a single email. Allow 5 attempts max in each 15 minutes. 
-5. Do not change any log messages present in the code. 
+Prompt:
+Develop JavaScript code for implementing the pathfinding algorithm A* on a 2D grid. The grid cells would either be walkable (0) or blocked (1), and an attempt would be made in attempting to find the shortest path from a starting position to an endpoint while avoiding any obstacles.
 
-Can you provide an enhanced version of this class with these features? Use the existing crypto, jsonwebtoken, and zod libraries only.
+Your task:
+Fill in all the TODO parts of the skeleton code.
+
+What the program should do:
+- Use Manhattan distance heuristic that will serve reasonably well in estimating the cost from some cell toward the goal.
+- Only allow movement up, down, left, or right; diagonal movement must not be allowed.
+- Represent each grid cell as an object: { x: number, y: number }.
+- Claim an array of coordinates containing the shortest path;
+- If that path is found invalid, return null.
+- Edge cases such as invalid inputs or unavailable paths must also be handled.
+
+Some of the following key features:
+
+Keep track of visited nodes.
+- Calculate g-scores (the distance from the start) and h-scores (the estimated distance towards goal).
+- Update paths for which there has been new superior discovery.
+- Be sure to check carefully for all edge cases.

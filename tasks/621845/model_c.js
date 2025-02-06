@@ -1,165 +1,115 @@
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
-const { z } = require("zod");
-
-class ApiAuthService {
-  constructor() {
-    this.apiKeys = new Map();
-    this.revokedTokens = new Set();
-    this.authAttempts = new Map(); // Track authentication attempts
-    this.MAX_AUTH_ATTEMPTS = 5;
-    this.AUTH_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
-    this.JWT_SECRET = process.env.JWT_SECRET || "secretKey"; // Should be set via environment variable
+function aStar(grid, start, end) {
+  // Input validation
+  if (!grid || !start || !end || !Array.isArray(grid) || grid.length === 0) {
+      return null;
+  }
+  
+  // Check if start and end points are valid
+  if (!isValidPosition(grid, start) || !isValidPosition(grid, end)) {
+      return null;
+  }
+  
+  // Check if start or end points are obstacles
+  if (grid[start.y][start.x] === 1 || grid[end.y][end.x] === 1) {
+      return null;
   }
 
-  validateApiKeyInput(email, apiKey) {
-    const schema = z.object({
-      email: z.string().email().toLowerCase(),
-      apiKey: z.string().length(32, "API key must be 32 characters long")
-        .regex(/^[a-f0-9]{32}$/, "API key must contain only hexadecimal characters"),
-    });
-
-    try {
-      schema.parse({ email, apiKey });
-      return { success: true };
-    } catch (error) {
-      return { success: false, errors: error.errors };
-    }
-  }
-
-  generateApiKey(email) {
-    if (!email) return { success: false, message: "Email is required" };
-
-    try {
-      const emailSchema = z.string().email().toLowerCase();
-      const validatedEmail = emailSchema.parse(email);
-
-      // Generate a cryptographically secure API key
-      const apiKey = crypto.randomBytes(16).toString("hex");
-      const id = crypto.randomUUID();
+  const openSet = new Set([JSON.stringify(start)]);
+  const closedSet = new Set();
+  
+  const cameFrom = new Map();
+  const gScore = new Map();
+  const fScore = new Map();
+  
+  gScore.set(JSON.stringify(start), 0);
+  fScore.set(JSON.stringify(start), heuristic(start, end));
+  
+  while (openSet.size > 0) {
+      // Find node with lowest fScore in openSet
+      const current = JSON.parse(Array.from(openSet)
+          .reduce((lowest, node) => 
+              (fScore.get(node) < fScore.get(lowest) ? node : lowest)));
       
-      // Hash the API key before storing
-      const hashedApiKey = this.hashApiKey(apiKey);
+      // Check if we reached the end
+      if (current.x === end.x && current.y === end.y) {
+          return reconstructPath(cameFrom, JSON.stringify(current));
+      }
       
-      this.apiKeys.set(validatedEmail, {
-        id,
-        apiKey: hashedApiKey,
-        createdAt: new Date(),
-        lastUsed: null
-      });
-
-      return { success: true, apiKey, userId: id };
-    } catch (error) {
-      return { success: false, message: "Invalid email format" };
-    }
-  }
-
-  hashApiKey(apiKey) {
-    return crypto.createHash('sha256').update(apiKey).digest('hex');
-  }
-
-  checkRateLimit(email) {
-    const now = Date.now();
-    const attempts = this.authAttempts.get(email) || [];
-    
-    // Clean up old attempts
-    const recentAttempts = attempts.filter(
-      timestamp => now - timestamp < this.AUTH_WINDOW_MS
-    );
-    
-    if (recentAttempts.length >= this.MAX_AUTH_ATTEMPTS) {
-      return false;
-    }
-    
-    recentAttempts.push(now);
-    this.authAttempts.set(email, recentAttempts);
-    return true;
-  }
-
-  authenticateApiKey(email, apiKey) {
-    if (!this.checkRateLimit(email)) {
-      return { 
-        success: false, 
-        message: "Too many authentication attempts. Please try again later." 
-      };
-    }
-
-    const validation = this.validateApiKeyInput(email, apiKey);
-    if (!validation.success) {
-      return { success: false, message: "Invalid API key" };
-    }
-
-    const user = this.apiKeys.get(email.toLowerCase());
-    if (!user || user.apiKey !== this.hashApiKey(apiKey)) {
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Update last used timestamp
-    user.lastUsed = new Date();
-    
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email,
-        iat: Math.floor(Date.now() / 1000)
-      },
-      this.JWT_SECRET,
-      { 
-        expiresIn: "1h",
-        algorithm: "HS256"
-      }
-    );
-
-    return { success: true, token };
-  }
-
-  revokeToken(token) {
-    try {
-      // Verify the token before revoking
-      const decoded = jwt.verify(token, this.JWT_SECRET);
-      if (decoded) {
-        this.revokedTokens.add(token);
-        
-        // Clean up old revoked tokens
-        this.cleanupRevokedTokens();
-        
-        return { success: true, message: "Token revoked successfully" };
-      }
-    } catch (error) {
-      return { success: false, message: "Invalid token" };
-    }
-  }
-
-  verifyToken(token) {
-    if (this.revokedTokens.has(token)) {
-      return { success: false, message: "Token is revoked" };
-    }
-
-    try {
-      const decoded = jwt.verify(token, this.JWT_SECRET, {
-        algorithms: ["HS256"]
-      });
+      // Remove current from openSet and add to closedSet
+      openSet.delete(JSON.stringify(current));
+      closedSet.add(JSON.stringify(current));
       
-      return { success: true, decoded };
-    } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
-        return { success: false, message: "Invalid or expired token" };
+      // Get neighbors
+      const neighbors = getNeighbors(grid, current);
+      
+      for (const neighbor of neighbors) {
+          const neighborStr = JSON.stringify(neighbor);
+          
+          // Skip if neighbor in closedSet
+          if (closedSet.has(neighborStr)) {
+              continue;
+          }
+          
+          // Calculate tentative gScore
+          const tentativeGScore = gScore.get(JSON.stringify(current)) + 1;
+          
+          if (!openSet.has(neighborStr)) {
+              openSet.add(neighborStr);
+          } else if (tentativeGScore >= gScore.get(neighborStr)) {
+              continue;
+          }
+          
+          // Update path and scores
+          cameFrom.set(neighborStr, JSON.stringify(current));
+          gScore.set(neighborStr, tentativeGScore);
+          fScore.set(neighborStr, tentativeGScore + heuristic(neighbor, end));
       }
-      return { success: false, message: "Invalid or expired token" };
-    }
   }
-
-  cleanupRevokedTokens() {
-    for (const token of this.revokedTokens) {
-      try {
-        jwt.verify(token, this.JWT_SECRET);
-      } catch (error) {
-        if (error instanceof jwt.TokenExpiredError) {
-          this.revokedTokens.delete(token);
-        }
-      }
-    }
-  }
+  
+  return null;
 }
 
-module.exports = { ApiAuthService };
+function heuristic(a, b) {
+  return Math.abs(a.x - b.x) + Math.abs(a.y - b.y);
+}
+
+function reconstructPath(cameFrom, current) {
+  const path = [JSON.parse(current)];
+  while (cameFrom.has(current)) {
+      current = cameFrom.get(current);
+      path.unshift(JSON.parse(current));
+  }
+  return path;
+}
+
+function getNeighbors(grid, position) {
+  const neighbors = [];
+  const directions = [
+      {x: 0, y: -1}, // up
+      {x: 1, y: 0},  // right
+      {x: 0, y: 1},  // down
+      {x: -1, y: 0}  // left
+  ];
+  
+  for (const dir of directions) {
+      const neighbor = {
+          x: position.x + dir.x,
+          y: position.y + dir.y
+      };
+      
+      if (isValidPosition(grid, neighbor) && grid[neighbor.y][neighbor.x] === 0) {
+          neighbors.push(neighbor);
+      }
+  }
+  
+  return neighbors;
+}
+
+function isValidPosition(grid, position) {
+  return position.x >= 0 && 
+         position.x < grid[0].length && 
+         position.y >= 0 && 
+         position.y < grid.length;
+}
+
+module.exports = {aStar};

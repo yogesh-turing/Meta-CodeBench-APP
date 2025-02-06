@@ -1,183 +1,111 @@
-const crypto = require("crypto");
-const jwt = require("jsonwebtoken");
-const { z } = require("zod");
-
-class ApiAuthService {
-  constructor() {
-    this.apiKeys = new Map();
-    this.revokedTokens = new Map(); // Changed to Map to store revocation timestamp
-    this.authAttempts = new Map(); // For rate limiting
-    
-    // Cleanup intervals
-    setInterval(() => this.cleanupRevokedTokens(), 3600000); // Cleanup every hour
-    setInterval(() => this.cleanupAuthAttempts(), 900000); // Cleanup every 15 minutes
+// A* algorithm implementation
+function aStar(grid, start, end) {
+  if (!grid || !grid.length || !grid[0].length || !start || !end) {
+    return null;
+  }
+  if (
+    start.x < 0 ||
+    start.y < 0 ||
+    start.y >= grid.length ||
+    start.x >= grid[start.y].length ||
+    end.x < 0 ||
+    end.y < 0 ||
+    end.y >= grid.length ||
+    end.x >= grid[end.y].length
+  ) {
+    return null;
   }
 
-  validateApiKeyInput(email, apiKey) {
-    const schema = z.object({
-      email: z.string().email(),
-      apiKey: z.string().length(32, "API key must be 32 characters long"),
-    });
-
-    try {
-      schema.parse({ email, apiKey });
-      return { success: true };
-    } catch (error) {
-      return { success: false, errors: error.errors };
-    }
+  if (grid[start.y][start.x] === 1 || grid[end.y][end.x] === 1) {
+    return null;
   }
+  
+  const rows = grid.length;
+  const cols = grid[0].length;
 
-  generateApiKey(email) {
-    const emailSchema = z.string().email();
-    
-    try {
-      emailSchema.parse(email);
-    } catch (error) {
-      return { success: false, message: "Email is required" };
+  const openSet = [start];
+  const cameFrom = new Map();
+
+  const gScore = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+  const fScore = Array.from({ length: rows }, () => Array(cols).fill(Infinity));
+
+  gScore[start[0]][start[1]] = 0;
+  fScore[start[0]][start[1]] = manhattanDistance(start, end);
+
+  while (openSet.length > 0) {
+    // Find the node in openSet with the lowest fScore
+    let current = openSet.reduce((a, b) => (fScore[a[0]][a[1]] < fScore[b[0]][b[1]] ? a : b));
+
+    // Check if the goal is reached
+    if (current[0] === end[0] && current[1] === end[1]) {
+      return reconstructPath(cameFrom, current);
     }
 
-    // Generate a cryptographically secure API key
-    const apiKey = crypto.randomBytes(16).toString("hex");
-    const id = crypto.randomUUID();
-    
-    // Hash the API key before storing
-    const hashedKey = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex");
+    // Remove current from openSet
+    openSet.splice(openSet.indexOf(current), 1);
 
-    this.apiKeys.set(email, {
-      id,
-      apiKey: hashedKey,
-      createdAt: new Date(),
-    });
+    // Explore neighbors
+    for (const neighbor of getNeighbors(current, grid)) {
+      const tentativeGScore = gScore[current[0]][current[1]] + 1;
 
-    return { success: true, apiKey, userId: id };
-  }
+      if (tentativeGScore < gScore[neighbor[0]][neighbor[1]]) {
+        cameFrom.set(`${neighbor[0]}-${neighbor[1]}`, current);
+        gScore[neighbor[0]][neighbor[1]] = tentativeGScore;
+        fScore[neighbor[0]][neighbor[1]] = tentativeGScore + manhattanDistance(neighbor, end);
 
-  authenticateApiKey(email, apiKey) {
-    // Check rate limiting
-    const attempts = this.getAuthAttempts(email);
-    if (attempts >= 5) {
-      return { success: false, message: "Too many attempts. Please try again later." };
-    }
-
-    // Validate input
-    const validation = this.validateApiKeyInput(email, apiKey);
-    if (!validation.success) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    const user = this.apiKeys.get(email);
-    if (!user) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Hash the provided API key and compare
-    const hashedKey = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex");
-
-    if (user.apiKey !== hashedKey) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Generate a JWT token with additional claims
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email,
-        iat: Math.floor(Date.now() / 1000),
-      },
-      "secretKey",
-      { expiresIn: "1h" }
-    );
-
-    return { success: true, token };
-  }
-
-  revokeToken(token) {
-    try {
-      const decoded = jwt.decode(token);
-      if (!decoded) {
-        return { success: false, message: "Invalid token format" };
-      }
-
-      this.revokedTokens.set(token, {
-        timestamp: Date.now(),
-        exp: decoded.exp,
-      });
-
-      return { success: true, message: "Token revoked successfully" };
-    } catch (error) {
-      return { success: false, message: "Invalid token format" };
-    }
-  }
-
-  verifyToken(token) {
-    if (!token) {
-      return { success: false, message: "Token is required" };
-    }
-
-    if (this.revokedTokens.has(token)) {
-      return { success: false, message: "Token is revoked" };
-    }
-
-    try {
-      const decoded = jwt.verify(token, "secretKey");
-      return { success: true, decoded };
-    } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
-        return { success: false, message: "Invalid or expired token" };
-      }
-      return { success: false, message: "Invalid or expired token" };
-    }
-  }
-
-  // Helper methods for rate limiting
-  getAuthAttempts(email) {
-    const attempts = this.authAttempts.get(email);
-    if (!attempts) return 0;
-    
-    if (Date.now() - attempts.timestamp > 900000) {
-      this.authAttempts.delete(email);
-      return 0;
-    }
-    
-    return attempts.count;
-  }
-
-  incrementAuthAttempts(email) {
-    const currentAttempts = this.authAttempts.get(email);
-    if (!currentAttempts) {
-      this.authAttempts.set(email, { count: 1, timestamp: Date.now() });
-    } else {
-      currentAttempts.count += 1;
-    }
-  }
-
-  // Cleanup methods
-  cleanupRevokedTokens() {
-    const now = Date.now();
-    for (const [token, data] of this.revokedTokens.entries()) {
-      if (now >= data.exp * 1000) {
-        this.revokedTokens.delete(token);
+        if (!openSet.some(([r, c]) => r === neighbor[0] && c === neighbor[1])) {
+          openSet.push(neighbor);
+        }
       }
     }
   }
 
-  cleanupAuthAttempts() {
-    const now = Date.now();
-    for (const [email, data] of this.authAttempts.entries()) {
-      if (now - data.timestamp > 900000) {
-        this.authAttempts.delete(email);
-      }
-    }
-  }
+  return null; // No path found
 }
 
-module.exports = { ApiAuthService };
+// Manhattan distance heuristic
+function manhattanDistance([x1, y1], [x2, y2]) {
+  return Math.abs(x1 - x2) + Math.abs(y1 - y2);
+}
+
+// Get neighbors of a cell in a deterministic order
+function getNeighbors([row, col], grid) {
+  const neighbors = [];
+  const directions = [
+    [0, 1], // Right
+    [1, 0], // Down
+    [0, -1], // Left
+    [-1, 0], // Up
+  ];
+
+  for (const [dr, dc] of directions) {
+    const newRow = row + dr;
+    const newCol = col + dc;
+
+    if (
+      newRow >= 0 &&
+      newRow < grid.length &&
+      newCol >= 0 &&
+      newCol < grid[0].length &&
+      grid[newRow][newCol] === 0 // Ensure the cell is walkable
+    ) {
+      neighbors.push([newRow, newCol]);
+    }
+  }
+
+  return neighbors;
+}
+
+// Reconstruct path from the cameFrom map
+function reconstructPath(cameFrom, current) {
+  const path = [current];
+
+  while (cameFrom.has(`${current[0]}-${current[1]}`)) {
+    current = cameFrom.get(`${current[0]}-${current[1]}`);
+    path.push(current);
+  }
+
+  return path.reverse();
+}
+
+module.exports = { aStar };
