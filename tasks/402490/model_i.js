@@ -1,12 +1,12 @@
-```javascript
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map(); 
-    this.revokedTokens = new Set(); 
+    this.apiKeys = new Map(); // Map of email to { id, apiKey, createdAt }
+    this.revokedTokens = new Set(); // Set of revoked JWT tokens
+    this.attempts = new Map(); // Map of email to number of attempts
   }
 
   // Validates input using zod schema
@@ -40,11 +40,33 @@ class ApiAuthService {
     const user = this.apiKeys.get(email);
 
     if (!user || user.apiKey !== apiKey) {
+      // Increment attempts count
+      const attempts = (this.attempts.get(email) || 0) + 1;
+      this.attempts.set(email, attempts);
+
+      // Check for rate limiting
+      if (attempts > 5) {
+        const timeout = 15 * 60 * 1000; // 15 minutes
+        const lastAttempt = this.attempts.get(email + ":lastAttempt");
+        if (lastAttempt && Date.now() - lastAttempt < timeout) {
+          return {
+            success: false,
+            message: "Too many invalid attempts. Try again later.",
+          };
+        }
+        this.attempts.set(email + ":lastAttempt", Date.now());
+      }
+
       return { success: false, message: "Invalid API key" };
     }
 
+    // Reset attempts count
+    this.attempts.delete(email);
+
     // Generate a JWT token
-    const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
+    const token = jwt.sign({ userId: user.id, email }, "secretKey", {
+      expiresIn: "1h",
+    });
     return { success: true, token };
   }
 
@@ -70,14 +92,3 @@ class ApiAuthService {
 }
 
 module.exports = { ApiAuthService };
-
-```
-I have an ApiAuthService class that provides basic API authentication functionality. While functional, I want to enhance it to meet production-level standards with the following improvements:
-
-1. Secure API Key Management: Ensure API keys are securely generated, stored, and validated. Include input validation for email and API key formats using zod.
-2. JWT Management: Add support for issuing, verifying, and securely revoking JWT tokens. Ensure tokens cannot be reused once revoked.
-3. Error Handling: Implement robust error handling for all operations, such as invalid API key input, revoked tokens, or expired JWT tokens.
-4. Rate Limiting: Introduce rate limiting to prevent abuse of the authenticateApiKey method, such as too many invalid attempts from a single email. Allow 5 attempts max in each 15 minutes. 
-5. Do not change any log messages present in the code. 
-
-Can you provide an enhanced version of this class with these features? Use the existing crypto, jsonwebtoken, and zod libraries only.

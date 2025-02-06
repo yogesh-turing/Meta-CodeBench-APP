@@ -1,4 +1,3 @@
-```javascript
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
@@ -7,6 +6,7 @@ class ApiAuthService {
   constructor() {
     this.apiKeys = new Map(); 
     this.revokedTokens = new Set(); 
+    this.rateLimit = new Map(); 
   }
 
   // Validates input using zod schema
@@ -67,17 +67,32 @@ class ApiAuthService {
       return { success: false, message: "Invalid or expired token" };
     }
   }
+
+  // Rate limiting for authenticateApiKey method
+  rateLimitAuthenticateApiKey(email) {
+    const now = Date.now();
+    const limit = 5; 
+    const timeWindow = 15 * 60 * 1000; 
+    const key = `authenticateApiKey:${email}`; 
+
+    const current = this.rateLimit.get(key);
+    if (current) {
+      const { count, timestamp } = current;
+      if (now - timestamp < timeWindow) {
+        if (count >= limit) {
+          return { success: false, message: "Rate limit exceeded" };
+        } else {
+          this.rateLimit.set(key, { count: count + 1, timestamp });
+        }
+      } else {
+        this.rateLimit.set(key, { count: 1, timestamp: now });
+      }
+    } else {
+      this.rateLimit.set(key, { count: 1, timestamp: now });
+    }
+
+    return { success: true };
+  }
 }
 
 module.exports = { ApiAuthService };
-
-```
-I have an ApiAuthService class that provides basic API authentication functionality. While functional, I want to enhance it to meet production-level standards with the following improvements:
-
-1. Secure API Key Management: Ensure API keys are securely generated, stored, and validated. Include input validation for email and API key formats using zod.
-2. JWT Management: Add support for issuing, verifying, and securely revoking JWT tokens. Ensure tokens cannot be reused once revoked.
-3. Error Handling: Implement robust error handling for all operations, such as invalid API key input, revoked tokens, or expired JWT tokens.
-4. Rate Limiting: Introduce rate limiting to prevent abuse of the authenticateApiKey method, such as too many invalid attempts from a single email. Allow 5 attempts max in each 15 minutes. 
-5. Do not change any log messages present in the code. 
-
-Can you provide an enhanced version of this class with these features? Use the existing crypto, jsonwebtoken, and zod libraries only.

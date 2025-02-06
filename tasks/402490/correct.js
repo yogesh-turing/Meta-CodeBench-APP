@@ -1,12 +1,12 @@
-```javascript
 const crypto = require("crypto");
 const jwt = require("jsonwebtoken");
 const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map(); 
-    this.revokedTokens = new Set(); 
+    this.apiKeys = new Map(); // Stores API keys and metadata
+    this.revokedTokens = new Set(); // Tracks revoked JWT tokens
+    this.failedAttempts = new Map(); // Tracks failed authentication attempts
   }
 
   // Validates input using zod schema
@@ -28,24 +28,56 @@ class ApiAuthService {
   generateApiKey(email) {
     if (!email) return { success: false, message: "Email is required" };
 
-    const apiKey = crypto.randomBytes(16).toString("hex");
-    const id = crypto.randomUUID();
+    const apiKey = crypto.randomBytes(16).toString("hex"); // Securely generate API key
+    const id = crypto.randomUUID(); // Unique identifier for the user
     this.apiKeys.set(email, { id, apiKey, createdAt: new Date() });
 
     return { success: true, apiKey, userId: id };
   }
 
-  // Authenticates API key and generates a JWT token
+  // Authenticates API key and generates a JWT token with rate limiting
   authenticateApiKey(email, apiKey) {
+    const now = Date.now();
+
+    // Rate limiting: Check for too many failed attempts
+    const failedInfo = this.failedAttempts.get(email);
+    if (failedInfo && failedInfo.lockoutUntil && failedInfo.lockoutUntil > now) {
+      return {
+        success: false,
+        message: `Too many failed attempts. Try again after ${new Date(
+          failedInfo.lockoutUntil
+        ).toLocaleTimeString()}`,
+      };
+    }
+
     const user = this.apiKeys.get(email);
 
+    // Validate API key
     if (!user || user.apiKey !== apiKey) {
+      this.registerFailedAttempt(email);
       return { success: false, message: "Invalid API key" };
     }
+
+    // Reset failed attempts on successful authentication
+    this.failedAttempts.delete(email);
 
     // Generate a JWT token
     const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
     return { success: true, token };
+  }
+
+  // Registers a failed authentication attempt and enforces rate limiting
+  registerFailedAttempt(email) {
+    const now = Date.now();
+    const failedInfo = this.failedAttempts.get(email) || { count: 0, lockoutUntil: null };
+
+    failedInfo.count += 1;
+    if (failedInfo.count >= 5) {
+      failedInfo.lockoutUntil = now + 15 * 60 * 1000; // Lock account for 15 minutes
+      failedInfo.count = 0; // Reset attempt count after lockout
+    }
+
+    this.failedAttempts.set(email, failedInfo);
   }
 
   // Revokes a JWT token
@@ -70,14 +102,3 @@ class ApiAuthService {
 }
 
 module.exports = { ApiAuthService };
-
-```
-I have an ApiAuthService class that provides basic API authentication functionality. While functional, I want to enhance it to meet production-level standards with the following improvements:
-
-1. Secure API Key Management: Ensure API keys are securely generated, stored, and validated. Include input validation for email and API key formats using zod.
-2. JWT Management: Add support for issuing, verifying, and securely revoking JWT tokens. Ensure tokens cannot be reused once revoked.
-3. Error Handling: Implement robust error handling for all operations, such as invalid API key input, revoked tokens, or expired JWT tokens.
-4. Rate Limiting: Introduce rate limiting to prevent abuse of the authenticateApiKey method, such as too many invalid attempts from a single email. Allow 5 attempts max in each 15 minutes. 
-5. Do not change any log messages present in the code. 
-
-Can you provide an enhanced version of this class with these features? Use the existing crypto, jsonwebtoken, and zod libraries only.
