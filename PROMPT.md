@@ -1,63 +1,40 @@
 Base Code:
-```javascript
-const fs = require('fs-extra');
+``` js
+function calculateEMA(prices, period) {
+    const k = 2 / (period + 1);
+    let emaArray = [prices[0]]; 
 
-async function processFiles(filePaths, transformFn) {
-    const validFiles = [];
-    for (let i = 0; i < filePaths.length; i++) {
-        try {
-            const exists = await fs.pathExists(filePaths[i]);
-            if (exists) {
-                validFiles.push(filePaths[i]);
-            }
-        } catch (error) {
-            console.error('Error checking file:', error);
-            return;
-        }
+    for (let i = 1; i < prices.length; i++) {
+        emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
     }
 
-    const fileContents = [];
-    for (let i = 0; i < validFiles.length; i++) {
-        try {
-            const data = await fs.readFile(validFiles[i], 'utf8');
-            fileContents.push(data);
-        } catch (error) {
-            console.error('Error reading file:', error);
-            return null;
-        }
-    }
-
-    const transformedContents = [];
-    for (let i = 0; i < fileContents.length; i++) {
-        const transformed = fileContents[i] ? transformFn(fileContents[i]) : null;
-        transformedContents.push(transformed);
-        
-    }
-
-    for (let i = 0; i < validFiles.length; i++) {
-        try {
-            await fs.writeFile(validFiles[i], `${transformedContents[i]}`, 'utf8');
-        } catch (error) {
-            console.error('Error writing file:', error);
-        }
-    }
-
-    console.log('File processing completed.');
+    return emaArray;
 }
 
+function calculateMACD(prices, shortPeriod = 12, longPeriod = 26, signalPeriod = 9) {
+    const shortEMA = calculateEMA(prices, shortPeriod);
+    const longEMA = calculateEMA(prices, longPeriod);
+
+    const macdLine = shortEMA.map((value, index) => value - longEMA[index]);
+    const signalLine = calculateEMA(macdLine, signalPeriod);
+    const histogram = macdLine.map((value, index) => value - signalLine[index]);
+
+    return {
+        macdLine,
+        signalLine,
+        histogram
+    };
+}
+
+
 module.exports = {
-    processFiles
+    calculateEMA,
+    calculateMACD
 };
+
 ```
+
 Prompt:
-
-The `processFiles` function processes multiple files asynchronously.
-The function reads a list of file paths, filters out non-existent files, reads their contents, and applies a transformation to each file. The function then writes the transformed contents back to the files.
-
-Please help to refactor this function 
-- Improving error handling—Handle unexpected errors more gracefully
-- Optimizing performance—Ensure parallel execution where possible.
-- Refactoring for maintainability—Break down complex logic into smaller reusable functions.
-- Add validation checks for input parameters `filePaths`, `transformFn`. Add validations checks for null/undefined values. `filePaths` should contain arrary of strings only and `transformFn` should be function.
-
-The function should produce the same output.
+The problem with the above code is, that the calculateMACD function assumes that shortEMA and longEMA arrays have the same length, which might not be true if the prices array is shorter than the longPeriod.
+Please fix the problem by ensuring that the macdLine calculation only iterates up to the length of the shorter array between shortEMA and longEMA.
+Also make sure functions work for null, undefined, empty inputs and input arrays with null/undefined/NaN values. Return an empty array if the input is invalid.

@@ -1,4 +1,4 @@
-const { calculateEMA, calculateMACD } = require('./model_a');
+const { calculateEMA, calculateMACD } = require(process.env.TARGET_FILE);
 
 describe('calculateEMA', () => {
     it('should calculate EMA for a simple set of prices', () => {

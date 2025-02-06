@@ -1,3 +1,15 @@
+The incorrect solution, have following issues with `calculateEMA` and `calculateMACD` functions.
+The `calculateEMA` function returns an empty array if the prices array length is less than the period. The function added validation checks if any price is null or NaN. However, failed to check for other invalid values like undefined or non-numeric strings.
+In `calculateMACD` function have issues when slicing and mapping as the shortEMA and longEMA arrays have different lengths. The function does not handle cases where `calculateEMA` return an empty array or an array shorter than expected.
+
+---
+
+Compared with incorrect solution, the ideal solution added additional checks for empty array, non-positive period, `undefined`, and `NaN` values using `includes` in `calculateEMA` function.
+In `calculateMACD` function, used `Math.min` to handle cases where `shortEMA` and `longEMA` might have different lengths, ensuring the `macdLine` calculation is safe. Also `calculateMACD` function returned the same object but with improved handling of different lengths of EMA arrays.
+
+---
+
+
 Model A:
 
 The model failed to handle errors gracefully. 

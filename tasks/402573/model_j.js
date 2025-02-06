@@ -1,44 +1,38 @@
-const fs = require('fs-extra');
-
-async function filterExistingFiles(filePaths) {
-    const existingFiles = [];
-    for (const filePath of filePaths) {
-        try {
-            if (await fs.pathExists(filePath)) {
-                existingFiles.push(filePath);
-            }
-        } catch (error) {
-            console.error(`Error checking file ${filePath}: ${error}`);
-        }
+function calculateEMA(prices, period) {
+    if (!Array.isArray(prices) || prices.length < period || prices.some(price => price == null || isNaN(price))) {
+        return [];
     }
-    return existingFiles;
+
+    const k = 2 / (period + 1);
+    let emaArray = [prices[0]];
+
+    for (let i = 1; i < prices.length; i++) {
+        emaArray.push(prices[i] * k + emaArray[i - 1] * (1 - k));
+    }
+
+    return emaArray;
 }
 
-async function readFile(filePath) {
-    try {
-        return await fs.readFile(filePath, 'utf8');
-    } catch (error) {
-        console.error(`Error reading file ${filePath}: ${error}`);
-        return null;
+function calculateMACD(prices, shortPeriod = 12, longPeriod = 26, signalPeriod = 9) {
+    if (!Array.isArray(prices) || prices.length < longPeriod || prices.some(price => price == null || isNaN(price))) {
+        return { macdLine: [], signalLine: [], histogram: [] };
     }
-}
 
-async function writeFile(filePath, content) {
-    try {
-        await fs.writeFile(filePath, content, 'utf8');
-    } catch (error) {
-        console.error(`Error writing file ${filePath}: ${error}`);
-    }
-}
+    const shortEMA = calculateEMA(prices, shortPeriod);
+    const longEMA = calculateEMA(prices, longPeriod);
 
-async function processFiles(filePaths, transformFn) {
-    const validFiles = await filterExistingFiles(filePaths);
-    const fileContents = await Promise.all(validFiles.map(readFile));
-    const transformedContents = fileContents.map((content) => (content ? transformFn(content) : null));
-    await Promise.all(validFiles.map((filePath, index) => writeFile(filePath, transformedContents[index])));
-    console.log('File processing completed.');
+    const macdLine = shortEMA.slice(0, longEMA.length).map((value, index) => value - longEMA[index]);
+    const signalLine = calculateEMA(macdLine, signalPeriod);
+    const histogram = macdLine.map((value, index) => value - signalLine[index]);
+
+    return {
+        macdLine,
+        signalLine,
+        histogram
+    };
 }
 
 module.exports = {
-    processFiles
+    calculateEMA,
+    calculateMACD
 };

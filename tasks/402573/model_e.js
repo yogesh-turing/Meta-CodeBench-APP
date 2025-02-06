@@ -1,101 +1,51 @@
-const fs = require('fs-extra');
-
-class FileProcessingError extends Error {
-    constructor(message, filePath, originalError) {
-        super(message);
-        this.name = 'FileProcessingError';
-        this.filePath = filePath;
-        this.originalError = originalError;
+function calculateEMA(prices, period) {
+    if (!Array.isArray(prices) || prices.length === 0 || !Number.isFinite(period) || period <= 0) {
+        return [];
     }
+
+    const validPrices = prices.filter(price => Number.isFinite(price));
+    if (validPrices.length === 0) {
+        return [];
+    }
+
+    const k = 2 / (period + 1);
+    let emaArray = [validPrices[0]];
+
+    for (let i = 1; i < validPrices.length; i++) {
+        emaArray.push(validPrices[i] * k + emaArray[i - 1] * (1 - k));
+    }
+
+    return emaArray;
 }
 
-async function validateFile(filePath) {
-    try {
-        const exists = await fs.pathExists(filePath);
-        return exists;
-    } catch (error) {
-        throw new FileProcessingError(
-            `Error validating file path: ${filePath}`,
-            filePath,
-            error
-        );
-    }
-}
-
-async function readFileContent(filePath) {
-    try {
-        return await fs.readFile(filePath, 'utf8');
-    } catch (error) {
-        throw new FileProcessingError(
-            `Error reading file: ${filePath}`,
-            filePath,
-            error
-        );
-    }
-}
-
-async function writeFileContent(filePath, content) {
-    try {
-        await fs.writeFile(filePath, content, 'utf8');
-    } catch (error) {
-        throw new FileProcessingError(
-            `Error writing file: ${filePath}`,
-            filePath,
-            error
-        );
-    }
-}
-
-async function processFiles(filePaths, transformFn) {
-    if (!Array.isArray(filePaths)) {
-        throw new Error('filePaths must be an array');
-    }
-    if (typeof transformFn !== 'function') {
-        throw new Error('transformFn must be a function');
+function calculateMACD(prices, shortPeriod = 12, longPeriod = 26, signalPeriod = 9) {
+    if (!Array.isArray(prices) || prices.length === 0) {
+        return { macdLine: [], signalLine: [], histogram: [] };
     }
 
-    // Validate files in parallel
-    const validationResults = await Promise.all(
-        filePaths.map(async (filePath) => {
-            try {
-                const isValid = await validateFile(filePath);
-                return { filePath, isValid };
-            } catch (error) {
-                console.error(error.message);
-                return { filePath, isValid: false };
-            }
-        })
+    const shortEMA = calculateEMA(prices, shortPeriod);
+    const longEMA = calculateEMA(prices, longPeriod);
+
+    const macdLineLength = Math.min(shortEMA.length, longEMA.length);
+    const macdLine = Array(macdLineLength);
+
+    for (let i = 0; i < macdLineLength; i++) {
+        macdLine[i] = shortEMA[i] - longEMA[i];
+    }
+
+    const signalLine = calculateEMA(macdLine, signalPeriod);
+    const histogram = macdLine.map((value, index) => 
+        index < signalLine.length ? value - signalLine[index] : NaN
     );
 
-    const validFiles = validationResults
-        .filter(result => result.isValid)
-        .map(result => result.filePath);
-
-    if (validFiles.length === 0) {
-        console.log('No valid files to process');
-        return;
-    }
-
-    // Process files in parallel
-    const errors = [];
-    await Promise.all(
-        validFiles.map(async (filePath) => {
-            try {
-                const content = await readFileContent(filePath);
-                const transformedContent = transformFn(content);
-                await writeFileContent(filePath, transformedContent);
-            } catch (error) {
-                errors.push(error);
-                console.error(`Failed to process ${filePath}:`, error.message);
-            }
-        })
-    );
-
-    if (errors.length > 0) {
-        console.log(`Completed with ${errors.length} errors`);
-    } else {
-        console.log('File processing completed successfully.');
-    }
+    return {
+        macdLine,
+        signalLine,
+        histogram
+    };
 }
 
-module.exports = { processFiles };
+module.exports = {
+    calculateEMA,
+    calculateMACD
+};
