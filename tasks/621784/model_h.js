@@ -8,40 +8,45 @@ class Event {
 
 class EventScheduler {
     static maxPopularityScore(events) {
-        // Check for invalid or empty input
+        // Handle invalid input
         if (!events || events.length === 0) {
             return 0;
         }
 
-        // Sort events by their end times
+        // Sort events by end time
         events.sort((a, b) => a.end - b.end);
 
-        // Initialize a dynamic programming table to store the maximum popularity score at each event
-        const dp = new Array(events.length).fill(0);
+        // Initialize dynamic programming array
+        let dp = new Array(events.length).fill(0);
 
-        // Initialize the maximum popularity score for the first event
-        dp[0] = events[0].popularity;
+        // Initialize maximum popularity score
+        let maxPopularity = 0;
 
-        // Iterate through the events to fill the dynamic programming table
-        for (let i = 1; i < events.length; i++) {
-            // Initialize the maximum popularity score for the current event to be the popularity of the current event
-            let maxPopularity = events[i].popularity;
+        // Iterate through events
+        for (let i = 0; i < events.length; i++) {
+            // Check if event is valid (end time >= start time)
+            if (events[i].end < events[i].start) {
+                return -1;
+            }
 
-            // Iterate through the previous events to find the maximum popularity score that does not overlap with the current event
+            // Initialize popularity score for current event
+            let popularity = events[i].popularity;
+
+            // Check for non-overlapping events
             for (let j = 0; j < i; j++) {
-                // Check if the current event does not overlap with the previous event
                 if (events[i].start >= events[j].end) {
-                    // Update the maximum popularity score for the current event
-                    maxPopularity = Math.max(maxPopularity, dp[j] + events[i].popularity);
+                    popularity = Math.max(popularity, dp[j] + events[i].popularity);
                 }
             }
 
-            // Update the dynamic programming table with the maximum popularity score for the current event
-            dp[i] = maxPopularity;
+            // Update dynamic programming array
+            dp[i] = popularity;
+
+            // Update maximum popularity score
+            maxPopularity = Math.max(maxPopularity, popularity);
         }
 
-        // Return the maximum popularity score from the dynamic programming table
-        return Math.max(...dp);
+        return maxPopularity;
     }
 }
 

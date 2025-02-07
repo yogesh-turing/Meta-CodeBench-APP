@@ -13,36 +13,33 @@ class EventScheduler {
             return 0;
         }
 
-        // Check for invalid events (end time < start time)
-        for (let event of events) {
-            if (event.end < event.start) {
-                return -1;
-            }
-        }
-
-        // Sort events by end time
+        // Sort events by their end times
         events.sort((a, b) => a.end - b.end);
 
-        // Initialize maximum total popularity score
-        let maxPopularity = 0;
+        // Initialize a dynamic programming array to store the maximum popularity score
+        // for each event
+        const dp = new Array(events.length).fill(0);
 
-        // Initialize last event end time
-        let lastEventEndTime = -1;
+        // Initialize the maximum popularity score for the first event
+        dp[0] = events[0].popularity;
 
-        // Iterate through sorted events
-        for (let event of events) {
-            // Check if the current event does not overlap with the last event
-            if (event.start >= lastEventEndTime) {
-                // Update the maximum total popularity score
-                maxPopularity += event.popularity;
-
-                // Update the last event end time
-                lastEventEndTime = event.end;
+        // Iterate through the events to fill the dynamic programming array
+        for (let i = 1; i < events.length; i++) {
+            // Find the maximum popularity score for the current event by considering
+            // all previous non-overlapping events
+            let maxScore = 0;
+            for (let j = 0; j < i; j++) {
+                if (events[j].end <= events[i].start) {
+                    maxScore = Math.max(maxScore, dp[j]);
+                }
             }
+
+            // Update the maximum popularity score for the current event
+            dp[i] = Math.max(maxScore + events[i].popularity, dp[i - 1]);
         }
 
-        return maxPopularity;
+        // Return the maximum popularity score for the last event
+        return dp[events.length - 1];
     }
 }
-
 module.exports = { Event, EventScheduler };

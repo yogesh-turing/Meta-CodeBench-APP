@@ -12,23 +12,25 @@ class EventScheduler {
             return 0;
         }
 
-        events.sort((a, b) => a.end - b.end);
-
-        let dp = new Array(events.length).fill(0);
-
-        dp[0] = events[0].popularity;
-
-        for (let i = 1; i < events.length; i++) {
-            let maxPopularity = 0;
-            for (let j = 0; j < i; j++) {
-                if (events[j].end <= events[i].start) {
-                    maxPopularity = Math.max(maxPopularity, dp[j]);
-                }
+        for (let event of events) {
+            if (event.end < event.start) {
+                return -1;
             }
-            dp[i] = Math.max(dp[i - 1], maxPopularity + events[i].popularity);
         }
 
-        return dp[events.length - 1];
+        events.sort((a, b) => a.end - b.end);
+
+        let maxPopularity = 0;
+        let lastEndTime = -1;
+
+        for (let event of events) {
+            if (event.start >= lastEndTime) {
+                maxPopularity += event.popularity;
+                lastEndTime = event.end;
+            }
+        }
+
+        return maxPopularity;
     }
 }
 

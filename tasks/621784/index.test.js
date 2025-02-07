@@ -106,4 +106,11 @@ describe('EventScheduler Tests', () => {
         ];
         expect(EventScheduler.maxPopularityScore(events)).toBe(0);
     });
+
+    test('event with start = 0 and end = 0', () => {
+        const events = [
+            new Event(0, 0, 5)
+        ];
+        expect(EventScheduler.maxPopularityScore(events)).toBe(-1);
+    });
 });
