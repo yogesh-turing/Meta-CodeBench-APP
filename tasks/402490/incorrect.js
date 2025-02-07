@@ -4,15 +4,12 @@ const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map();
-    this.revokedTokens = new Map(); // Changed to Map to store revocation timestamp
-    this.authAttempts = new Map(); // For rate limiting
-    
-    // Cleanup intervals
-    setInterval(() => this.cleanupRevokedTokens(), 3600000); // Cleanup every hour
-    setInterval(() => this.cleanupAuthAttempts(), 900000); // Cleanup every 15 minutes
+    this.apiKeys = new Map(); // email => { id, apiKey, createdAt }
+    this.revokedTokens = new Set(); // token => boolean
+    this.attempts = new Map(); // email => { attempts, lastAttemptAt }
   }
 
+  // Validates input using zod schema
   validateApiKeyInput(email, apiKey) {
     const schema = z.object({
       email: z.string().email(),
@@ -27,102 +24,55 @@ class ApiAuthService {
     }
   }
 
+  // Generates and registers a new API key
   generateApiKey(email) {
-    const emailSchema = z.string().email();
-    
-    try {
-      emailSchema.parse(email);
-    } catch (error) {
-      return { success: false, message: "Email is required" };
-    }
+    if (!email) return { success: false, message: "Email is required" };
 
-    // Generate a cryptographically secure API key
     const apiKey = crypto.randomBytes(16).toString("hex");
     const id = crypto.randomUUID();
-    
-    // Hash the API key before storing
-    const hashedKey = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex");
-
-    this.apiKeys.set(email, {
-      id,
-      apiKey: hashedKey,
-      createdAt: new Date(),
-    });
+    this.apiKeys.set(email, { id, apiKey, createdAt: new Date() });
 
     return { success: true, apiKey, userId: id };
   }
 
+  // Authenticates API key and generates a JWT token
   authenticateApiKey(email, apiKey) {
-    // Check rate limiting
-    const attempts = this.getAuthAttempts(email);
-    if (attempts >= 5) {
-      return { success: false, message: "Too many attempts. Please try again later." };
-    }
-
-    // Validate input
-    const validation = this.validateApiKeyInput(email, apiKey);
-    if (!validation.success) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
     const user = this.apiKeys.get(email);
-    if (!user) {
-      this.incrementAuthAttempts(email);
+
+    if (!user || user.apiKey !== apiKey) {
+      // Check if the email has exceeded the rate limit
+      const attempts = this.attempts.get(email);
+      if (attempts && attempts.attempts >= 5 && attempts.lastAttemptAt + 15 * 60 * 1000 > Date.now()) {
+        return { success: false, message: "Too many invalid attempts. Try again later." };
+      }
+
+      // Increment attempts count
+      if (!attempts) {
+        this.attempts.set(email, { attempts: 1, lastAttemptAt: Date.now() });
+      } else {
+        attempts.attempts++;
+        attempts.lastAttemptAt = Date.now();
+      }
+
       return { success: false, message: "Invalid API key" };
     }
 
-    // Hash the provided API key and compare
-    const hashedKey = crypto
-      .createHash("sha256")
-      .update(apiKey)
-      .digest("hex");
+    // Reset attempts count
+    this.attempts.delete(email);
 
-    if (user.apiKey !== hashedKey) {
-      this.incrementAuthAttempts(email);
-      return { success: false, message: "Invalid API key" };
-    }
-
-    // Generate a JWT token with additional claims
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email,
-        iat: Math.floor(Date.now() / 1000),
-      },
-      "secretKey",
-      { expiresIn: "1h" }
-    );
-
+    // Generate a JWT token
+    const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
     return { success: true, token };
   }
 
+  // Revokes a JWT token
   revokeToken(token) {
-    try {
-      const decoded = jwt.decode(token);
-      if (!decoded) {
-        return { success: false, message: "Invalid token format" };
-      }
-
-      this.revokedTokens.set(token, {
-        timestamp: Date.now(),
-        exp: decoded.exp,
-      });
-
-      return { success: true, message: "Token revoked successfully" };
-    } catch (error) {
-      return { success: false, message: "Invalid token format" };
-    }
+    this.revokedTokens.add(token);
+    return { success: true, message: "Token revoked successfully" };
   }
 
+  // Verifies a JWT token
   verifyToken(token) {
-    if (!token) {
-      return { success: false, message: "Token is required" };
-    }
-
     if (this.revokedTokens.has(token)) {
       return { success: false, message: "Token is revoked" };
     }
@@ -131,51 +81,7 @@ class ApiAuthService {
       const decoded = jwt.verify(token, "secretKey");
       return { success: true, decoded };
     } catch (error) {
-      if (error instanceof jwt.TokenExpiredError) {
-        return { success: false, message: "Invalid or expired token" };
-      }
       return { success: false, message: "Invalid or expired token" };
-    }
-  }
-
-  // Helper methods for rate limiting
-  getAuthAttempts(email) {
-    const attempts = this.authAttempts.get(email);
-    if (!attempts) return 0;
-    
-    if (Date.now() - attempts.timestamp > 900000) {
-      this.authAttempts.delete(email);
-      return 0;
-    }
-    
-    return attempts.count;
-  }
-
-  incrementAuthAttempts(email) {
-    const currentAttempts = this.authAttempts.get(email);
-    if (!currentAttempts) {
-      this.authAttempts.set(email, { count: 1, timestamp: Date.now() });
-    } else {
-      currentAttempts.count += 1;
-    }
-  }
-
-  // Cleanup methods
-  cleanupRevokedTokens() {
-    const now = Date.now();
-    for (const [token, data] of this.revokedTokens.entries()) {
-      if (now >= data.exp * 1000) {
-        this.revokedTokens.delete(token);
-      }
-    }
-  }
-
-  cleanupAuthAttempts() {
-    const now = Date.now();
-    for (const [email, data] of this.authAttempts.entries()) {
-      if (now - data.timestamp > 900000) {
-        this.authAttempts.delete(email);
-      }
     }
   }
 }

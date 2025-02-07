@@ -1,5 +1,5 @@
-// const {ApiAuthService} = require(process.env.TARGET_FILE); 
-const {ApiAuthService} = require('./correct'); 
+const {ApiAuthService} = require('./model_d');
+
 describe("ApiAuthService", () => {
   let authService;
 
@@ -80,7 +80,7 @@ describe("ApiAuthService", () => {
       expect(result.success).toBe(false);
     });
 
-    test.only("should authenticate user after lockout expires", () => {
+    test("should authenticate user after lockout expires", () => {
       jest.useFakeTimers();
       const email = "user@example.com";
       const { apiKey } = authService.generateApiKey(email);
@@ -149,4 +149,9 @@ describe("ApiAuthService", () => {
       jest.useRealTimers();
     });
   });
+
+  afterAll(done => {
+    // clear the interval
+    clearInterval(done);
+  })
 });

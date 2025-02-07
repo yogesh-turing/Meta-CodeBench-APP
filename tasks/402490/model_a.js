@@ -5,12 +5,10 @@ const { z } = require("zod");
 class ApiAuthService {
   constructor() {
     this.apiKeys = new Map();
-    this.revokedTokens = new Map(); // Changed to Map to store revocation timestamp
-    this.authAttempts = new Map(); // For rate limiting
-    
-    // Cleanup intervals
-    setInterval(() => this.cleanupRevokedTokens(), 3600000); // Cleanup every hour
-    setInterval(() => this.cleanupAuthAttempts(), 900000); // Cleanup every 15 minutes
+    this.revokedTokens = new Set();
+    this.authAttempts = new Map(); // Track authentication attempts
+    this.MAX_ATTEMPTS = 5;
+    this.ATTEMPT_WINDOW = 15 * 60 * 1000; // 15 minutes in milliseconds
   }
 
   validateApiKeyInput(email, apiKey) {
@@ -31,55 +29,41 @@ class ApiAuthService {
     if (!email) return { success: false, message: "Email is required" };
 
     try {
-      // Validate email format
-      z.string().email().parse(email);
-
-      // Generate a cryptographically secure API key
+      // Use crypto.randomBytes for cryptographically secure key generation
       const apiKey = crypto.randomBytes(16).toString("hex");
       const id = crypto.randomUUID();
       const hashedApiKey = this.hashApiKey(apiKey);
-
+      
       this.apiKeys.set(email, {
         id,
         apiKey: hashedApiKey,
         createdAt: new Date(),
+        lastUsed: new Date()
       });
 
       return { success: true, apiKey, userId: id };
     } catch (error) {
-      return { success: false, message: "Invalid email format" };
+      return { success: false, message: "Error generating API key" };
     }
   }
 
   authenticateApiKey(email, apiKey) {
-    // Check rate limiting
     if (this.isRateLimited(email)) {
-      return { success: false, message: "Too many authentication attempts. Please try again later." };
+      return { success: false, message: "Too many attempts. Please try again later." };
     }
 
-    // Validate input
-    const validation = this.validateApiKeyInput(email, apiKey);
-    if (!validation.success) {
-      this.recordAuthAttempt(email);
-      return { success: false, message: "Invalid input format" };
-    }
+    this.trackAuthAttempt(email);
 
     const user = this.apiKeys.get(email);
-    if (!user || user.apiKey !== this.hashApiKey(apiKey)) {
-      this.recordAuthAttempt(email);
+    if (!user || !this.verifyApiKey(apiKey, user.apiKey)) {
       return { success: false, message: "Invalid API key" };
     }
 
-    // Generate a JWT token with additional claims
-    const token = jwt.sign(
-      {
-        userId: user.id,
-        email,
-        iat: Math.floor(Date.now() / 1000),
-      },
-      "secretKey",
-      { expiresIn: "1h" }
-    );
+    this.resetAuthAttempts(email);
+    const token = jwt.sign({ userId: user.id, email }, "secretKey", { 
+      expiresIn: "1h",
+      jwtid: crypto.randomUUID() // Add unique identifier for token
+    });
 
     return { success: true, token };
   }
@@ -87,26 +71,17 @@ class ApiAuthService {
   revokeToken(token) {
     try {
       const decoded = jwt.decode(token);
-      if (!decoded) {
-        return { success: false, message: "Invalid token format" };
+      if (decoded) {
+        this.revokedTokens.add(token);
+        return { success: true, message: "Token revoked successfully" };
       }
-
-      this.revokedTokens.set(token, {
-        revokedAt: Date.now(),
-        expiry: decoded.exp * 1000,
-      });
-
-      return { success: true, message: "Token revoked successfully" };
+      return { success: false, message: "Invalid token format" };
     } catch (error) {
-      return { success: false, message: "Failed to revoke token" };
+      return { success: false, message: "Token revocation failed" };
     }
   }
 
   verifyToken(token) {
-    if (!token) {
-      return { success: false, message: "Token is required" };
-    }
-
     if (this.revokedTokens.has(token)) {
       return { success: false, message: "Token is revoked" };
     }
@@ -115,44 +90,55 @@ class ApiAuthService {
       const decoded = jwt.verify(token, "secretKey");
       return { success: true, decoded };
     } catch (error) {
-      if (error.name === "TokenExpiredError") {
-        return { success: false, message: "Invalid or expired token" };
-      }
       return { success: false, message: "Invalid or expired token" };
     }
   }
 
   // Private helper methods
   hashApiKey(apiKey) {
-    return crypto.createHash("sha256").update(apiKey).digest("hex");
+    return crypto.createHash('sha256').update(apiKey).digest('hex');
+  }
+
+  verifyApiKey(providedKey, storedHash) {
+    const hashedKey = this.hashApiKey(providedKey);
+    return crypto.timingSafeEqual(
+      Buffer.from(hashedKey, 'hex'),
+      Buffer.from(storedHash, 'hex')
+    );
   }
 
   isRateLimited(email) {
     const attempts = this.authAttempts.get(email) || [];
-    const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
-    const recentAttempts = attempts.filter(timestamp => timestamp > fifteenMinutesAgo);
-    return recentAttempts.length >= 5;
-  }
-
-  recordAuthAttempt(email) {
-    const attempts = this.authAttempts.get(email) || [];
-    attempts.push(Date.now());
-    this.authAttempts.set(email, attempts);
-  }
-
-  cleanupRevokedTokens() {
     const now = Date.now();
-    for (const [token, data] of this.revokedTokens.entries()) {
-      if (now > data.expiry) {
-        this.revokedTokens.delete(token);
-      }
-    }
+    const recentAttempts = attempts.filter(
+      timestamp => now - timestamp < this.ATTEMPT_WINDOW
+    );
+    return recentAttempts.length >= this.MAX_ATTEMPTS;
   }
 
-  cleanupAuthAttempts() {
-    const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+  trackAuthAttempt(email) {
+    const attempts = this.authAttempts.get(email) || [];
+    const now = Date.now();
+    const recentAttempts = attempts.filter(
+      timestamp => now - timestamp < this.ATTEMPT_WINDOW
+    );
+    recentAttempts.push(now);
+    this.authAttempts.set(email, recentAttempts);
+  }
+
+  resetAuthAttempts(email) {
+    this.authAttempts.delete(email);
+  }
+
+  // Cleanup method to remove expired data (can be called periodically)
+  cleanup() {
+    const now = Date.now();
+    
+    // Clean up expired auth attempts
     for (const [email, attempts] of this.authAttempts.entries()) {
-      const validAttempts = attempts.filter(timestamp => timestamp > fifteenMinutesAgo);
+      const validAttempts = attempts.filter(
+        timestamp => now - timestamp < this.ATTEMPT_WINDOW
+      );
       if (validAttempts.length === 0) {
         this.authAttempts.delete(email);
       } else {

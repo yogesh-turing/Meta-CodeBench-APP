@@ -4,9 +4,9 @@ const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map(); // Map of email to { id, apiKey, createdAt }
-    this.revokedTokens = new Set(); // Set of revoked JWT tokens
-    this.attempts = new Map(); // Map of email to number of attempts
+    this.apiKeys = new Map(); // email -> { id, apiKey, createdAt }
+    this.revokedTokens = new Set(); // store revoked tokens to prevent reuse
+    this.rateLimit = new Map(); // email -> { attempts, lastAttempt }
   }
 
   // Validates input using zod schema
@@ -40,33 +40,28 @@ class ApiAuthService {
     const user = this.apiKeys.get(email);
 
     if (!user || user.apiKey !== apiKey) {
-      // Increment attempts count
-      const attempts = (this.attempts.get(email) || 0) + 1;
-      this.attempts.set(email, attempts);
-
-      // Check for rate limiting
-      if (attempts > 5) {
-        const timeout = 15 * 60 * 1000; // 15 minutes
-        const lastAttempt = this.attempts.get(email + ":lastAttempt");
-        if (lastAttempt && Date.now() - lastAttempt < timeout) {
-          return {
-            success: false,
-            message: "Too many invalid attempts. Try again later.",
-          };
+      // Check and update rate limit
+      const rateLimitEntry = this.rateLimit.get(email);
+      if (rateLimitEntry) {
+        const now = Date.now();
+        const lastAttempt = rateLimitEntry.lastAttempt;
+        if (now - lastAttempt < 15 * 60 * 1000 && rateLimitEntry.attempts >= 5) {
+          return { success: false, message: "Too many attempts. Try again later." };
         }
-        this.attempts.set(email + ":lastAttempt", Date.now());
+        rateLimitEntry.attempts++;
+        rateLimitEntry.lastAttempt = now;
+      } else {
+        this.rateLimit.set(email, { attempts: 1, lastAttempt: Date.now() });
       }
 
       return { success: false, message: "Invalid API key" };
     }
 
-    // Reset attempts count
-    this.attempts.delete(email);
+    // Reset rate limit on successful authentication
+    this.rateLimit.delete(email);
 
     // Generate a JWT token
-    const token = jwt.sign({ userId: user.id, email }, "secretKey", {
-      expiresIn: "1h",
-    });
+    const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
     return { success: true, token };
   }
 

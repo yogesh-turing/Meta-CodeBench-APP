@@ -4,9 +4,9 @@ const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map();
-    this.revokedTokens = new Set();
-    this.attempts = new Map(); // Store email and attempt counts
+    this.apiKeys = new Map(); // email => { id, apiKey, createdAt }
+    this.revokedTokens = new Set(); // token => boolean
+    this.attempts = new Map(); // email => { attempts, lastAttemptAt }
   }
 
   // Validates input using zod schema
@@ -35,28 +35,30 @@ class ApiAuthService {
     return { success: true, apiKey, userId: id };
   }
 
-  // Authenticates API key and generates a JWT token with rate limiting
+  // Authenticates API key and generates a JWT token
   authenticateApiKey(email, apiKey) {
-    // Check if email has exceeded max attempts
-    const maxAttempts = 5;
-    const timeWindow = 15 * 60 * 1000; // 15 minutes in milliseconds
-    const now = Date.now();
-
-    if (this.attempts.has(email)) {
-      const attemptInfo = this.attempts.get(email);
-      if (attemptInfo.count >= maxAttempts && now - attemptInfo.timestamp < timeWindow) {
-        return { success: false, message: "Too many attempts. Try again later." };
-      }
-    }
-
-    // Update attempt count and timestamp
-    this.attempts.set(email, { count: (this.attempts.get(email)?.count || 0) + 1, timestamp: now });
-
     const user = this.apiKeys.get(email);
 
     if (!user || user.apiKey !== apiKey) {
+      // Check if the email has exceeded the rate limit
+      const attempts = this.attempts.get(email);
+      if (attempts && attempts.attempts >= 5 && attempts.lastAttemptAt + 15 * 60 * 1000 > Date.now()) {
+        return { success: false, message: "Too many invalid attempts. Try again later." };
+      }
+
+      // Increment attempts count
+      if (!attempts) {
+        this.attempts.set(email, { attempts: 1, lastAttemptAt: Date.now() });
+      } else {
+        attempts.attempts++;
+        attempts.lastAttemptAt = Date.now();
+      }
+
       return { success: false, message: "Invalid API key" };
     }
+
+    // Reset attempts count
+    this.attempts.delete(email);
 
     // Generate a JWT token
     const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });

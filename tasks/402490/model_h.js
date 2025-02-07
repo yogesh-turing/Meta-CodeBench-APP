@@ -4,9 +4,9 @@ const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map(); 
-    this.revokedTokens = new Set(); 
-    this.rateLimit = new Map(); 
+    this.apiKeys = new Map();
+    this.revokedTokens = new Set();
+    this.rateLimitMap = new Map();
   }
 
   // Validates input using zod schema
@@ -40,6 +40,11 @@ class ApiAuthService {
     const user = this.apiKeys.get(email);
 
     if (!user || user.apiKey !== apiKey) {
+      this.updateRateLimit(email);
+      const rateLimitStatus = this.checkRateLimit(email);
+      if (!rateLimitStatus.success) {
+        return rateLimitStatus;
+      }
       return { success: false, message: "Invalid API key" };
     }
 
@@ -68,27 +73,38 @@ class ApiAuthService {
     }
   }
 
-  // Rate limiting for authenticateApiKey method
-  rateLimitAuthenticateApiKey(email) {
-    const now = Date.now();
-    const limit = 5; 
-    const timeWindow = 15 * 60 * 1000; 
-    const key = `authenticateApiKey:${email}`; 
+  // Updates rate limit for a given email
+  updateRateLimit(email) {
+    const now = new Date();
+    const rateLimit = this.rateLimitMap.get(email);
 
-    const current = this.rateLimit.get(key);
-    if (current) {
-      const { count, timestamp } = current;
-      if (now - timestamp < timeWindow) {
-        if (count >= limit) {
-          return { success: false, message: "Rate limit exceeded" };
-        } else {
-          this.rateLimit.set(key, { count: count + 1, timestamp });
-        }
-      } else {
-        this.rateLimit.set(key, { count: 1, timestamp: now });
-      }
+    if (!rateLimit) {
+      this.rateLimitMap.set(email, { attempts: 1, lastAttempt: now });
     } else {
-      this.rateLimit.set(key, { count: 1, timestamp: now });
+      const timeDiff = (now.getTime() - rateLimit.lastAttempt.getTime()) / 1000 / 60; // in minutes
+
+      if (timeDiff < 15) {
+        rateLimit.attempts++;
+        rateLimit.lastAttempt = now;
+      } else {
+        rateLimit.attempts = 1;
+        rateLimit.lastAttempt = now;
+      }
+
+      this.rateLimitMap.set(email, rateLimit);
+    }
+  }
+
+  // Checks rate limit for a given email
+  checkRateLimit(email) {
+    const rateLimit = this.rateLimitMap.get(email);
+
+    if (!rateLimit) {
+      return { success: true };
+    }
+
+    if (rateLimit.attempts >= 5) {
+      return { success: false, message: "Rate limit exceeded. Try again after 15 minutes." };
     }
 
     return { success: true };

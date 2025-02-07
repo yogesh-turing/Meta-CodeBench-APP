@@ -4,11 +4,12 @@ const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map();
-    this.revokedTokens = new Set();
-    this.attempts = new Map();
+    this.apiKeys = new Map(); 
+    this.revokedTokens = new Set(); 
+    this.attempts = new Map(); 
   }
 
+  // Validates input using zod schema
   validateApiKeyInput(email, apiKey) {
     const schema = z.object({
       email: z.string().email(),
@@ -23,6 +24,7 @@ class ApiAuthService {
     }
   }
 
+  // Generates and registers a new API key
   generateApiKey(email) {
     if (!email) return { success: false, message: "Email is required" };
 
@@ -33,34 +35,41 @@ class ApiAuthService {
     return { success: true, apiKey, userId: id };
   }
 
+  // Authenticates API key and generates a JWT token
   authenticateApiKey(email, apiKey) {
+    // Rate limiting: check if the email has exceeded the allowed attempts
+    const now = Date.now();
+    const attempt = this.attempts.get(email);
+    if (attempt && attempt.count >= 5 && now - attempt.timestamp < 15 * 60 * 1000) {
+      return { success: false, message: "Too many invalid attempts. Try again later." };
+    }
+
     const user = this.apiKeys.get(email);
 
     if (!user || user.apiKey !== apiKey) {
-      this.incrementAttempts(email);
-      const attempts = this.getAttempts(email);
-      if (attempts >= 5) {
-        return {
-          success: false,
-          message: "Too many invalid attempts. Try again after 15 minutes.",
-        };
-      }
+      // Update attempt count and timestamp
+      this.attempts.set(email, {
+        count: (attempt ? attempt.count : 0) + 1,
+        timestamp: now,
+      });
       return { success: false, message: "Invalid API key" };
     }
 
-    this.resetAttempts(email);
+    // Reset attempt count on successful authentication
+    this.attempts.delete(email);
 
-    const token = jwt.sign({ userId: user.id, email }, "secretKey", {
-      expiresIn: "1h",
-    });
+    // Generate a JWT token
+    const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });
     return { success: true, token };
   }
 
+  // Revokes a JWT token
   revokeToken(token) {
     this.revokedTokens.add(token);
     return { success: true, message: "Token revoked successfully" };
   }
 
+  // Verifies a JWT token
   verifyToken(token) {
     if (this.revokedTokens.has(token)) {
       return { success: false, message: "Token is revoked" };
@@ -72,25 +81,6 @@ class ApiAuthService {
     } catch (error) {
       return { success: false, message: "Invalid or expired token" };
     }
-  }
-
-  incrementAttempts(email) {
-    const now = Date.now();
-    const attempt = this.attempts.get(email);
-    if (!attempt || attempt.expires < now) {
-      this.attempts.set(email, { count: 1, expires: now + 15 * 60 * 1000 });
-    } else {
-      this.attempts.set(email, { count: attempt.count + 1, expires: attempt.expires });
-    }
-  }
-
-  getAttempts(email) {
-    const attempt = this.attempts.get(email);
-    return attempt ? attempt.count : 0;
-  }
-
-  resetAttempts(email) {
-    this.attempts.delete(email);
   }
 }
 

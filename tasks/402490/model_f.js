@@ -4,9 +4,9 @@ const { z } = require("zod");
 
 class ApiAuthService {
   constructor() {
-    this.apiKeys = new Map(); 
-    this.revokedTokens = new Set(); 
-    this.rateLimiting = new Map(); // For rate limiting
+    this.apiKeys = new Map(); // Stores API keys with email as key
+    this.revokedTokens = new Set(); // Stores revoked JWT tokens
+    this.rateLimit = new Map(); // Stores rate limit information for each email
   }
 
   // Validates input using zod schema
@@ -37,26 +37,27 @@ class ApiAuthService {
 
   // Authenticates API key and generates a JWT token
   authenticateApiKey(email, apiKey) {
-    // Check rate limiting
-    const now = Date.now();
-    const rateLimit = this.rateLimiting.get(email);
-    if (rateLimit && rateLimit.attempts >= 5 && now - rateLimit.timestamp < 15 * 60 * 1000) {
-      return { success: false, message: "Too many invalid attempts. Try again later." };
+    // Check rate limit
+    const rateLimitInfo = this.rateLimit.get(email);
+    if (rateLimitInfo) {
+      const now = Date.now();
+      if (now - rateLimitInfo.timestamp < 15 * 60 * 1000) { // 15 minutes
+        if (rateLimitInfo.attempts >= 5) {
+          return { success: false, message: "Too many invalid attempts. Try again later." };
+        }
+        rateLimitInfo.attempts++;
+      } else {
+        this.rateLimit.delete(email);
+      }
+    } else {
+      this.rateLimit.set(email, { timestamp: Date.now(), attempts: 1 });
     }
 
     const user = this.apiKeys.get(email);
 
     if (!user || user.apiKey !== apiKey) {
-      // Update rate limiting
-      this.rateLimiting.set(email, {
-        attempts: (rateLimit?.attempts || 0) + 1,
-        timestamp: now,
-      });
       return { success: false, message: "Invalid API key" };
     }
-
-    // Reset rate limiting on successful authentication
-    this.rateLimiting.delete(email);
 
     // Generate a JWT token
     const token = jwt.sign({ userId: user.id, email }, "secretKey", { expiresIn: "1h" });

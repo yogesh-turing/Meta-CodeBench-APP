@@ -5,17 +5,19 @@ const { z } = require("zod");
 class ApiAuthService {
   constructor() {
     this.apiKeys = new Map();
-    this.revokedTokens = new Set();
-    this.authAttempts = new Map();
-    this.JWT_SECRET = crypto.randomBytes(32).toString('hex');
-    this.RATE_LIMIT_WINDOW = 15 * 60 * 1000; // 15 minutes
-    this.MAX_AUTH_ATTEMPTS = 5;
+    this.revokedTokens = new Map(); // Changed to Map to store revocation timestamp
+    this.authAttempts = new Map(); // For rate limiting
+    
+    // Start cleanup intervals
+    setInterval(() => this.cleanupRevokedTokens(), 3600000); // Cleanup every hour
+    setInterval(() => this.cleanupAuthAttempts(), 900000); // Cleanup every 15 minutes
   }
 
   validateApiKeyInput(email, apiKey) {
     const schema = z.object({
-      email: z.string().email(),
-      apiKey: z.string().length(32, "API key must be 32 characters long"),
+      email: z.string().email().toLowerCase(),
+      apiKey: z.string().length(32, "API key must be 32 characters long")
+        .regex(/^[a-f0-9]{32}$/, "API key must contain only hexadecimal characters"),
     });
 
     try {
@@ -27,84 +29,53 @@ class ApiAuthService {
   }
 
   generateApiKey(email) {
-    const emailSchema = z.string().email();
-    
+    if (!email) return { success: false, message: "Email is required" };
+
     try {
-      emailSchema.parse(email);
+      const schema = z.string().email().toLowerCase();
+      email = schema.parse(email);
+
+      // Generate a cryptographically secure API key
+      const apiKey = crypto.randomBytes(16).toString("hex");
+      const id = crypto.randomUUID();
+      const hashedApiKey = this.hashApiKey(apiKey);
+
+      this.apiKeys.set(email, {
+        id,
+        apiKey: hashedApiKey,
+        createdAt: new Date(),
+      });
+
+      return { success: true, apiKey, userId: id };
     } catch (error) {
-      return { success: false, message: "Email is required" };
+      return { success: false, message: "Invalid email format" };
     }
-
-    // Generate a more secure API key with higher entropy
-    const apiKey = crypto.randomBytes(16).toString("hex");
-    const id = crypto.randomUUID();
-    
-    // Store API key with additional metadata
-    this.apiKeys.set(email, {
-      id,
-      apiKey,
-      createdAt: new Date(),
-      lastUsed: null
-    });
-
-    return { success: true, apiKey, userId: id };
-  }
-
-  checkRateLimit(email) {
-    const now = Date.now();
-    const attempts = this.authAttempts.get(email) || [];
-    
-    // Clean up old attempts
-    const recentAttempts = attempts.filter(
-      timestamp => now - timestamp < this.RATE_LIMIT_WINDOW
-    );
-    
-    if (recentAttempts.length >= this.MAX_AUTH_ATTEMPTS) {
-      return false;
-    }
-    
-    recentAttempts.push(now);
-    this.authAttempts.set(email, recentAttempts);
-    return true;
   }
 
   authenticateApiKey(email, apiKey) {
-    // Validate inputs
+    // Check rate limiting
+    if (this.isRateLimited(email)) {
+      return { success: false, message: "Too many attempts. Please try again later" };
+    }
+
+    // Validate input
     const validation = this.validateApiKeyInput(email, apiKey);
     if (!validation.success) {
-      return { success: false, message: "Invalid input format" };
-    }
-
-    // Check rate limit
-    if (!this.checkRateLimit(email)) {
-      return { 
-        success: false, 
-        message: "Too many authentication attempts. Please try again later." 
-      };
-    }
-
-    const user = this.apiKeys.get(email);
-
-    if (!user || user.apiKey !== apiKey) {
+      this.recordAuthAttempt(email);
       return { success: false, message: "Invalid API key" };
     }
 
-    // Update last used timestamp
-    user.lastUsed = new Date();
-    this.apiKeys.set(email, user);
+    const user = this.apiKeys.get(email);
+    if (!user || user.apiKey !== this.hashApiKey(apiKey)) {
+      this.recordAuthAttempt(email);
+      return { success: false, message: "Invalid API key" };
+    }
 
-    // Generate JWT with additional claims
+    // Generate a JWT token
     const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email,
-        iat: Math.floor(Date.now() / 1000)
-      },
-      this.JWT_SECRET,
-      { 
-        expiresIn: "1h",
-        jwtid: crypto.randomUUID() 
-      }
+      { userId: user.id, email, iat: Math.floor(Date.now() / 1000) },
+      "secretKey",
+      { expiresIn: "1h" }
     );
 
     return { success: true, token };
@@ -112,48 +83,66 @@ class ApiAuthService {
 
   revokeToken(token) {
     try {
-      // Verify token before revoking
-      const decoded = jwt.verify(token, this.JWT_SECRET);
-      this.revokedTokens.add(token);
-      
-      // Schedule cleanup of revoked token after expiration
-      const expiresIn = (decoded.exp - decoded.iat) * 1000;
-      setTimeout(() => {
-        this.revokedTokens.delete(token);
-      }, expiresIn);
+      const decoded = jwt.decode(token);
+      if (!decoded) {
+        return { success: false, message: "Invalid token format" };
+      }
+
+      this.revokedTokens.set(token, {
+        timestamp: Date.now(),
+        exp: decoded.exp * 1000, // Convert to milliseconds
+      });
 
       return { success: true, message: "Token revoked successfully" };
     } catch (error) {
-      return { success: false, message: "Invalid token provided for revocation" };
+      return { success: false, message: "Invalid token format" };
     }
   }
 
   verifyToken(token) {
-    if (!token) {
-      return { success: false, message: "Token is required" };
-    }
-
     if (this.revokedTokens.has(token)) {
       return { success: false, message: "Token is revoked" };
     }
 
     try {
-      const decoded = jwt.verify(token, this.JWT_SECRET);
+      const decoded = jwt.verify(token, "secretKey");
       return { success: true, decoded };
     } catch (error) {
       return { success: false, message: "Invalid or expired token" };
     }
   }
 
-  // Cleanup method for maintenance
-  cleanup() {
+  // Private helper methods
+  hashApiKey(apiKey) {
+    return crypto.createHash('sha256').update(apiKey).digest('hex');
+  }
+
+  isRateLimited(email) {
+    const attempts = this.authAttempts.get(email) || [];
+    const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
+    const recentAttempts = attempts.filter(timestamp => timestamp > fifteenMinutesAgo);
+    return recentAttempts.length >= 5;
+  }
+
+  recordAuthAttempt(email) {
+    const attempts = this.authAttempts.get(email) || [];
+    attempts.push(Date.now());
+    this.authAttempts.set(email, attempts);
+  }
+
+  cleanupRevokedTokens() {
     const now = Date.now();
-    
-    // Clean up rate limiting attempts
+    for (const [token, data] of this.revokedTokens.entries()) {
+      if (now > data.exp) {
+        this.revokedTokens.delete(token);
+      }
+    }
+  }
+
+  cleanupAuthAttempts() {
+    const fifteenMinutesAgo = Date.now() - 15 * 60 * 1000;
     for (const [email, attempts] of this.authAttempts.entries()) {
-      const validAttempts = attempts.filter(
-        timestamp => now - timestamp < this.RATE_LIMIT_WINDOW
-      );
+      const validAttempts = attempts.filter(timestamp => timestamp > fifteenMinutesAgo);
       if (validAttempts.length === 0) {
         this.authAttempts.delete(email);
       } else {
