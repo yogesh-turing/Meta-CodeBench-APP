@@ -19,7 +19,7 @@ function aStar(grid, start, end) {
       let lowestFScore = Infinity;
       for (const node of openSet) {
           const score = fScore.get(`${node.x},${node.y}`);
-          if (score < lowestFScore) {
+          if (score <= lowestFScore) {
               lowestFScore = score;
               current = node;
           }

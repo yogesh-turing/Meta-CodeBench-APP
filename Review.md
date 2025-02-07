@@ -1,26 +1,18 @@
-User Prompt:
-    - User prompt should follow the following structure
-Base Code:
-```javascript
-    
-```
-Prompt:
+User Prompt: No issue.
+Prompt Evaluation: No issue.
 
 
-Model A: Model A failed for returning different error string, the prompt mentioned to not to change any existing log messages. But this is return string.
-Model B: Failed, looks good.
-Model C: Passed all test cases.
-Model D: Same as Model A, we cannot penalize model to return different error string.
-Model E: Same as Model A and D.
-Model F: Passed all test cases.
-Model G: Failed, looks good.
-Model H: Failed, looks good.
-Model I: Failed, looks good.
-Model J: Passed all test cases.
+Model A,B,D: the `current` variable is initialized with null, then in the loop `for (const nodeStr of openSet) {` it tries to assign value to `current` that is not working. Hence model is failing. Please add more details in "First Observed Failure Reason". 
+
+Model F: Please explain the loop issue properly. It seems issues is not with neighbor checking logic. The issue might be with how it decides the current node. The same current node is picked in loop.
 
 
 Incorrect solution explanation:
-In incorrect solution, Line number 13 and 14 tried to clear token and authentication 
-    setInterval(() => this.cleanupRevokedTokens(), 3600000); // Cleanup every hour
-    setInterval(() => this.cleanupAuthAttempts(), 900000); // Cleanup every 15 minutes
-Please update incorrect solution accordingly.
+You can add more points like
+1. It did not keep track of already evaluated nodes.
+2. The fScore and gscore are stored in 2D array which are difficult to manage.
+
+
+Correct solution explanation:
+Here you can highlight the point by comparing it with incorrect solution. It should mention how the ideal solution implemented as compared with incorrect solution.
+e.g. it use `closedSet` to keep track of already evaluated nodes, fScore and gScore are store on map to make easy read and write. Skipped if already evaluated node etc.

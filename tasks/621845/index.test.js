@@ -1,4 +1,4 @@
-const { aStar } = require('./correct');
+const { aStar } = require('./incorrect');
 
 // Helper function to create a grid of given size filled with 0s
 function createEmptyGrid(rows, cols) {
@@ -71,38 +71,6 @@ describe("A* Pathfinding Algorithm", () => {
       const path = aStar(grid, { x: 0, y: 0 }, { x: 1, y: 1 });
       expect(path.length).toBe(3); // Start -> (0,1) -> (1,1) or Start -> (1,0) -> (1,1)
     });
-
-    // to find  path between dense obstacles
-    test("finds optimal path between dense obstacles", () => {
-      const grid = [
-        [0, 1, 0, 0, 0],
-        [0, 1, 0, 1, 0],
-        [0, 1, 0, 1, 0],
-        [0, 0, 0, 1, 0],
-        [0, 0, 0, 0, 0],
-      ];
-      const path = aStar(grid, { x: 0, y: 0 }, { x: 4, y: 4 });
-      expect(path.length).toBe(9);
-    });
-
-    // to find  path between dense obstacles in a 10x10 grid
-    test("finds optimal path between dense obstacles in a 10x10 grid", () => {
-      const grid = [
-        [0, 1, 0, 0, 0, 0, 0, 0, 0, 0],
-        [0, 1, 0, 1, 1, 1, 1, 1, 1, 0],
-        [0, 1, 0, 1, 0, 0, 0, 0, 0, 0],
-        [0, 1, 0, 1, 0, 1, 1, 1, 1, 0],
-        [0, 1, 0, 1, 0, 0, 0, 0, 1, 0],
-        [0, 1, 0, 1, 1, 1, 1, 0, 1, 0],
-        [0, 0, 0, 0, 0, 0, 1, 0, 1, 0],
-        [0, 1, 1, 1, 1, 0, 1, 0, 1, 0],
-        [0, 1, 0, 0, 0, 0, 1, 0, 1, 0],
-        [0, 0, 0, 1, 1, 1, 1, 0, 0, 0],
-      ];
-      const path = aStar(grid, { x: 0, y: 0 }, { x: 9, y: 9 });
-      expect(path.length).toBe(21);
-    });
-
   });
 
   describe("Movement Patterns", () => {

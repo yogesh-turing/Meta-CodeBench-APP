@@ -1,25 +1,5 @@
 // A* algorithm implementation
 function aStar(grid, start, end) {
-  if (!grid || !grid.length || !grid[0].length || !start || !end) {
-    return null;
-  }
-  if (
-    start.x < 0 ||
-    start.y < 0 ||
-    start.y >= grid.length ||
-    start.x >= grid[start.y].length ||
-    end.x < 0 ||
-    end.y < 0 ||
-    end.y >= grid.length ||
-    end.x >= grid[end.y].length
-  ) {
-    return null;
-  }
-
-  if (grid[start.y][start.x] === 1 || grid[end.y][end.x] === 1) {
-    return null;
-  }
-  
   const rows = grid.length;
   const cols = grid[0].length;
 
