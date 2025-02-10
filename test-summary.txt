@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+621784:
+base       : 0/13 tests passed [FAILED]
+correct    : 13/13 tests passed [PASSED]
+incorrect  : 11/13 tests passed [FAILED]
+model_a    : 12/13 tests passed [FAILED]
+model_b    : 12/13 tests passed [FAILED]
+model_c    : 12/13 tests passed [FAILED]
+model_d    : 12/13 tests passed [FAILED]
+model_e    : 12/13 tests passed [FAILED]
+model_f    : 8/13 tests passed [FAILED]
+model_g    : 8/13 tests passed [FAILED]
+model_h    : 10/13 tests passed [FAILED]
+model_i    : 8/13 tests passed [FAILED]
+model_j    : 10/13 tests passed [FAILED]
+

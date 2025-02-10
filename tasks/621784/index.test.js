@@ -1,5 +1,5 @@
 
-const { Event, EventScheduler } = require('./incorrect');
+const { Event, EventScheduler } = require(process.env.TARGET_FILE);
 
 describe('EventScheduler Tests', () => {
     let scheduler;
