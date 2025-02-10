@@ -27,6 +27,8 @@ The test case `should resize correctly` running in infinite loop.
 The function `resize` tries to acquire lock at line number 127. It could not acquire the segments as it's locked in `put` function. 
 ```this.segments.forEach(segment => segment.acquireLock());```
 Also `acquireLock` function, running while loop infinitely (`this.lock` is always true).
+
+
 Model C: 
     - First Observed Failure: javascrit -> javascript
     - First Observed Failure Reason: Capitalize first word of sentence.
