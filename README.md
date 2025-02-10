@@ -1,148 +1,156 @@
-# Test Runner Application (JavaScript)
+# Task Testing Guide
+This guide will help you set up and run tests for the JavaScript tasks using Jest.
 
-A Node.js application for running and managing multiple JavaScript test suites across different tasks. This application provides organized test execution, coverage reporting, and a clear summary of test results.
+## Prerequisites
+- Node.js (Latest LTS version recommended)
+  ```bash
+  # Verify Node.js installation
+  node --version
+  ```
 
-## Table of Contents
-
-- [Features](#features)
-- [Project Structure](#project-structure)
-- [Setup](#setup)
-- [Usage](#usage)
-- [Output Format](#output-format)
-- [Coverage Reports](#coverage-reports)
-
-## Features
-
-- ✅ Run tests for multiple implementations (base code, ideal response code, incorrect solution code) across different tasks
-- 📊 Generate detailed test coverage reports
-- 📝 Provide clear test result summaries with PASS/FAIL status
-- 🎨 Colored console output for better readability
-- 📁 Organized coverage reports by implementation type
-- 📄 Summary report generation in both console and file formats
-
-## Project Structure
-
-```
-root/
-├── node_modules/
-├── coverage/
-│   ├── base/
-│   │   ├── task1/
-│   │   ├── task2/
-│   │   └── ...
-│   ├── correct/
-│   │   ├── task1/
-│   │   ├── task2/
-│   │   └── ...
-│   └── incorrect/
-│       ├── task1/
-│       ├── task2/
-│       └── ...
-├── tasks/
-│   ├── task1/
-│   │   ├── base.js
-│   │   ├── correct.js
-│   │   ├── incorrect.js
-│   │   └── index.test.js
-│   ├── task2/
-│   │   ├── base.js
-│   │   ├── correct.js
-│   │   ├── incorrect.js
-│   │   └── index.test.js
-│   └── ...
-├── test-runner.js
-├── test-summary.txt
-├── package.json
-└── package-lock.json
+## Setup Instructions
+### 1. Project Initialization
+Navigate to the tasks folder and initialize a new Node.js project:
+```bash
+npm init -y
 ```
 
-## Setup
+### 2. Installing Dependencies
+Install Jest as a development dependency:
+```bash
+npm install --save-dev jest
+```
 
-1. Install Node.js (version 14 or higher recommended)
+### 3. Configure Package.json
+Add Jest to your test scripts in `package.json`:
+```json
+{
+  "scripts": {
+    "test": "jest",
+    "test-all": "node test-runner.js"
+  }
+}
+```
 
-2. Clone the repository and install dependencies:
-
+### 4. Additional Dependencies
+If a task has specific requirements:
+1. Check for `requiredPackages.txt` in the task folder
+2. Install any listed dependencies using the commands provided in the file
    ```bash
-   npm install
+   # Example: If requiredPackages.txt contains "npm install jsonwebtoken bcrypt zod crypto"
+   npm install jsonwebtoken bcrypt zod crypto
    ```
 
-3. Place your task folders inside the `tasks` directory. Each task folder should contain:
-   - `base.js` - Base implementation
-   - `correct.js` - Correct implementation
-   - `incorrect.js` - Implementation with known issues
-   - `index.test.js` - Test file for all implementations
+## Project Structure
+Your project should follow this structure:
+```
+tasks/
+├── node_modules/
+├── package.json
+├── package-lock.json
+├── README.md
+├── test-runner.js
+├── task1/
+│   ├── index.test.js
+│   ├── solution.js
+│   ├── base_code.js
+│   └── alternate_responses/
+│       ├── model1.js
+│       ├── model2.js
+│       └── ...
+├── task2/
+│   ├── index.test.js
+│   ├── solution.js
+│   ├── base_code.js
+│   └── alternate_responses/
+│       ├── model1.js
+│       ├── model2.js
+│       └── ...
+└── ...
+```
 
-## Usage
+## Running Tests
+### Regular Test Commands
+To run tests for all tasks:
+```bash
+npm test
+```
 
-Run the test runner:
+To run tests for a specific task:
+```bash
+npm test <task>
+# Example: npm test 303989
+```
+
+### Test Runner
+The test runner allows you to run tests against multiple implementations of a solution:
 
 ```bash
-node test-runner.js
+npm run test-all <task>
+# Example: npm run test-all 303989
 ```
 
-This will:
+This command will:
+1. Run tests against:
+   - base_code.js (if present)
+   - solution.js
+   - All implementations in the alternate_responses folder
+2. Show detailed test results for each implementation
+3. Generate a summary showing pass/fail status for each implementation
+4. Save a test summary file (<task>-test-summary.txt)
 
-1. Run tests for all implementations in each task folder
-2. Generate coverage reports
-3. Display results in the console
-4. Create a test summary file (`test-summary.txt`)
-
-## Output Format
-
-### Console Output
-
-The test runner provides real-time output for each test run and a final summary:
-
+Example output structure:
 ```
-============= TEST SUMMARY =============
+=== Running tests for task 303989 ===
 
-taskname:
-  base       : 3/19 tests passed  [FAILED]
-  correct    : 19/19 tests passed [PASSED]
-  incorrect  : 11/19 tests passed [FAILED]
-```
+Testing implementation: base_code
+========================================
+✓ should handle a single string response
+✓ should handle an empty object
+...
 
-Colors are used in the console output:
+Testing implementation: solution
+========================================
+✓ should handle a single string response
+✓ should handle an empty object
+...
 
-- Green: PASSED (all tests successful)
-- Red: FAILED (some tests failed)
-
-### Summary File
-
-A `test-summary.txt` file is generated with the same information in a plain text format.
-
-## Coverage Reports
-
-Coverage reports are generated in the `coverage` directory, organized by implementation type:
-
-```
-coverage/
-├── base/
-│   └── taskname/
-│       └── index.html
-├── correct/
-│   └── taskname/
-│       └── index.html
-└── incorrect/
-    └── taskname/
-        └── index.html
+=== Final Summary ===
+========================================
+base_code           : 40/40 tests [PASSED]
+solution            : 38/40 tests [FAILED]
+model1              : 40/40 tests [PASSED]
+model2              : 35/40 tests [FAILED]
 ```
 
-Each implementation gets its own coverage report with:
+## Test Coverage (Optional)
+To enable test coverage reporting, add this to your `package.json`:
+```json
+{
+  "scripts": {
+    "test": "jest",
+    "test:coverage": "jest --coverage"
+  }
+}
+```
 
-- Line coverage
-- Function coverage
-- Branch coverage
-- Visual code coverage display
+## Additional Options
+- **Watch Mode**: Run tests in watch mode
+  ```bash
+  npm test -- --watch
+  ```
+- **Verbose Output**: Get detailed test information
+  ```bash
+  npm test -- --verbose
+  ```
 
-To view the coverage reports:
-
-1. Navigate to the relevant directory under `coverage`
-2. Open `index.html` in a web browser
-
-## Notes
-
-- The test runner automatically cleans up temporary configuration files
-- Coverage reports are regenerated on each run
-- Tests are run in alphabetical order of task folders
-- Failed tests will still generate coverage reports
+## Troubleshooting
+If you encounter any issues:
+1. Verify your folder structure matches the project structure above
+2. Ensure all dependencies are properly installed
+3. Check that file paths in test files are correct
+4. Verify Node.js and npm are up to date
+5. For the test runner, ensure:
+   - The test file has a proper require statement
+   - All implementation files export the same function name
+   - Files in alternate_responses have .js extension
