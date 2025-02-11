@@ -1,4 +1,4 @@
-const { Inventory, fulfillOrder } = require('./incorrect');
+const { Inventory, fulfillOrder } = require('./model_a');
 
 describe("Inventory System", () => {
   let inventory;
@@ -145,10 +145,10 @@ describe("Inventory System", () => {
     expect(fulfillOrder(inventory, invalidItemsOrder)).toBe(false);
 
     // Test with invalid order object
-    expect(fulfillOrder(inventory, null)).toBe(false);
-    expect(fulfillOrder(inventory, undefined)).toBe(false);
-    expect(fulfillOrder(inventory, "not an object")).toBe(false);
-    expect(fulfillOrder(inventory, 123)).toBe(false);
+    expect(() => fulfillOrder(inventory, null)).toThrow(Error);
+    expect(() => fulfillOrder(inventory, undefined)).toThrow(Error);
+    expect(() => fulfillOrder(inventory, "not an object")).toThrow(Error);
+    expect(() => fulfillOrder(inventory, 123)).toThrow(Error);
   });
 
   test("Testing hasEnough edge cases", () => {

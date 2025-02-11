@@ -12,15 +12,16 @@ class Inventory {
   }
 
   removeItem(name, quantity) {
-    if (this.items[name]) {
-      if (this.items[name] >= quantity) {
-        this.items[name] -= quantity;
-      } else {
-        throw new Error(`Not enough ${name} in stock to remove ${quantity}.`);
-      }
-    } else {
-      throw new Error(`${name} is not in stock.`);
+    if (!this.items[name]) {
+      throw new Error(`Item "${name}" does not exist in the inventory.`);
     }
+    if (quantity < 1) {
+      throw new Error(`Invalid quantity. Quantity must be a counting number.`);
+    }
+    if (this.items[name] < quantity) {
+      throw new Error(`Not enough "${name}" in the inventory to remove ${quantity}.`);
+    }
+    this.items[name] -= quantity;
   }
 
   getItemCount(name) {
@@ -40,11 +41,10 @@ class Inventory {
     return true;
   }
 
-  hasEnough(name, quantity) {
-    return this.getItemCount(name) >= quantity;
-  }
-
   processOrder(order) {
+    if (typeof order !== 'object') {
+      throw new Error('Invalid order format. Order must be an object.');
+    }
     for (const itemName in order) {
       if (!this.hasEnough(itemName, order[itemName])) {
         return false;
@@ -54,6 +54,13 @@ class Inventory {
       this.removeItem(itemName, order[itemName]);
     }
     return true;
+  }
+
+  hasEnough(name, quantity) {
+    if (quantity < 1) {
+      return false;
+    }
+    return this.getItemCount(name) >= quantity;
   }
 }
 

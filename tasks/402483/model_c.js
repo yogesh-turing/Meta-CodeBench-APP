@@ -1,77 +1,85 @@
 class Inventory {
-    constructor() {
-      this.items = {};
+  constructor() {
+    this.items = {};
+  }
+
+  addItem(name, quantity) {
+    if (this.items[name]) {
+      this.items[name] += quantity;
+    } else {
+      this.items[name] = quantity;
     }
-  
-    addItem(name, quantity) {
-      if (this.items[name]) {
-        this.items[name] += quantity;
-      } else {
-        this.items[name] = quantity;
-      }
+  }
+
+  removeItem(name, quantity) {
+    if (!name || typeof name !== 'string') {
+      throw new Error('Invalid item name');
     }
-  
-    removeItem(name, quantity) {
-      if (!Number.isInteger(quantity) || quantity <= 0) {
+    if (!Number.isInteger(quantity) || quantity <= 0) {
+      throw new Error('Quantity must be a positive integer');
+    }
+    if (!this.items[name] || this.items[name] < quantity) {
+      throw new Error('Insufficient quantity');
+    }
+    
+    this.items[name] -= quantity;
+    if (this.items[name] === 0) {
+      delete this.items[name];
+    }
+  }
+
+  getItemCount(name) {
+    return this.items[name] || 0;
+  }
+
+  hasItem(name) {
+    return this.items[name] > 0;
+  }
+
+  isEmpty() {
+    for (const itemName in this.items) {
+      if (this.items[itemName] > 0) {
         return false;
       }
-      
-      if (!this.hasEnough(name, quantity)) {
+    }
+    return true;
+  }
+
+  processOrder(order) {
+    if (!order || typeof order !== 'object') {
+      throw new Error('Invalid order');
+    }
+
+    // First check if we can fulfill the entire order
+    for (const [itemName, quantity] of Object.entries(order)) {
+      if (!this.hasEnough(itemName, quantity)) {
         return false;
       }
-      
-      this.items[name] -= quantity;
-      return true;
     }
-  
-    getItemCount(name) {
-      return this.items[name] || 0;
-    }
-  
-    hasItem(name) {
-      return this.items[name] > 0;
-    }
-  
-    isEmpty() {
-      for (const itemName in this.items) {
-        if (this.items[itemName] > 0) {
-          return false;
-        }
-      }
-      return true;
-    }
-  
-    processOrder(order) {
-      if (!order || typeof order !== 'object') {
-        return false;
-      }
-  
-      // Check if we have enough of all items first
-      for (const [itemName, quantity] of Object.entries(order)) {
-        if (!this.hasEnough(itemName, quantity)) {
-          return false;
-        }
-      }
-  
-      // If we have enough of everything, process the order
+
+    // If we can fulfill the order, remove the items
+    try {
       for (const [itemName, quantity] of Object.entries(order)) {
         this.removeItem(itemName, quantity);
       }
-      
       return true;
-    }
-  
-    hasEnough(name, quantity) {
-      if (!Number.isInteger(quantity) || quantity <= 0) {
-        return false;
-      }
-      
-      return (this.items[name] || 0) >= quantity;
+    } catch (error) {
+      return false;
     }
   }
-  
-  function fulfillOrder(inventory, order) {
-    return inventory.processOrder(order);
+
+  hasEnough(name, quantity) {
+    if (!name || typeof name !== 'string' || 
+        !Number.isInteger(quantity) || quantity <= 0) {
+      return false;
+    }
+    
+    return this.getItemCount(name) >= quantity;
   }
-  
-  module.exports = { Inventory, fulfillOrder };
+}
+
+function fulfillOrder(inventory, order) {
+  return inventory.processOrder(order);
+}
+
+module.exports = { Inventory, fulfillOrder };

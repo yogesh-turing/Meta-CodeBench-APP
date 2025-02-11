@@ -1,60 +1,41 @@
 class Inventory {
-    constructor() {
-      this.items = {};
+  // ...
+
+  removeItem(name, quantity) {
+    if (!this.hasItem(name)) {
+      throw new Error(`Item '${name}' does not exist in the inventory.`);
     }
-  
-    addItem(name, quantity) {
-      if (this.items[name]) {
-        this.items[name] += quantity;
-      } else {
-        this.items[name] = quantity;
-      }
+
+    if (quantity <= 0) {
+      throw new Error('Quantity must be a positive integer.');
     }
-  
-    removeItem(name, quantity) {
-      if (this.items[name]) {
-        this.items[name] = Math.max(this.items[name] - quantity, 0);
-      }
+
+    if (this.items[name] < quantity) {
+      throw new Error(`Not enough quantity of item '${name}' in the inventory.`);
     }
-  
-    getItemCount(name) {
-      return this.items[name] || 0;
-    }
-  
-    hasItem(name) {
-      return this.items[name] > 0;
-    }
-  
-    isEmpty() {
-      for (const itemName in this.items) {
-        if (this.items[itemName] > 0) {
-          return false;
-        }
-      }
-      return true;
-    }
-  
-    processOrder(order) {
-      for (const itemName in order) {
-        if (!this.hasEnough(itemName, order[itemName])) {
-          return false;
-        }
-      }
-  
-      for (const itemName in order) {
-        this.removeItem(itemName, order[itemName]);
-      }
-  
-      return true;
-    }
-  
-    hasEnough(name, quantity) {
-      return this.getItemCount(name) >= quantity;
-    }
+
+    this.items[name] -= quantity;
   }
-  
-  function fulfillOrder(inventory, order) {
-    return inventory.processOrder(order);
+
+  hasEnough(name, quantity) {
+    if (quantity <= 0) {
+      return false;
+    }
+
+    return this.getItemCount(name) >= quantity;
   }
-  
-  module.exports = { Inventory, fulfillOrder };
+
+  processOrder(order) {
+    for (const item in order) {
+      if (!this.hasEnough(item, order[item])) {
+        return false;
+      }
+    }
+
+    for (const item in order) {
+      this.removeItem(item, order[item]);
+    }
+
+    return true;
+  }
+}
