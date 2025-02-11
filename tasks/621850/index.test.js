@@ -1,4 +1,4 @@
-const { EmployeeInvitation  } = require(process.env.TARGET_FILE);
+const { EmployeeInvitation  } = require('./incorrect');
 
 describe('EmployeeInvitation.maxEmployeesInvited', () => {
     test('Positive case', () => {
