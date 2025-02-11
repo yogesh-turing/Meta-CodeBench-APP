@@ -1,52 +1,61 @@
-/**
- * Calculates the minimum number of cohesive groups required for the given sequence.
- * A group is cohesive if it forms a palindrome.
- *
- * @param {string[]} sequence - The array of strings representing the sequence.
- * @return {number} - The minimum number of cohesive groups, or 0 if the sequence is null or empty.
- */
-function minCohesiveGroups(sequence) {
-    if (!sequence || sequence.length === 0) {
-        return 0; // Return 0 for null or empty input
-    }
+class EmployeeInvitation {
+    /**
+     * Determines the maximum number of employees that can be invited to an event,
+     * considering relationships where employees invite their favorite colleagues.
+     * 
+     * @param {number[]} favorite - An array where each index represents an employee,
+     *                               and the value at that index represents the employee's 
+     *                               favorite colleague to invite.
+     * @returns {number} - Maximum number of employees that can be invited.
+     */
+    static maxEmployeesInvited(favorite) {
+        const numEmployees = favorite.length;
+        const depth = new Array(numEmployees).fill(0);
+        const visited = new Array(numEmployees).fill(false);
+        const inCycle = new Array(numEmployees).fill(false);
+        let maxDepth = 0;
 
-    const n = sequence.length;
-    const dp = new Array(n + 1).fill(0);
-    dp[0] = 0; // Base case: no groups needed for an empty sequence
+        for (let i = 0; i < numEmployees; i++) {
+            if (!visited[i]) {
+                const stack = [];
+                const path = new Set();
+                stack.push(i);
+                path.add(i);
 
-    // For each position in the sequence
-    for (let i = 1; i <= n; i++) {
-        // Initialize with the worst case: each task in its own group
-        dp[i] = dp[i - 1] + 1;
+                while (stack.length) {
+                    const node = stack[stack.length - 1];
+                    const next = favorite[node];
 
-        // Try to form cohesive groups ending at position i
-        for (let j = 0; j < i - 1; j++) {
-            if (isCohesive(sequence, j, i - 1)) {
-                dp[i] = Math.min(dp[i], dp[j] + 1);
+                    if (path.has(next)) {
+                        maxDepth = Math.max(maxDepth, path.size);
+                        path.forEach(n => inCycle[n] = true);
+                        break;
+                    }
+
+                    stack.push(next);
+                    path.add(next);
+                }
+
+                const currentDepth = path.size;
+                path.forEach(n => {
+                    visited[n] = true;
+                    depth[n] = currentDepth;
+                });
             }
         }
-    }
 
-    return dp[n];
-}
-
-/**
- * Checks if the subsequence from start to end (inclusive) is cohesive. A cohesive group is a palindrome.
- *
- * @param {string[]} sequence - The array of strings representing the sequence.
- * @param {number} start - The starting index of the subsequence.
- * @param {number} end - The ending index of the subsequence.
- * @return {boolean} - True if the subsequence is cohesive, false otherwise.
- */
-function isCohesive(sequence, start, end) {
-    while (start < end) {
-        if (sequence[start] !== sequence[end]) {
-            return false; // Not cohesive if elements don't match
+        for (let i = 0; i < numEmployees; i++) {
+            if (!inCycle[i]) {
+                maxDepth = Math.max(maxDepth, depth[i]);
+            }
         }
-        start++;
-        end--;
+
+        return maxDepth;
     }
-    return true; // Cohesive if all elements match
 }
 
-module.exports = { minCohesiveGroups };
+// Test the function with a sample input
+const favorite = [1, 2, 0, 4, 5, 3];
+console.log(EmployeeInvitation.maxEmployeesInvited(favorite));
+
+module.exports = {EmployeeInvitation};

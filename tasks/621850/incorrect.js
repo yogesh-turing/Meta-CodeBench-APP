@@ -1,37 +1,44 @@
-function minCohesiveGroups(sequence) {
-    if (!sequence || sequence.length === 0) {
-        return 0;
-    }
+class EmployeeInvitation {
+    /**
+     * Determines the maximum number of employees that can be invited to an event,
+     * considering relationships where employees invite their favorite colleagues.
+     * 
+     * @param {number[]} favorite - An array where each index represents an employee,
+     *                               and the value at that index represents the employee's 
+     *                               favorite colleague to invite.
+     * @returns {number} - Maximum number of employees that can be invited.
+     */
+    static maxEmployeesInvited(favorite) {
+        const n = favorite.length;
+        const visited = new Array(n).fill(false);
+        const depth = new Array(n).fill(0);
 
-    const n = sequence.length;
-    const dp = Array(n + 1).fill(0);
-    dp[0] = 0;
-
-    // Loop through each position in the sequence
-    for (let i = 1; i <= n; i++) {
-        // Initialize with worst case: each task in its own group
-        dp[i] = dp[i - 1] + 1;
-
-        // Try to form cohesive groups ending at position i
-        for (let j = 0; j < i - 1; j++) {
-            if (isCohesive(sequence, j, i - 1)) {
-                dp[i] = Math.min(dp[i], dp[j] + 1);
+        let maxEmployees = 0;
+        for (let i = 0; i < n; i++) {
+            if (!visited[i]) {
+                maxEmployees = Math.max(maxEmployees, this.dfs(favorite, visited, depth, i));
             }
         }
+
+        return maxEmployees;
     }
 
-    return dp[n];
-}
-
-function isCohesive(sequence, start, end) {
-    while (start < end) {
-        if (sequence[start] !== sequence[end]) {
-            return false;
+    static dfs(favorite, visited, depth, employee) {
+        if (visited[employee]) {
+            return depth[employee] === 0 ? 2 : 0;
         }
-        start++;
-        end--;
+
+        visited[employee] = true;
+        const nextEmployee = favorite[employee];
+        const nextDepth = this.dfs(favorite, visited, depth, nextEmployee);
+        depth[employee] = nextDepth + 1;
+
+        return depth[employee];
     }
-    return true;
 }
 
-module.exports = { minCohesiveGroups };
+// Test the function with a sample input
+const favorite = [1, 2, 0, 4, 5, 3];
+console.log(EmployeeInvitation.maxEmployeesInvited(favorite));
+
+module.exports = {EmployeeInvitation};

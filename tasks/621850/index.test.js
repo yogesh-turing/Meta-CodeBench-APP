@@ -1,50 +1,52 @@
-// const { minCohesiveGroups } = require(process.env.TARGET_FILE);
-const { minCohesiveGroups } = require('./correct');
+const { EmployeeInvitation  } = require(process.env.TARGET_FILE);
 
-describe('minCohesiveGroups Tests', () => {
-    it('should return 1 for ["A", "B", "A", "B", "A"]', () => {
-        expect(minCohesiveGroups(["A", "B", "A", "B", "A"])).toBe(1);
+describe('EmployeeInvitation.maxEmployeesInvited', () => {
+    test('Positive case', () => {
+        const favorite = [1, 2, 0, 4, 5, 3];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(3);
     });
 
-    it('should return 0 for an empty array', () => {
-        expect(minCohesiveGroups([])).toBe(0);
+    test('Single employee', () => {
+        const favorite = [0];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(1);
     });
 
-    it('should return 2 for ["A", "B", "A", "B", "A", "B"]', () => {
-        expect(minCohesiveGroups(["A", "B", "A", "B", "A", "B"])).toBe(2);
+    test('Empty list', () => {
+        const favorite = [];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(0);
     });
 
-    it('should return 2 for ["A", "B"]', () => {
-        expect(minCohesiveGroups(["A", "B"])).toBe(2);
+    test('Circular relationship', () => {
+        const favorite = [1, 0];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(2);
     });
 
-    it('should return 1 for ["A"]', () => {
-        expect(minCohesiveGroups(["A"])).toBe(1);
+    test('Null input', () => {
+        expect(() => EmployeeInvitation.maxEmployeesInvited(null)).toThrow();
     });
 
-    it('should return 5 for ["A", "B", "C", "D", "E"]', () => {
-        expect(minCohesiveGroups(["A", "B", "C", "D", "E"])).toBe(5);
+    test('Multiple cycles', () => {
+        const favorite = [1, 2, 0, 4, 5, 3];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(3);
     });
 
-    it('should return 1 for ["A", "B", "A"]', () => {
-        expect(minCohesiveGroups(["A", "B", "A"])).toBe(1);
+    test('All employees in a cycle', () => {
+        const favorite = [1, 2, 3, 4, 5, 0];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(6);
     });
 
-    it('should return 2 for ["@", "#", "@", "#"]', () => {
-        expect(minCohesiveGroups(["@", "#", "@", "#"])).toBe(2);
+    test('Multiple disconnected cycles', () => {
+        const favorite = [1, 0, 3, 2, 5, 4];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(2);
     });
 
-    it('should return 234 for a long sequence', () => {
-        const sequence = [..."ABCDEFGHIJKLMNOPQRSTUVWXYZ".repeat(9)];
-        expect(minCohesiveGroups(sequence)).toBe(234);
+    test('Large input single cycle', () => {
+        const favorite = [1, 2, 3, 4, 5, 6, 7, 0];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(8);
     });
 
-    it('should return 1 for ["A", "A", "A"]', () => {
-        expect(minCohesiveGroups(["A", "A", "A"])).toBe(1);
-    });
-
-    it('should return 1 for a large repetitive sequence of "A"', () => {
-        const sequence = Array(300).fill("A");
-        expect(minCohesiveGroups(sequence)).toBe(1);
+    test('Multiple cycles of different sizes', () => {
+        const favorite = [1, 2, 0, 4, 5, 4];
+        expect(EmployeeInvitation.maxEmployeesInvited(favorite)).toBe(3);
     });
 });

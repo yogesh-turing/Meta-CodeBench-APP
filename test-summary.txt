@@ -1,0 +1,18 @@
+TEST SUMMARY
+============
+
+621850:
+base       : 0/10 tests passed [FAILED]
+correct    : 10/10 tests passed [PASSED]
+incorrect  : 2/10 tests passed [FAILED]
+model_a    : 8/10 tests passed [FAILED]
+model_b    : 8/10 tests passed [FAILED]
+model_c    : 8/10 tests passed [FAILED]
+model_d    : 6/10 tests passed [FAILED]
+model_e    : 8/10 tests passed [FAILED]
+model_f    : 3/10 tests passed [FAILED]
+model_g    : 4/10 tests passed [FAILED]
+model_h    : 9/10 tests passed [FAILED]
+model_i    : 10/10 tests passed [PASSED]
+model_j    : 3/10 tests passed [FAILED]
+
