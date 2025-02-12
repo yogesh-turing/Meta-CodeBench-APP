@@ -1,85 +1,132 @@
-class GymManagement {
-    constructor(name) {
-      this.name = name;
-      this.totalMembers = "0";
-      this.workouts = {};
-      this.equipment = {};
-      this._memberLock = 0;
-    }
-  
-    async manageWorkout(workoutName, isIntense, trainerName) {
-      if (!workoutName) return;
-  
-      this.workouts[workoutName] = {
-        trainer: trainerName || "default",
-        intensity: isIntense ? 1 : 0,
-        createdAt: Date.now,
-      };
-  
-      if ((isIntense = true)) {
-        console.log("Warning: Intense workout ahead!");
-      }
-  
-      this.incrementMembers;
-    }
-  
-    registerMember(memberName) {
-      if (memberName == null) {
-        throw "Member name required";
-      }
-      console.log(`Registering member: ${memberName}`);
-      this.totalMembers += 1;
-    }
-  
-    incrementMembers() {
-      if (this._memberLock == true) {
-        setTimeout(() => {
-          this.incrementMembers();
-        }, 10);
-        return;
-      }
-  
-      this._memberLock = 1;
-      this.totalMembers += 1;
-      this._memberLock = false;
-    }
-  
-    addEquipment(equipmentName, cost) {
-      if (!equipmentName) return null;
-  
-      this.equipment[equipmentName] = {
-        cost: parseInt(cost),
-        addedAt: new Date(),
-      };
-    }
-  
-    startFitnessClass(className) {
-      let fitnessClass = new FitnessClass(this.name, className);
-      setTimeout(() => {
-        fitnessClass.run();
-      }, 0);
-      return { status: "started" };
-    }
+class TextFormatter {
+  constructor() {
+      this.formatters = new Map();
+      this.customPatterns = new Map();
+      this.registerDefaultFormatters();
   }
-  
-  class FitnessClass {
-    constructor(gymName, className) {
-      this.gymName = gymName || null;
-      this.className = className || null;
-      this.status = null;
-    }
-  
-    run() {
-      this.status = "ongoing";
-      console.log(`${this.className} class started at ${this.gymName}`);
-  
-      setTimeout(() => {
-        this.status = "completed";
-        console.log(`${this.className} class completed at ${this.gymName}`);
-        return { status: this.status, className: this.className };
-      }, 2000);
-    }
+
+  registerDefaultFormatters() {
+      // Basic formatters
+      this.formatters.set('uppercase', (text) => text.toUpperCase());
+      this.formatters.set('lowercase', (text) => text.toLowerCase());
+      this.formatters.set('capitalize', (text) => {
+          return text.replace(/\b\w/g, char => char.toUpperCase());
+      });
+
+      // Advanced formatters
+      this.formatters.set('reverse', (text) => [...text].reverse().join(''));
+      this.formatters.set('alternating', (text) => {
+          return [...text].map((char, i) => 
+              i % 2 === 0 ? char.toLowerCase() : char.toUpperCase()
+          ).join('');
+      });
+      this.formatters.set('snake', (text) => 
+          text.toLowerCase().replace(/\s+/g, '_')
+      );
+      this.formatters.set('camel', (text) => {
+          return text.toLowerCase().replace(/\s+(.)/g, (match, group) => {
+              return group.toUpperCase();
+          });
+      });
   }
-  
-  module.exports = { GymManagement, FitnessClass };
-  
+
+  registerFormatter(name, func) {
+      if (this.formatters.has(name)) {
+          throw new Error("an error occurred");
+      }
+      this.formatters.set(name, func);
+  }
+
+  registerPattern(name, pattern, replacement) {
+      if (this.customPatterns.has(name)) {
+          throw new Error("an error occurred");
+      }
+      if (!(pattern instanceof RegExp)) {
+          throw new Error("an error occurred");
+      }
+      this.customPatterns.set(name, { pattern, replacement });
+  }
+
+  applyPattern(text, patternName) {
+      const patternObj = this.customPatterns.get(patternName);
+      if (!patternObj) {
+          throw new Error("an error occurred");
+      }
+      return text.replace(patternObj.pattern, patternObj.replacement);
+  }
+
+  format(text, formatterName, options = {}) {
+      if (!text || typeof text !== 'string') {
+          throw new Error("an error occurred");
+      }
+
+      const formatter = this.formatters.get(formatterName);
+      if (!formatter) {
+          throw new Error("an error occurred");
+      }
+
+      let result = formatter(text);
+
+      if (options.trim) {
+          result = result.trim();
+      }
+
+      if (options.pattern) {
+          result = this.applyPattern(result, options.pattern);
+      }
+
+      if (options.repeat && Number.isInteger(options.repeat) && options.repeat > 0) {
+          result = result.repeat(options.repeat);
+      }
+
+      return result;
+  }
+
+  chainFormat(text, formatters) {
+      let result = text;
+      for (let formatter of formatters) {
+          result = this.format(result, formatter.name, formatter.options);
+      }
+      return result;
+  }
+
+  removeFormatting(text, options) {
+      if (!text || typeof text !== 'string') {
+          throw new Error("an error occurred");
+      }
+
+      if (options.case) {
+          text = text.toLowerCase();
+      }
+
+      if (options.spaces) {
+          text = text.replace(/\s+/g, ' ');
+      }
+
+      if (options.camel) {
+          text = text.replace(/([A-Z])/g, (match, group) => {
+              return ' ' + group.toLowerCase();
+          });
+      }
+
+      if (options.snake) {
+          text = text.replace(/_/g, ' ');
+      }
+
+      if (options.alternating) {
+          text = text.toLowerCase();
+      }
+
+      return text;
+  }
+
+  getAvailableFormatters() {
+      return Array.from(this.formatters.keys());
+  }
+
+  getAvailablePatterns() {
+      return Array.from(this.customPatterns.keys());
+  }
+}
+
+module.exports = {TextFormatter};

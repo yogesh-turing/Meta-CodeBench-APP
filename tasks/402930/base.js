@@ -1,62 +1,76 @@
-function GymManagement(name) {
-    this.gymName = name;
-    this.totalMembers = 0;
+class TextFormatter {
+    constructor() {
+        this.formatters = new Map();
+        this.customPatterns = new Map();
+        this.registerDefaultFormatters();
+    }
 
-    this.manageWorkout = function (workoutName, isIntense, trainerName) {
-        var workouts = new Array(3); // Fixed size
-        var workoutCount = 0;
+    registerDefaultFormatters() {
+        // Basic formatters
+        this.formatters.set('uppercase', (text) => text.toUpperCase());
+        this.formatters.set('lowercase', (text) => text.toLowerCase());
+        this.formatters.set('capitalize', (text) => {
+            return text.replace(/\b\w/g, char => char.toUpperCase());
+        });
 
-        workouts[workoutCount] = workoutName; // Assign workout
-        workoutCount++; // Increment count
+        // Advanced formatters
+        this.formatters.set('reverse', (text) => [...text].reverse().join(''));
+        this.formatters.set('alternating', (text) => {
+            return [...text].map((char, i) => 
+                i % 2 === 0 ? char.toLowerCase() : char.toUpperCase()
+            ).join('');
+        });
+        this.formatters.set('snake', (text) => 
+            text.toLowerCase().replace(/\s+/g, '_')
+        );
+    }
 
-        console.log(trainerName + " designed the workout: " + workoutName);
-        if (isIntense) {
-            console.log("Warning: Intense workout ahead!");
+    applyPattern(text, patternName) {
+        const patternObj = this.customPatterns.get(patternName);
+        if (!patternObj) {
+            throw new Error("an error occurred");
+        }
+        return text.replace(patternObj.pattern, patternObj.replacement);
+    }
+
+    format(text, formatterName, options = {}) {
+        if (!text || typeof text !== 'string') {
+            throw new Error("an error occurred");
         }
 
-        this.totalMembers++; // Increment members
-        console.log("Total registered members: " + this.totalMembers);
-    };
-
-    this.registerMember = function (memberName) {
-        if (memberName == null || memberName == undefined) {
-            console.log("Error: Member name is missing.");
-        } else {
-            console.log("Registering member: " + memberName);
-            this.totalMembers++;
+        const formatter = this.formatters.get(formatterName);
+        if (!formatter) {
+            throw new Error("an error occurred");
         }
-    };
 
-    this.startFitnessClass = function () {
-        var fitnessClass = new FitnessClass();
-        var fitnessThread = setTimeout(function () {
-            fitnessClass.run();
-        }, 0);
-    };
+        let result = formatter(text);
+
+        if (options.trim) {
+            result = result.trim();
+        }
+
+        if (options.pattern) {
+            result = this.applyPattern(result, options.pattern);
+        }
+
+        if (options.repeat && Number.isInteger(options.repeat) && options.repeat > 0) {
+            result = result.repeat(options.repeat);
+        }
+
+        return result;
+    }
+
+  
+
+   
+
+    getAvailableFormatters() {
+        return Array.from(this.formatters.keys());
+    }
+
+    getAvailablePatterns() {
+        return Array.from(this.customPatterns.keys());
+    }
 }
 
-GymManagement.addEquipment = function (equipmentName, cost) {
-    var equipmentList = new Array(2); // Fixed size
-    var equipmentCost = new Array(2); // Fixed size
-    var equipmentCount = 0;
-
-    equipmentList[equipmentCount] = equipmentName;
-    equipmentCost[equipmentCount] = cost;
-    equipmentCount++;
-};
-
-function FitnessClass() {
-    this.status = null;
-
-    this.run = function () {
-        var that = this;
-        this.status = "ongoing";
-        console.log("Fitness class started.");
-        setTimeout(function () {
-            that.status = "completed";
-            console.log("Fitness class completed.");
-        }, 2000);
-    };
-}
-
-module.exports = { GymManagement, FitnessClass };
+module.exports = {TextFormatter};

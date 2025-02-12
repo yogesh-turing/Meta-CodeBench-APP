@@ -1,94 +1,25 @@
-Base Code:
-```javascript
-function GymManagement(name) {
-    this.gymName = name;
-    this.totalMembers = 0;
+The `TextFormatter` class is for formatting text into different casings. 
+I want you to improve it by implementing `chainFormat` which takes the text and list of formatters and allows one to apply multiple formatters to a text. 
 
-    this.manageWorkout = function (workoutName, isIntense, trainerName) {
-        var workouts = new Array(3); // Fixed size
-        var workoutCount = 0;
+The formatters is a list of formats which has a `name` and `options`. 
 
-        workouts[workoutCount] = workoutName; // Assign workout
-        workoutCount++; // Increment count
+Also, i want you to add a feature to register a custom formatter, `registerFormatter` which takes the name and function to apply the format. 
 
-        console.log(trainerName + " designed the workout: " + workoutName);
-        if (isIntense) {
-            console.log("Warning: Intense workout ahead!");
-        }
+Improve the `registerDefaultFormatters` method by including a formatter for `camel` case. 
 
-        this.totalMembers++; // Increment members
-        console.log("Total registered members: " + this.totalMembers);
-    };
+Implement a `removeFormatting` functionality for removing an applied formatting. 
 
-    this.registerMember = function (memberName) {
-        if (memberName == null || memberName == undefined) {
-            console.log("Error: Member name is missing.");
-        } else {
-            console.log("Registering member: " + memberName);
-            this.totalMembers++;
-        }
-    };
+It takes the text and options needed to be removed. 
 
-    this.startFitnessClass = function () {
-        var fitnessClass = new FitnessClass();
-        var fitnessThread = setTimeout(function () {
-            fitnessClass.run();
-        }, 0);
-    };
-}
+Options may include any of the formatters applied as well as `case` and `spaces` which removes upper case and spaces respectively. 
 
-GymManagement.addEquipment = function (equipmentName, cost) {
-    var equipmentList = new Array(2); // Fixed size
-    var equipmentCost = new Array(2); // Fixed size
-    var equipmentCount = 0;
+Also the options is an object.
 
-    equipmentList[equipmentCount] = equipmentName;
-    equipmentCost[equipmentCount] = cost;
-    equipmentCount++;
-};
+Lastly, implement a feature to register a pattern, `registerPattern` which takes the name, pattern and replacement. Formatters must be unique and patterns should be regular expressions. For any error, the error message should be "an error occurred". Maintain existing api structure.
 
-function FitnessClass() {
-    this.status = null;
+Examples
+If a camel case of "comeHomeBoy" is removed, the answer should be "come Home Boy".
+For alternating case of "lOVe CoDiNg" when removed should be "love coding"
+For spaces removal at most one space should be between each word in a sentence.
+For snake case of "come_home_son" when removed should be "come home son".
 
-    this.run = function () {
-        var that = this;
-        this.status = "ongoing";
-        console.log("Fitness class started.");
-        setTimeout(function () {
-            that.status = "completed";
-            console.log("Fitness class completed.");
-        }, 2000);
-    };
-}
-
-module.exports = { GymManagement, FitnessClass };
-```
-
-Prompt:
-
-Implement a GymManagement and FitnessClass system in JavaScript using ES6 classes with the following requirements:
-
-- GymManagement:
-
-Require name in the constructor; throw an error if missing.
-
-Maintain workouts and equipment as Maps for tracking details like trainer, intensity and  cost
-
-Implement manageWorkout(workoutName, isIntense, trainerName) to log and add workouts, validating inputs.
-
-Provide registerMember(memberName) to safely increment totalMembers with asynchronous locking.
-
-Add addEquipment(equipmentName, cost) to validate and store equipment details.
-
--FitnessClass:
-
-Require gymName and className in the constructor.
-
-Implement an asynchronous run method to simulate class execution with "ongoing" and "completed" statuses, using a 2-second delay.
-
-- General:
-
-Ensure proper validation, error handling, and modular design.
-
-Use descriptive variables, asynchronous patterns, and avoid unsafe practices.
-The implementation should align with the provided Ideal Response.

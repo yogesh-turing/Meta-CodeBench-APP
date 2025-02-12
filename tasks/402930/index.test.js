@@ -1,93 +1,219 @@
-const { FitnessClass, GymManagement } = require('./model_f');
+const {TextFormatter} = require('./incorrect');
 
-describe("FitnessClass", () => {
-  let fitnessClass;
+describe('TextFormatter', () => {
+    let formatter;
 
-  beforeEach(() => {
-    fitnessClass = new FitnessClass("FitLife Gym", "HIIT Class");
-  });
-
-  test("should initialize with correct parameters", () => {
-    expect(fitnessClass.status).toBe(null);
-    expect(fitnessClass.gymName).toBe(null);
-    expect(fitnessClass.className).toBe(null);
-  });
-
-  test("should complete class after specified duration", async () => {
-    jest.useFakeTimers();
-
-    const runPromise = fitnessClass.run();
-    expect(fitnessClass.status).toBe("ongoing");
-
-    jest.advanceTimersByTime(2000);
-    const result = await runPromise;
-
-    // expect(result.status).toBe("completed");
-    expect(fitnessClass.status).toBe("completed");
-
-    jest.useRealTimers();
-  });
-
-  test("should throw error for invalid initialization", () => {
-    expect(() => new FitnessClass(null, "Class")).toThrow();
-    expect(() => new FitnessClass("Gym", null)).toThrow();
-  });
-});
-describe("GymManagement", () => {
-  let gym;
-
-  beforeEach(() => {
-    gym = new GymManagement("FitLife Gym");
-  });
-
-  test("should initialize gym with correct name and zero members", () => {
-    expect(gym.gymName).toBe("FitLife Gym");
-    expect(gym.totalMembers).toBe(0);
-  });
-
-  test("should correctly manage a workout and increase member count", async () => {
-    await gym.manageWorkout("HIIT", true, "Alice");
-    expect(gym.totalMembers).toBe(1);
-  });
-
-  test("should handle intense workouts with a warning", async () => {
-    const consoleSpy = jest.spyOn(console, "log");
-    await gym.manageWorkout("HIIT", true, "Alice");
-    expect(consoleSpy).toHaveBeenCalledWith("Warning: Intense workout ahead!");
-    consoleSpy.mockRestore();
-  });
-
-  test("should register a member with a valid name", async () => {
-    await gym.registerMember("John");
-    expect(gym.totalMembers).toBe(1);
-  });
-
-  test("should throw error for invalid member names", async () => {
-    await expect(() => gym.registerMember(null).toThrow());
-    await expect(() => gym.registerMember(undefined).toThrow());
-  });
-
-  test("should add equipment correctly", () => {
-    gym.addEquipment("Treadmill", 1500.0);
-    const equipment = gym.equipment.get("Treadmill");
-
-    expect(equipment).toEqual({
-      cost: 1500.0,
-      addedAt: expect.any(Date),
+    beforeEach(() => {
+        formatter = new TextFormatter();
     });
-  });
 
-  test("should throw error for invalid equipment data", () => {
-    expect(() => gym.addEquipment(null, 1500.0)).toThrow();
-    expect(() => gym.addEquipment("Treadmill", -100)).toThrow();
-  });
+    describe('Basic Formatting', () => {
+        test('should format text to uppercase', () => {
+            expect(formatter.format('hello', 'uppercase')).toBe('HELLO');
+        });
 
-  test("should handle concurrent member registration", async () => {
-    await Promise.all([
-      gym.registerMember("John"),
-      gym.registerMember("Jane"),
-      gym.registerMember("Bob"),
-    ]);
-    expect(gym.totalMembers).toBe(3);
-  });
+        test('should format text to lowercase', () => {
+            expect(formatter.format('HELLO', 'lowercase')).toBe('hello');
+        });
+
+        test('should capitalize words', () => {
+            expect(formatter.format('hello world', 'capitalize'))
+                .toBe('Hello World');
+        });
+    });
+
+    describe('Advanced Formatters', () => {
+        test('should reverse text', () => {
+            expect(formatter.format('hello', 'reverse')).toBe('olleh');
+        });
+
+        test('should format text to alternating case', () => {
+            expect(formatter.format('hello', 'alternating')).toBe('hElLo');
+        });
+
+        test('should convert to snake case', () => {
+            expect(formatter.format('Hello World', 'snake')).toBe('hello_world');
+        });
+
+        test('should convert to camel case', () => {
+            expect(formatter.format('hello world', 'camel')).toBe('helloWorld');
+            expect(formatter.format('hello-world', 'camel')).toBe('helloWorld');
+        });
+    });
+
+    describe('Remove Formatting', () => {
+        test('should remove camelCase formatting', () => {
+            expect(formatter.removeFormatting('helloWorld', { camel: true }))
+                .toBe('hello World');
+            expect(formatter.removeFormatting('thisIsATest', { camel: true }))
+                .toBe('this Is A Test');
+        });
+
+        test('should remove snake_case formatting', () => {
+            expect(formatter.removeFormatting('hello_world', { snake: true }))
+                .toBe('hello world');
+            expect(formatter.removeFormatting('this_is_a_test', { snake: true }))
+                .toBe('this is a test');
+        });
+
+        test('should remove alternating case', () => {
+            expect(formatter.removeFormatting('hElLo WoRlD', { alternating: true }))
+                .toBe('hello world');
+        });
+
+        test('should remove case formatting', () => {
+            expect(formatter.removeFormatting('HELLO WORLD', { case: true }))
+                .toBe('hello world');
+        });
+
+        test('should remove extra spaces', () => {
+            expect(formatter.removeFormatting('  hello   world  ', { spaces: true }))
+                .toBe('hello world');
+        });
+
+        test('should combine multiple format removals', () => {
+            expect(formatter.removeFormatting('hello_World  TEST', {
+                camel: true,
+                snake: true,
+                case: true,
+                spaces: true
+            })).toBe('hello world test');
+        });
+
+        test('should handle invalid input', () => {
+            expect(() => formatter.removeFormatting(null))
+                .toThrow();
+            expect(() => formatter.removeFormatting(''))
+                .toThrow();
+        });
+
+        test('should return original text if no options provided', () => {
+            expect(formatter.removeFormatting('helloWorld'))
+                .toBe('helloWorld');
+        });
+    });
+
+    describe('Formatter Registration', () => {
+        test('should allow registering new formatter', () => {
+            formatter.registerFormatter('double', text => text + text);
+            expect(formatter.format('hello', 'double')).toBe('hellohello');
+        });
+
+        test('should throw error for invalid formatter function', () => {
+            expect(() => formatter.registerFormatter('invalid', 'not a function'))
+                .toThrow();
+        });
+
+        test('should throw error for duplicate formatter name', () => {
+            expect(() => formatter.registerFormatter('uppercase', text => text))
+                .toThrow();
+        });
+
+        test('should list available formatters', () => {
+            const formatters = formatter.getAvailableFormatters();
+            expect(formatters).toContain('uppercase');
+            expect(formatters).toContain('lowercase');
+            expect(formatters).toContain('capitalize');
+            expect(formatters).toContain('reverse');
+            expect(formatters).toContain('alternating');
+            expect(formatters).toContain('snake');
+            expect(formatters).toContain('camel');
+        });
+    });
+
+    describe('Pattern Registration and Usage', () => {
+        test('should register and apply pattern', () => {
+            formatter.registerPattern('removeDigits', /\d+/g, '');
+            expect(formatter.applyPattern('hello123world', 'removeDigits')).toBe('helloworld');
+        });
+
+        test('should throw error for invalid pattern', () => {
+            expect(() => formatter.registerPattern('invalid', 'not-regex', ''))
+                .toThrow();
+        });
+
+        test('should throw error for non-existent pattern', () => {
+            expect(() => formatter.applyPattern('text', 'nonexistent'))
+                .toThrow();
+        });
+
+        test('should list available patterns', () => {
+            formatter.registerPattern('test', /test/g, 'passed');
+            const patterns = formatter.getAvailablePatterns();
+            expect(patterns).toContain('test');
+        });
+    });
+
+    describe('Advanced Format Options', () => {
+        beforeEach(() => {
+            formatter.registerPattern('removeSpaces', /\s+/g, '');
+        });
+
+        test('should apply trim option', () => {
+            expect(formatter.format('  hello  ', 'uppercase', { trim: true }))
+                .toBe('HELLO');
+        });
+
+        test('should apply pattern option', () => {
+            expect(formatter.format('hello world', 'uppercase', { pattern: 'removeSpaces' }))
+                .toBe('HELLOWORLD');
+        });
+
+        test('should apply repeat option', () => {
+            expect(formatter.format('hello', 'uppercase', { repeat: 2 }))
+                .toBe('HELLOHELLO');
+        });
+
+        test('should apply multiple options together', () => {
+            expect(formatter.format('  hello world  ', 'uppercase', {
+                trim: true,
+                pattern: 'removeSpaces',
+                repeat: 2
+            })).toBe('HELLOWORLDHELLOWORLD');
+        });
+    });
+
+    describe('Chain Formatting', () => {
+        test.only('should chain multiple formatters', () => {
+            const result = formatter.chainFormat('hello world', [
+                'capitalize',
+                'reverse'
+            ]);
+            expect(result).toBe('dlroW olleH');
+        });
+
+        test('should chain formatters with options', () => {
+            formatter.registerPattern('removeSpaces', /\s+/g, '');
+            const result = formatter.chainFormat('  hello world  ', [
+                { name: 'uppercase', options: { trim: true } },
+                { name: 'reverse', options: { pattern: 'removeSpaces' } }
+            ]);
+            expect(result).toBe('DLROWOLLEH');
+        });
+    });
+
+    describe('Error Handling', () => {
+        test('should throw error for non-existent formatter', () => {
+            expect(() => formatter.format('text', 'nonexistent'))
+                .toThrow();
+        });
+
+        test('should throw error for invalid input', () => {
+            expect(() => formatter.format(null, 'uppercase'))
+                .toThrow();
+            expect(() => formatter.format(undefined, 'uppercase'))
+                .toThrow();
+            expect(() => formatter.format('', 'uppercase'))
+                .toThrow();
+        });
+
+        test('should validate repeat option', () => {
+            expect(formatter.format('hello', 'uppercase', { repeat: 0 }))
+                .toBe('HELLO');
+            expect(formatter.format('hello', 'uppercase', { repeat: -1 }))
+                .toBe('HELLO');
+            expect(formatter.format('hello', 'uppercase', { repeat: 1.5 }))
+                .toBe('HELLO');
+        });
+    });
 });

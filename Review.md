@@ -1,32 +1,24 @@
-402495
 
-The prompt it too generic
+Unit Test:
+Advanced Formatters -> should convert to camel case:
+In prompt it is not mention to treat hyphen as space seperator to adding following check is not needed. We cannot penalize model to ignore hyphen.
+`expect(formatter.format('hello-world', 'camel')).toBe('helloWorld');`
+The test cases should include the examples given in the prompt.
+Please include/use given examples in test cases.
 
-Test case should adhere to prompt.
-
-In prompt `FitnessClass` have status attribute, the attributes gymName and className are not mentioned in base code or prompt.
-
-FitnessClass constructor structure is not defined in base code or mentioned in the prompt.
-
-
-
-
-INCORRECT RESPONSE
-
-As the test cases are not inline with the prompt the solution explanation seems to be incorrect with respect to prompt.
+Model Evaluations:
+Once Unit test updated, update the model evaluations.
 
 
+Installed Packages:
+Include packages inside ```bash ```
 
 
-CORRECT/IDEAL RESPONSE
+Incorrect Solution Explanation:
+Please update the explanation once you update test cases.
+Please include details why following test case failed
+`TextFormatter › Formatter Registration › should throw error for invalid formatter function`
+`TextFormatter › Chain Formatting › should chain multiple formatters`
 
-
-The first test case failed
-
-    × should initialize with correct parameters (12673 ms)
-    
-
----
-
-The prompt should mention all the changes so that clear test cases can be written.
-In test suit there are test cases which differs from prompt and base code.
+Ideal Response Explanation:
+Please update the explanation once you update the incorrect solution explanation.

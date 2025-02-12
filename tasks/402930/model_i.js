@@ -1,81 +1,140 @@
-class GymManagement {
-    constructor(name) {
-        if (!name) {
-            throw new Error("Gym name is required.");
+class TextFormatter {
+    constructor() {
+      this.formatters = new Map();
+      this.customPatterns = new Map();
+      this.registerDefaultFormatters();
+    }
+  
+    registerDefaultFormatters() {
+      // Basic formatters
+      this.formatters.set('uppercase', (text) => text.toUpperCase());
+      this.formatters.set('lowercase', (text) => text.toLowerCase());
+      this.formatters.set('capitalize', (text) => {
+        return text.replace(/\b\w/g, char => char.toUpperCase());
+      });
+  
+      // Advanced formatters
+      this.formatters.set('reverse', (text) => [...text].reverse().join(''));
+      this.formatters.set('alternating', (text) => {
+        return [...text].map((char, i) => 
+          i % 2 === 0 ? char.toLowerCase() : char.toUpperCase()
+        ).join('');
+      });
+      this.formatters.set('snake', (text) => 
+        text.toLowerCase().replace(/\s+/g, '_')
+      );
+      this.formatters.set('camel', (text) => {
+        return text.replace(/\b\w/g, char => char.toUpperCase()).replace(/\s+/g, '');
+      });
+    }
+  
+    registerFormatter(name, func) {
+      if (this.formatters.has(name)) {
+        throw new Error("an error occurred");
+      }
+      this.formatters.set(name, func);
+    }
+  
+    registerPattern(name, pattern, replacement) {
+      if (this.customPatterns.has(name)) {
+        throw new Error("an error occurred");
+      }
+      if (!(pattern instanceof RegExp)) {
+        throw new Error("an error occurred");
+      }
+      this.customPatterns.set(name, { pattern, replacement });
+    }
+  
+    applyPattern(text, patternName) {
+      const patternObj = this.customPatterns.get(patternName);
+      if (!patternObj) {
+        throw new Error("an error occurred");
+      }
+      return text.replace(patternObj.pattern, patternObj.replacement);
+    }
+  
+    format(text, formatterName, options = {}) {
+      if (!text || typeof text !== 'string') {
+        throw new Error("an error occurred");
+      }
+  
+      const formatter = this.formatters.get(formatterName);
+      if (!formatter) {
+        throw new Error("an error occurred");
+      }
+  
+      let result = formatter(text);
+  
+      if (options.trim) {
+        result = result.trim();
+      }
+  
+      if (options.pattern) {
+        result = this.applyPattern(result, options.pattern);
+      }
+  
+      if (options.repeat && Number.isInteger(options.repeat) && options.repeat > 0) {
+        result = result.repeat(options.repeat);
+      }
+  
+      return result;
+    }
+  
+    chainFormat(text, formatters) {
+      if (!text || typeof text !== 'string') {
+        throw new Error("an error occurred");
+      }
+  
+      if (!Array.isArray(formatters)) {
+        throw new Error("an error occurred");
+      }
+  
+      let result = text;
+      for (const formatter of formatters) {
+        if (!formatter.name || typeof formatter.name !== 'string') {
+          throw new Error("an error occurred");
         }
-        this.gymName = name;
-        this.totalMembers = 0;
-        this.workouts = new Map();
-        this.equipment = new Map();
+        result = this.format(result, formatter.name, formatter.options);
+      }
+      return result;
     }
-
-    async manageWorkout(workoutName, isIntense, trainerName) {
-        if (!workoutName || !trainerName) {
-            throw new Error("Workout name and trainer name are required.");
+  
+    removeFormatting(text, options) {
+      if (!text || typeof text !== 'string') {
+        throw new Error("an error occurred");
+      }
+  
+      if (!options || typeof options !== 'object') {
+        throw new Error("an error occurred");
+      }
+  
+      let result = text;
+      if (options.case) {
+        result = result.toLowerCase();
+      }
+  
+      if (options.spaces) {
+        result = result.replace(/\s+/g, ' ');
+      }
+  
+      if (options.formatters) {
+        for (const formatter of options.formatters) {
+          if (this.formatters.has(formatter)) {
+            result = this.formatters.get(formatter)(result);
+          }
         }
-        this.workouts.set(workoutName, { isIntense, trainerName });
-        console.log(`${trainerName} designed the workout: ${workoutName}`);
-        if (isIntense) {
-            console.log("Warning: Intense workout ahead!");
-        }
-        await this.incrementMembers();
-        console.log(`Total registered members: ${this.totalMembers}`);
+      }
+  
+      return result;
     }
-
-    async registerMember(memberName) {
-        if (!memberName) {
-            throw new Error("Member name is required.");
-        }
-        console.log(`Registering member: ${memberName}`);
-        await this.incrementMembers();
+  
+    getAvailableFormatters() {
+      return Array.from(this.formatters.keys());
     }
-
-    async incrementMembers() {
-        await this.lock();
-        try {
-            this.totalMembers++;
-        } finally {
-            this.unlock();
-        }
+  
+    getAvailablePatterns() {
+      return Array.from(this.customPatterns.keys());
     }
-
-    async lock() {
-        while (this.locked) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
-        this.locked = true;
-    }
-
-    unlock() {
-        this.locked = false;
-    }
-
-    addEquipment(equipmentName, cost) {
-        if (!equipmentName || !cost) {
-            throw new Error("Equipment name and cost are required.");
-        }
-        this.equipment.set(equipmentName, cost);
-        console.log(`Added equipment: ${equipmentName} at a cost of ${cost}`);
-    }
-}
-
-class FitnessClass {
-    constructor(gymName, className) {
-        if (!gymName || !className) {
-            throw new Error("Gym name and class name are required.");
-        }
-        this.gymName = gymName;
-        this.className = className;
-        this.status = null;
-    }
-
-    async run() {
-        this.status = "ongoing";
-        console.log(`Fitness class ${this.className} started at ${this.gymName}.`);
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        this.status = "completed";
-        console.log(`Fitness class ${this.className} completed at ${this.gymName}.`);
-    }
-}
-
-module.exports = { GymManagement, FitnessClass };
+  }
+  
+  module.exports = {TextFormatter};
