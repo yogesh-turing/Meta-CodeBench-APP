@@ -1,84 +1,80 @@
 class GymManagement {
-    /**
-     * @param {string} name - Name of the gym
-     */
     constructor(name) {
+        if (!name) {
+            throw new Error("Gym name is required.");
+        }
         this.gymName = name;
         this.totalMembers = 0;
-        this.workouts = [];
-        this.equipmentList = new Map();
+        this.workouts = new Map();
+        this.equipment = new Map();
     }
 
-    /**
-     * Manage a workout
-     * @param {string} workoutName - Name of the workout
-     * @param {boolean} isIntense - Intensity of the workout
-     * @param {string} trainerName - Name of the trainer
-     */
-    manageWorkout(workoutName, isIntense, trainerName) {
+    async manageWorkout(workoutName, isIntense, trainerName) {
         if (!workoutName || !trainerName) {
-            throw new Error('Workout name and trainer name are required');
+            throw new Error("Workout name and trainer name are required.");
         }
-
-        this.workouts.push(workoutName);
+        this.workouts.set(workoutName, { isIntense, trainerName });
         console.log(`${trainerName} designed the workout: ${workoutName}`);
         if (isIntense) {
-            console.log('Warning: Intense workout ahead!');
+            console.log("Warning: Intense workout ahead!");
         }
-
-        this.totalMembers++;
+        await this.incrementMembers();
         console.log(`Total registered members: ${this.totalMembers}`);
     }
 
-    /**
-     * Register a member
-     * @param {string} memberName - Name of the member
-     */
-    registerMember(memberName) {
+    async registerMember(memberName) {
         if (!memberName) {
-            throw new Error('Member name is required');
+            throw new Error("Member name is required.");
         }
-
         console.log(`Registering member: ${memberName}`);
-        this.totalMembers++;
+        await this.incrementMembers();
     }
 
-    /**
-     * Start a fitness class
-     */
-    async startFitnessClass() {
-        const fitnessClass = new FitnessClass();
-        await fitnessClass.run();
+    async incrementMembers() {
+        await this.lock();
+        try {
+            this.totalMembers++;
+        } finally {
+            this.unlock();
+        }
     }
 
-    /**
-     * Add equipment to the gym
-     * @param {string} equipmentName - Name of the equipment
-     * @param {number} cost - Cost of the equipment
-     */
+    async lock() {
+        while (this.locked) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        this.locked = true;
+    }
+
+    unlock() {
+        this.locked = false;
+    }
+
     addEquipment(equipmentName, cost) {
         if (!equipmentName || !cost) {
-            throw new Error('Equipment name and cost are required');
+            throw new Error("Equipment name and cost are required.");
         }
-
-        this.equipmentList.set(equipmentName, cost);
+        this.equipment.set(equipmentName, cost);
+        console.log(`Added equipment: ${equipmentName} at a cost of ${cost}`);
     }
 }
 
 class FitnessClass {
-    constructor() {
+    constructor(gymName, className) {
+        if (!gymName || !className) {
+            throw new Error("Gym name and class name are required.");
+        }
+        this.gymName = gymName;
+        this.className = className;
         this.status = null;
     }
 
-    /**
-     * Run the fitness class
-     */
     async run() {
-        this.status = 'ongoing';
-        console.log('Fitness class started.');
+        this.status = "ongoing";
+        console.log(`Fitness class ${this.className} started at ${this.gymName}.`);
         await new Promise(resolve => setTimeout(resolve, 2000));
-        this.status = 'completed';
-        console.log('Fitness class completed.');
+        this.status = "completed";
+        console.log(`Fitness class ${this.className} completed at ${this.gymName}.`);
     }
 }
 

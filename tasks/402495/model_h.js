@@ -1,85 +1,78 @@
 class GymManagement {
-    /**
-     * Initialize the GymManagement class.
-     * @param {string} name - Name of the gym.
-     */
     constructor(name) {
+        if (!name) {
+            throw new Error("Gym name is required.");
+        }
         this.gymName = name;
         this.totalMembers = 0;
         this.workouts = new Map();
-        this.equipmentList = new Map();
+        this.equipment = new Map();
+        this.lock = false;
     }
 
-    /**
-     * Manage a workout.
-     * @param {string} workoutName - Name of the workout.
-     * @param {boolean} isIntense - Whether the workout is intense.
-     * @param {string} trainerName - Name of the trainer.
-     */
-    manageWorkout(workoutName, isIntense, trainerName) {
-        if (typeof workoutName !== 'string' || typeof trainerName !== 'string') {
-            throw new Error('Invalid input type. Workout name and trainer name must be strings.');
+    async manageWorkout(workoutName, isIntense, trainerName) {
+        if (!workoutName || !trainerName) {
+            throw new Error("Workout name and trainer name are required.");
+        }
+        if (typeof isIntense !== "boolean") {
+            throw new Error("Intensity must be a boolean value.");
         }
 
         this.workouts.set(workoutName, { isIntense, trainerName });
+
         console.log(`${trainerName} designed the workout: ${workoutName}`);
         if (isIntense) {
-            console.log('Warning: Intense workout ahead!');
+            console.log("Warning: Intense workout ahead!");
         }
-
-        this.totalMembers++;
-        console.log(`Total registered members: ${this.totalMembers}`);
     }
 
-    /**
-     * Register a member.
-     * @param {string} memberName - Name of the member.
-     */
-    registerMember(memberName) {
-        if (typeof memberName !== 'string') {
-            throw new Error('Invalid input type. Member name must be a string.');
+    async registerMember(memberName) {
+        if (!memberName) {
+            throw new Error("Member name is required.");
         }
 
-        console.log(`Registering member: ${memberName}`);
-        this.totalMembers++;
+        while (this.lock) {
+            await new Promise(resolve => setTimeout(resolve, 10));
+        }
+        this.lock = true;
+        try {
+            this.totalMembers++;
+            console.log(`Registering member: ${memberName}`);
+        } finally {
+            this.lock = false;
+        }
     }
 
-    /**
-     * Start a fitness class.
-     */
-    async startFitnessClass() {
-        const fitnessClass = new FitnessClass();
+    async addEquipment(equipmentName, cost) {
+        if (!equipmentName || !cost) {
+            throw new Error("Equipment name and cost are required.");
+        }
+        if (typeof cost !== "number" || cost <= 0) {
+            throw new Error("Cost must be a positive number.");
+        }
+
+        this.equipment.set(equipmentName, cost);
+    }
+
+    async startFitnessClass(className) {
+        const fitnessClass = new FitnessClass(this.gymName, className);
         await fitnessClass.run();
-    }
-
-    /**
-     * Add equipment to the gym.
-     * @param {string} equipmentName - Name of the equipment.
-     * @param {number} cost - Cost of the equipment.
-     */
-    addEquipment(equipmentName, cost) {
-        if (typeof equipmentName !== 'string' || typeof cost !== 'number') {
-            throw new Error('Invalid input type. Equipment name must be a string and cost must be a number.');
-        }
-
-        this.equipmentList.set(equipmentName, cost);
     }
 }
 
 class FitnessClass {
-    constructor() {
+    constructor(gymName, className) {
+        this.gymName = gymName;
+        this.className = className;
         this.status = null;
     }
 
-    /**
-     * Run the fitness class.
-     */
     async run() {
-        this.status = 'ongoing';
-        console.log('Fitness class started.');
+        this.status = "ongoing";
+        console.log(`Fitness class ${this.className} started at ${this.gymName}.`);
         await new Promise(resolve => setTimeout(resolve, 2000));
-        this.status = 'completed';
-        console.log('Fitness class completed.');
+        this.status = "completed";
+        console.log(`Fitness class ${this.className} completed at ${this.gymName}.`);
     }
 }
 

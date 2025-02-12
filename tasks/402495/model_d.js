@@ -1,138 +1,109 @@
-class Equipment {
-    constructor(name, cost) {
+class GymManagement {
+    constructor(name) {
         if (!name || typeof name !== 'string') {
-            throw new Error('Equipment name must be a non-empty string');
+            throw new Error('Gym name is required and must be a string');
         }
-        if (!cost || typeof cost !== 'number' || cost <= 0) {
-            throw new Error('Equipment cost must be a positive number');
-        }
-        this.name = name;
-        this.cost = cost;
+        this.gymName = name;
+        this.totalMembers = 0;
+        this.workouts = new Map();
+        this.equipment = new Map();
+        this.memberLock = false;
     }
-}
 
-class Workout {
-    constructor(name, isIntense, trainer) {
-        if (!name || typeof name !== 'string') {
-            throw new Error('Workout name must be a non-empty string');
+    manageWorkout(workoutName, isIntense, trainerName) {
+        if (!workoutName || !trainerName) {
+            throw new Error('Workout name and trainer name are required');
         }
+
         if (typeof isIntense !== 'boolean') {
             throw new Error('isIntense must be a boolean value');
         }
-        if (!trainer || typeof trainer !== 'string') {
-            throw new Error('Trainer name must be a non-empty string');
+
+        const workoutDetails = {
+            trainer: trainerName,
+            intense: isIntense,
+            dateAdded: new Date()
+        };
+
+        this.workouts.set(workoutName, workoutDetails);
+        console.log(`${trainerName} designed the workout: ${workoutName}`);
+        
+        if (isIntense) {
+            console.log('Warning: Intense workout ahead!');
         }
-        this.name = name;
-        this.isIntense = isIntense;
-        this.trainer = trainer;
+    }
+
+    async registerMember(memberName) {
+        if (!memberName) {
+            throw new Error('Member name is required');
+        }
+
+        while (this.memberLock) {
+            await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        try {
+            this.memberLock = true;
+            console.log(`Registering member: ${memberName}`);
+            this.totalMembers++;
+            console.log(`Total registered members: ${this.totalMembers}`);
+        } finally {
+            this.memberLock = false;
+        }
+    }
+
+    addEquipment(equipmentName, cost) {
+        if (!equipmentName || typeof equipmentName !== 'string') {
+            throw new Error('Equipment name is required and must be a string');
+        }
+
+        if (typeof cost !== 'number' || cost <= 0) {
+            throw new Error('Cost must be a positive number');
+        }
+
+        const equipmentDetails = {
+            cost: cost,
+            dateAdded: new Date()
+        };
+
+        this.equipment.set(equipmentName, equipmentDetails);
+        console.log(`Added equipment: ${equipmentName} with cost: $${cost}`);
+    }
+
+    startFitnessClass(className) {
+        if (!className) {
+            throw new Error('Class name is required');
+        }
+        const fitnessClass = new FitnessClass(this.gymName, className);
+        return fitnessClass.run();
     }
 }
 
 class FitnessClass {
-    #status;
-
-    constructor() {
-        this.#status = null;
+    constructor(gymName, className) {
+        if (!gymName || !className) {
+            throw new Error('Gym name and class name are required');
+        }
+        this.gymName = gymName;
+        this.className = className;
+        this.status = null;
     }
 
     async run() {
-        this.#status = 'ongoing';
-        console.log('Fitness class started.');
-        
         try {
+            this.status = 'ongoing';
+            console.log(`Fitness class ${this.className} started at ${this.gymName}`);
+            
             await new Promise(resolve => setTimeout(resolve, 2000));
-            this.#status = 'completed';
-            console.log('Fitness class completed.');
+            
+            this.status = 'completed';
+            console.log(`Fitness class ${this.className} completed at ${this.gymName}`);
+            return this.status;
         } catch (error) {
-            this.#status = 'failed';
-            console.error('Fitness class failed:', error);
+            this.status = 'error';
+            console.error(`Error in fitness class: ${error.message}`);
+            throw error;
         }
-    }
-
-    get status() {
-        return this.#status;
-    }
-}
-
-class GymManagement {
-    #gymName;
-    #totalMembers;
-    #workouts;
-    #equipment;
-    #members;
-
-    constructor(name) {
-        if (!name || typeof name !== 'string') {
-            throw new Error('Gym name must be a non-empty string');
-        }
-        this.#gymName = name;
-        this.#totalMembers = 0;
-        this.#workouts = new Set();
-        this.#equipment = new Map();
-        this.#members = new Set();
-    }
-
-    manageWorkout(workoutName, isIntense, trainerName) {
-        const workout = new Workout(workoutName, isIntense, trainerName);
-        this.#workouts.add(workout);
-
-        console.log(`${trainerName} designed the workout: ${workoutName}`);
-        if (isIntense) {
-            console.log('Warning: Intense workout ahead!');
-        }
-
-        return workout;
-    }
-
-    registerMember(memberName) {
-        if (!memberName || typeof memberName !== 'string') {
-            throw new Error('Member name must be a non-empty string');
-        }
-
-        if (this.#members.has(memberName)) {
-            throw new Error('Member already registered');
-        }
-
-        this.#members.add(memberName);
-        this.#totalMembers++;
-        console.log(`Registering member: ${memberName}`);
-        return this.#totalMembers;
-    }
-
-    async startFitnessClass() {
-        const fitnessClass = new FitnessClass();
-        await fitnessClass.run();
-        return fitnessClass;
-    }
-
-    addEquipment(equipmentName, cost) {
-        const equipment = new Equipment(equipmentName, cost);
-        this.#equipment.set(equipmentName, equipment);
-        return equipment;
-    }
-
-    get totalMembers() {
-        return this.#totalMembers;
-    }
-
-    get gymName() {
-        return this.#gymName;
-    }
-
-    getEquipment(equipmentName) {
-        return this.#equipment.get(equipmentName);
-    }
-
-    getAllEquipment() {
-        return Array.from(this.#equipment.values());
-    }
-
-    getAllWorkouts() {
-        return Array.from(this.#workouts);
-    }
-
-    getAllMembers() {
-        return Array.from(this.#members);
     }
 }
 

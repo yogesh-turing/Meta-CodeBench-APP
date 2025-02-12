@@ -1,106 +1,89 @@
 class GymManagement {
-    /**
-     * Constructor to initialize the GymManagement object.
-     * @param {string} name - The name of the gym.
-     */
+    #workouts;
+    #equipment;
+    #totalMembers;
+    #name;
+
     constructor(name) {
-        this._gymName = name;
-        this._totalMembers = 0;
-        this._workouts = [];
-        this._equipmentList = new Map();
+        if (!name) {
+            throw new Error("Gym name is required");
+        }
+        this.#name = name;
+        this.#workouts = new Map();
+        this.#equipment = new Map();
+        this.#totalMembers = 0;
     }
 
-    /**
-     * Method to manage a workout.
-     * @param {string} workoutName - The name of the workout.
-     * @param {boolean} isIntense - Whether the workout is intense.
-     * @param {string} trainerName - The name of the trainer.
-     */
     manageWorkout(workoutName, isIntense, trainerName) {
         if (!workoutName || !trainerName) {
-            throw new Error("Workout name and trainer name are required.");
+            console.error("Workout name and trainer name are required");
+            return;
         }
-
-        this._workouts.push(workoutName);
-
+        this.#workouts.set(workoutName, { isIntense, trainerName });
         console.log(`${trainerName} designed the workout: ${workoutName}`);
         if (isIntense) {
             console.log("Warning: Intense workout ahead!");
         }
-
-        this._totalMembers++;
-        console.log(`Total registered members: ${this._totalMembers}`);
     }
 
-    /**
-     * Method to register a member.
-     * @param {string} memberName - The name of the member.
-     */
-    registerMember(memberName) {
+    async registerMember(memberName) {
         if (!memberName) {
-            throw new Error("Member name is required.");
+            console.error("Member name is required");
+            return;
         }
-
+        await this.#incrementTotalMembers();
         console.log(`Registering member: ${memberName}`);
-        this._totalMembers++;
     }
 
-    /**
-     * Method to start a fitness class.
-     */
-    async startFitnessClass() {
-        const fitnessClass = new FitnessClass();
-        await fitnessClass.run();
+    async #incrementTotalMembers() {
+        await new Promise(resolve => globalThis.setTimeout(resolve, 0));
+        this.#totalMembers++;
     }
 
-    /**
-     * Method to add equipment.
-     * @param {string} equipmentName - The name of the equipment.
-     * @param {number} cost - The cost of the equipment.
-     */
     addEquipment(equipmentName, cost) {
         if (!equipmentName || !cost) {
-            throw new Error("Equipment name and cost are required.");
+            console.error("Equipment name and cost are required");
+            return;
         }
-
-        this._equipmentList.set(equipmentName, cost);
+        this.#equipment.set(equipmentName, cost);
     }
 
-    /**
-     * Method to get the total members.
-     * @returns {number} The total members.
-     */
-    getTotalMembers() {
-        return this._totalMembers;
+    get totalMembers() {
+        return this.#totalMembers;
     }
 }
 
 class FitnessClass {
-    /**
-     * Constructor to initialize the FitnessClass object.
-     */
-    constructor() {
-        this._status = null;
+    #status;
+    #gymName;
+    #className;
+
+    constructor(gymName, className) {
+        if (!gymName || !className) {
+            throw new Error("Gym name and class name are required");
+        }
+        this.#gymName = gymName;
+        this.#className = className;
+        this.#status = null;
     }
 
-    /**
-     * Method to run the fitness class.
-     */
     async run() {
-        this._status = "ongoing";
-        console.log("Fitness class started.");
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        this._status = "completed";
-        console.log("Fitness class completed.");
+        this.#status = "ongoing";
+        globalThis.console.log(`Fitness class started at ${this.#gymName}: ${this.#className}`);
+        await new Promise(resolve => globalThis.setTimeout(resolve, 2000));
+        this.#status = "completed";
+        globalThis.console.log(`Fitness class completed at ${this.#gymName}: ${this.#className}`);
     }
 
-    /**
-     * Method to get the status of the fitness class.
-     * @returns {string} The status of the fitness class.
-     */
-    getStatus() {
-        return this._status;
+    get status() {
+        return this.#status;
     }
 }
 
-module.exports = { GymManagement, FitnessClass };
+const gym = new GymManagement("Fitness Center");
+gym.manageWorkout("Weightlifting", true, "John Doe");
+gym.registerMember("Jane Doe");
+gym.addEquipment("Treadmill", 500);
+
+const fitnessClass = new FitnessClass("Fitness Center", "Yoga");
+fitnessClass.run();
