@@ -1,94 +1,326 @@
-class GymManagement {
-  constructor(name) {
-    if (!name) throw new Error("Gym name is required");
-    this.gymName = name;
-    this.totalMembers = 0;
-    this.workouts = new Map();
-    this.equipment = new Map();
-    this._memberLock = false;
+class FormulaCalculator {
+  constructor() {
+    this.variables = new Map();
+    this.functions = new Map();
   }
 
-  async manageWorkout(workoutName, isIntense, trainerName) {
-    if (!workoutName || !trainerName) {
-      throw new Error("Workout name and trainer name are required");
+  // Basic variable management
+  setVariable(name, value) {
+    if (typeof value !== "number") {
+      throw new Error("Invalid formula");
     }
-
-    this.workouts.set(workoutName, {
-      trainer: trainerName,
-      intensity: isIntense,
-      createdAt: new Date(),
-    });
-
-    console.log(`${trainerName} designed the workout: ${workoutName}`);
-    if (isIntense) console.log("Warning: Intense workout ahead!");
-
-    await this.incrementMembers();
+    this.variables.set(name, value);
   }
 
-  async registerMember(memberName) {
-    if (!memberName) {
-      throw new Error("Member name is required");
+  getVariable(name) {
+    if (!this.variables.has(name)) {
+      throw new Error("Invalid formula");
     }
-
-    console.log(`Registering member: ${memberName}`);
-    await this.incrementMembers();
+    return this.variables.get(name);
   }
 
-  async incrementMembers() {
-    while (this._memberLock) {
-      await new Promise((resolve) => setTimeout(resolve, 10));
+  // Basic function registration
+  registerFunction(name, func) {
+    if (typeof func !== "function") {
+      throw new Error("Invalid formula");
     }
+    this.functions.set(name, func);
+  }
 
-    this._memberLock = true;
+  evaluate(formula) {
+    if (typeof formula !== "string") {
+      throw new Error("Invalid formula");
+    }
+    formula = formula.trim();
+    if (!formula) {
+      throw new Error("Invalid formula");
+    }
     try {
-      this.totalMembers++;
-      console.log(`Total registered members: ${this.totalMembers}`);
-    } finally {
-      this._memberLock = false;
+      const tokens = this._tokenize(formula);
+      if (tokens.length === 0) {
+        throw new Error("Invalid formula");
+      }
+      return this._evaluateTokens(tokens);
+    } catch (e) {
+      throw new Error("Invalid formula");
     }
   }
 
-  addEquipment(equipmentName, cost) {
-    if (!equipmentName || typeof cost !== "number" || cost <= 0) {
-      throw new Error("Valid equipment name and positive cost are required");
+  _tokenize(formula) {
+    const tokens = [];
+    let position = 0;
+    let hasToken = false;
+    let lastWasOperator = true;
+    let parenCount = 0;
+
+    while (position < formula.length) {
+      let char = formula[position];
+
+      // Skip whitespace
+      if (char === " ") {
+        position++;
+        continue;
+      }
+
+      // Numbers
+      if (/[0-9.]/.test(char)) {
+        let number = "";
+        let hasDot = false;
+
+        // Handle leading decimal point
+        if (char === ".") {
+          if (position + 1 >= formula.length || !/[0-9]/.test(formula[position + 1])) {
+            throw new Error("Invalid formula");
+          }
+          number = "0";
+          hasDot = true;
+          number += char;
+          position++;
+        }
+
+        while (position < formula.length && (/[0-9]/.test(formula[position]) || formula[position] === ".")) {
+          if (formula[position] === ".") {
+            if (hasDot) throw new Error("Invalid formula");
+            hasDot = true;
+          }
+          number += formula[position];
+          position++;
+        }
+
+        // Handle trailing decimal point
+        if (number.endsWith(".")) throw new Error("Invalid formula");
+
+        const value = parseFloat(number);
+        if (isNaN(value)) throw new Error("Invalid formula");
+        tokens.push({ type: "number", value });
+        hasToken = true;
+        lastWasOperator = false;
+        continue;
+      }
+
+      // Operators
+      if (["+", "-", "*", "/", "(", ")"].includes(char)) {
+        if (char === "(" && !lastWasOperator && hasToken) {
+          throw new Error("Invalid formula");
+        }
+        if (char === ")" && (lastWasOperator || parenCount === 0)) {
+          throw new Error("Invalid formula");
+        }
+        if (char === "(") parenCount++;
+        if (char === ")") parenCount--;
+
+        tokens.push({ type: "operator", value: char });
+        lastWasOperator = char !== ")";
+        if (char === "(") hasToken = false;
+        if (char === ")") hasToken = true;
+        position++;
+        continue;
+      }
+
+      // Variables and Functions
+      if (/[a-zA-Z]/.test(char)) {
+        let name = "";
+        while (
+          position < formula.length &&
+          /[a-zA-Z0-9_]/.test(formula[position])
+        ) {
+          name += formula[position];
+          position++;
+        }
+
+        // Skip whitespace after name
+        let tempPos = position;
+        let hasSpace = false;
+        while (tempPos < formula.length && formula[tempPos] === " ") {
+          hasSpace = true;
+          tempPos++;
+        }
+
+        // Check if it's a function call
+        if (tempPos < formula.length && formula[tempPos] === "(") {
+          if (hasSpace) throw new Error("Invalid formula");
+          tokens.push({ type: "function", value: name });
+          position = tempPos;
+          lastWasOperator = true;
+        } else {
+          tokens.push({ type: "variable", value: name });
+          lastWasOperator = false;
+        }
+        hasToken = true;
+        continue;
+      }
+
+      // Commas for function arguments
+      if (char === ",") {
+        if (!hasToken || lastWasOperator) throw new Error("Invalid formula");
+        tokens.push({ type: "comma", value: "," });
+        position++;
+        hasToken = false;
+        lastWasOperator = true;
+        continue;
+      }
+
+      throw new Error("Invalid formula");
     }
 
-    this.equipment.set(equipmentName, {
-      cost,
-      addedAt: new Date(),
-    });
+    if (
+      parenCount !== 0 ||
+      (lastWasOperator &&
+        tokens.length > 0 &&
+        tokens[tokens.length - 1].value !== ")")
+    ) {
+      throw new Error("Invalid formula");
+    }
+
+    return tokens;
   }
 
-  async startFitnessClass(className = "General Fitness") {
-    const fitnessClass = new FitnessClass(this.gymName, className);
-    return fitnessClass.run();
+  _evaluateTokens(tokens) {
+    const output = [];
+    const operators = [];
+    const precedence = { "+": 1, "-": 1, "*": 2, "/": 2 };
+
+    for (let i = 0; i < tokens.length; i++) {
+      const token = tokens[i];
+
+      switch (token.type) {
+        case "number":
+          output.push(token.value);
+          break;
+
+        case "variable":
+          output.push(this.getVariable(token.value));
+          break;
+
+        case "function": {
+          if (
+            i + 1 >= tokens.length ||
+            tokens[i + 1].type !== "operator" ||
+            tokens[i + 1].value !== "("
+          ) {
+            throw new Error("Invalid formula");
+          }
+
+          const args = [];
+          i++; // Skip opening parenthesis
+          let parenCount = 1;
+          let start = i + 1;
+          let hasValidArg = false;
+
+          while (i < tokens.length && parenCount > 0) {
+            i++;
+            if (i >= tokens.length) throw new Error("Invalid formula");
+
+            if (tokens[i].type === "operator") {
+              if (tokens[i].value === "(") parenCount++;
+              if (tokens[i].value === ")") parenCount--;
+            }
+
+            if (parenCount === 1 && tokens[i].type === "comma") {
+              if (!hasValidArg) throw new Error("Invalid formula");
+              args.push(this._evaluateTokens(tokens.slice(start, i)));
+              start = i + 1;
+              hasValidArg = false;
+            } else if (parenCount === 0) {
+              if (start < i) {
+                args.push(this._evaluateTokens(tokens.slice(start, i)));
+              } else {
+                throw new Error("Invalid formula");
+              }
+            } else if (
+              tokens[i].type !== "operator" ||
+              tokens[i].value !== "("
+            ) {
+              hasValidArg = true;
+            }
+          }
+
+          if (!this.functions.has(token.value)) {
+            throw new Error("Invalid formula");
+          }
+
+            output.push(this.functions.get(token.value)(...args));
+          break;
+        }
+
+        case "operator":
+          if (token.value === "(") {
+            operators.push(token);
+          } else if (token.value === ")") {
+            let foundParen = false;
+            while (operators.length) {
+              const op = operators[operators.length - 1];
+              if (op.value === "(") {
+                foundParen = true;
+                operators.pop();
+                break;
+              }
+              this._applyOperator(output, operators.pop());
+            }
+            if (!foundParen) throw new Error("Invalid formula");
+          } else {
+            while (
+              operators.length &&
+              operators[operators.length - 1].value !== "(" &&
+              precedence[operators[operators.length - 1].value] >=
+                precedence[token.value]
+            ) {
+              this._applyOperator(output, operators.pop());
+            }
+            operators.push(token);
+          }
+          break;
+
+        default:
+          throw new Error("Invalid formula");
+      }
+    }
+
+    while (operators.length > 0) {
+      const operator = operators.pop();
+      if (operator.value === "(" || operator.value === ")") {
+        throw new Error("Invalid formula");
+      }
+      this._applyOperator(output, operator);
+    }
+
+    if (output.length !== 1) {
+      throw new Error("Invalid formula");
+    }
+
+    return output[0];
+  }
+
+  _applyOperator(stack, operator) {
+    if (stack.length < 2) {
+      throw new Error("Invalid formula");
+    }
+
+    const b = stack.pop();
+    const a = stack.pop();
+
+    if (typeof a !== "number" || typeof b !== "number") {
+      throw new Error("Invalid formula");
+    }
+
+    switch (operator.value) {
+      case "+":
+        stack.push(a + b);
+        break;
+      case "-":
+        stack.push(a - b);
+        break;
+      case "*":
+        stack.push(a * b);
+        break;
+      case "/":
+        if (b === 0) throw new Error("Invalid formula");
+        stack.push(a / b);
+        break;
+      default:
+        throw new Error("Invalid formula");
+    }
   }
 }
 
-class FitnessClass {
-  constructor(gymName, className) {
-    if (!gymName || !className) {
-      throw new Error("Gym name and class name are required");
-    }
-
-    this.gymName = gymName || null;
-    this.className = className || null ;
-    this.status = null;
-  }
-
-  async run() {
-    this.status = "ongoing";
-    console.log(`${this.className} class started at ${this.gymName}`);
-
-    try {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      this.status = "completed";
-      console.log(`${this.className} class completed at ${this.gymName}`);
-      return { status: this.status, className: this.className };
-    } catch (error) {
-      this.status = "failed";
-      throw error;
-    }
-  }
-}
-module.exports =  { GymManagement, FitnessClass };
+module.exports = {FormulaCalculator};

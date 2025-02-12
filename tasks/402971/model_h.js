@@ -1,132 +1,307 @@
-class TextFormatter {
+class FormulaCalculator {
     constructor() {
-        this.formatters = new Map();
-        this.customPatterns = new Map();
-        this.registerDefaultFormatters();
+      this.variables = new Map();
+      this.functions = new Map();
     }
-
-    registerDefaultFormatters() {
-        // Basic formatters
-        this.formatters.set('uppercase', (text) => text.toUpperCase());
-        this.formatters.set('lowercase', (text) => text.toLowerCase());
-        this.formatters.set('capitalize', (text) => {
-            return text.replace(/\b\w/g, char => char.toUpperCase());
-        });
-
-        // Advanced formatters
-        this.formatters.set('reverse', (text) => [...text].reverse().join(''));
-        this.formatters.set('alternating', (text) => {
-            return [...text].map((char, i) => 
-                i % 2 === 0 ? char.toLowerCase() : char.toUpperCase()
-            ).join('');
-        });
-        this.formatters.set('snake', (text) => 
-            text.toLowerCase().replace(/\s+/g, '_')
-        );
-        this.formatters.set('camel', (text) => {
-            return text.toLowerCase().replace(/\s+(.)/g, (match, group) => {
-                return group.toUpperCase();
-            });
-        });
+  
+    // Basic variable management
+    setVariable(name, value) {
+      if (typeof value !== "number") {
+        throw new Error("Invalid formula");
+      }
+      this.variables.set(name, value);
     }
-
-    registerFormatter(name, func) {
-        if (this.formatters.has(name)) {
-            throw new Error("an error occurred");
-        }
-        this.formatters.set(name, func);
+  
+    getVariable(name) {
+      if (!this.variables.has(name)) {
+        throw new Error("Invalid formula");
+      }
+      return this.variables.get(name);
     }
-
-    registerPattern(name, pattern, replacement) {
-        if (this.customPatterns.has(name)) {
-            throw new Error("an error occurred");
-        }
-        if (!(pattern instanceof RegExp)) {
-            throw new Error("an error occurred");
-        }
-        this.customPatterns.set(name, { pattern, replacement });
+  
+    // Basic function registration
+    registerFunction(name, func) {
+      if (typeof func !== "function") {
+        throw new Error("Invalid formula");
+      }
+      this.functions.set(name, func);
     }
-
-    applyPattern(text, patternName) {
-        const patternObj = this.customPatterns.get(patternName);
-        if (!patternObj) {
-            throw new Error("an error occurred");
+  
+    _tokenize(formula) {
+      const tokens = [];
+      let position = 0;
+      let hasToken = false;
+      let lastWasOperator = true;
+      let parenCount = 0;
+  
+      while (position < formula.length) {
+        let char = formula[position];
+  
+        // Skip whitespace
+        if (char === " ") {
+          position++;
+          continue;
         }
-        return text.replace(patternObj.pattern, patternObj.replacement);
+  
+        // Numbers
+        if (/[0-9.]/.test(char)) {
+          let number = "";
+          let hasDot = false;
+  
+          // Handle leading decimal point
+          if (char === ".") {
+            if (
+              position + 1 >= formula.length ||
+              !/[0-9]/.test(formula[position + 1])
+            ) {
+              throw new Error("Invalid formula");
+            }
+            number = "0";
+            hasDot = true;
+            number += char;
+            position++;
+          }
+  
+          while (
+            position < formula.length &&
+            (/[0-9]/.test(formula[position]) || formula[position] === ".")
+          ) {
+            if (formula[position] === ".") {
+              if (hasDot) throw new Error("Invalid formula");
+              hasDot = true;
+            }
+            number += formula[position];
+            position++;
+          }
+  
+          // Handle trailing decimal point
+          if (number.endsWith(".")) throw new Error("Invalid formula");
+  
+          const value = parseFloat(number);
+          if (isNaN(value)) throw new Error("Invalid formula");
+          tokens.push({ type: "number", value });
+          hasToken = true;
+          lastWasOperator = false;
+          continue;
+        }
+  
+        // Operators
+        if (["+", "-", "*", "/", "(", ")"].includes(char)) {
+          if (char === "(" && !lastWasOperator && hasToken) {
+            throw new Error("Invalid formula");
+          }
+          if (char === ")" && (lastWasOperator || parenCount === 0)) {
+            throw new Error("Invalid formula");
+          }
+          if (char === "(") parenCount++;
+          if (char === ")") parenCount--;
+  
+          tokens.push({ type: "operator", value: char });
+          lastWasOperator = char !== ")";
+          if (char === "(") hasToken = false;
+          if (char === ")") hasToken = true;
+          position++;
+          continue;
+        }
+  
+        // Variables and Functions
+        if (/[a-zA-Z]/.test(char)) {
+          let name = "";
+          while (
+            position < formula.length &&
+            /[a-zA-Z0-9_]/.test(formula[position])
+          ) {
+            name += formula[position];
+            position++;
+          }
+  
+          // Skip whitespace after name
+          let tempPos = position;
+          let hasSpace = false;
+          while (tempPos < formula.length && formula[tempPos] === " ") {
+            hasSpace = true;
+            tempPos++;
+          }
+  
+          // Check if it's a function call
+          if (tempPos < formula.length && formula[tempPos] === "(") {
+            if (hasSpace) throw new Error("Invalid formula");
+            tokens.push({ type: "function", value: name });
+            position = tempPos;
+            lastWasOperator = true;
+          } else {
+            tokens.push({ type: "variable", value: name });
+            lastWasOperator = false;
+          }
+          hasToken = true;
+          continue;
+        }
+  
+        // Commas for function arguments
+        if (char === ",") {
+          if (!hasToken || lastWasOperator) throw new Error("Invalid formula");
+          tokens.push({ type: "comma", value: "," });
+          position++;
+          hasToken = false;
+          lastWasOperator = true;
+          continue;
+        }
+  
+        throw new Error("Invalid formula");
+      }
+  
+      if (
+        parenCount !== 0 ||
+        (lastWasOperator &&
+          tokens.length > 0 &&
+          tokens[tokens.length - 1].value !== ")")
+      ) {
+        throw new Error("Invalid formula");
+      }
+  
+      return tokens;
     }
-
-    format(text, formatterName, options = {}) {
-        if (!text || typeof text !== 'string') {
-            throw new Error("an error occurred");
-        }
-
-        const formatter = this.formatters.get(formatterName);
-        if (!formatter) {
-            throw new Error("an error occurred");
-        }
-
-        let result = formatter(text);
-
-        if (options.trim) {
-            result = result.trim();
-        }
-
-        if (options.pattern) {
-            result = this.applyPattern(result, options.pattern);
-        }
-
-        if (options.repeat && Number.isInteger(options.repeat) && options.repeat > 0) {
-            result = result.repeat(options.repeat);
-        }
-
-        return result;
+  
+    _applyOperator(stack, operator) {
+      if (stack.length < 2) {
+        throw new Error("Invalid formula");
+      }
+  
+      const b = stack.pop();
+      const a = stack.pop();
+  
+      if (typeof a !== "number" || typeof b !== "number") {
+        throw new Error("Invalid formula");
+      }
+  
+      switch (operator.value) {
+        case "+":
+          stack.push(a + b);
+          break;
+        case "-":
+          stack.push(a - b);
+          break;
+        case "*":
+          stack.push(a * b);
+          break;
+        case "/":
+          if (b === 0) throw new Error("Invalid formula");
+          stack.push(a / b);
+          break;
+        default:
+          throw new Error("Invalid formula");
+      }
     }
-
-    chainFormat(text, formatters) {
-        let result = text;
-        for (let formatter of formatters) {
-            result = this.format(result, formatter.name, formatter.options);
+  
+    _evaluateTokens(tokens) {
+      const operatorStack = [];
+      const outputStack = [];
+  
+      const precedence = {
+        "+": 1,
+        "-": 1,
+        "*": 2,
+        "/": 2,
+      };
+  
+      for (const token of tokens) {
+        switch (token.type) {
+          case "number":
+            outputStack.push(token.value);
+            break;
+          case "variable":
+            if (!this.variables.has(token.value)) {
+              throw new Error("Invalid formula");
+            }
+            outputStack.push(this.variables.get(token.value));
+            break;
+          case "function":
+            operatorStack.push(token);
+            break;
+          case "operator":
+            while (
+              operatorStack.length > 0 &&
+              operatorStack[operatorStack.length - 1].type === "operator" &&
+              precedence[operatorStack[operatorStack.length - 1].value] >=
+                precedence[token.value]
+            ) {
+              this._applyOperator(outputStack, operatorStack.pop());
+            }
+            operatorStack.push(token);
+            break;
+          case "comma":
+            while (
+              operatorStack.length > 0 &&
+              operatorStack[operatorStack.length - 1].type !== "function"
+            ) {
+              this._applyOperator(outputStack, operatorStack.pop());
+            }
+            break;
+          case "paren":
+            if (token.value === "(") {
+              operatorStack.push(token);
+            } else {
+              while (
+                operatorStack.length > 0 &&
+                operatorStack[operatorStack.length - 1].value !== "("
+              ) {
+                this._applyOperator(outputStack, operatorStack.pop());
+              }
+              if (
+                operatorStack.length === 0 ||
+                operatorStack[operatorStack.length - 1].value !== "("
+              ) {
+                throw new Error("Invalid formula");
+              }
+              operatorStack.pop();
+              if (
+                operatorStack.length > 0 &&
+                operatorStack[operatorStack.length - 1].type === "function"
+              ) {
+                const func = this.functions.get(
+                  operatorStack[operatorStack.length - 1].value
+                );
+                if (typeof func !== "function") {
+                  throw new Error("Invalid formula");
+                }
+                const args = [];
+                while (
+                  outputStack.length > 0 &&
+                  typeof outputStack[outputStack.length - 1] === "number"
+                ) {
+                  args.push(outputStack.pop());
+                }
+                args.reverse();
+                const result = func(...args);
+                if (typeof result !== "number") {
+                  throw new Error("Invalid formula");
+                }
+                outputStack.push(result);
+                operatorStack.pop();
+              }
+            }
+            break;
         }
-        return result;
+      }
+  
+      while (operatorStack.length > 0) {
+        this._applyOperator(outputStack, operatorStack.pop());
+      }
+  
+      if (outputStack.length !== 1) {
+        throw new Error("Invalid formula");
+      }
+  
+      return outputStack[0];
     }
-
-    removeFormatting(text, options) {
-        if (!text || typeof text !== 'string') {
-            throw new Error("an error occurred");
-        }
-
-        if (options.case) {
-            text = text.toLowerCase();
-        }
-
-        if (options.spaces) {
-            text = text.replace(/\s+/g, ' ');
-        }
-
-        if (options.camel) {
-            text = text.replace(/([A-Z])/g, (match, group) => {
-                return ' ' + group.toLowerCase();
-            });
-        }
-
-        if (options.snake) {
-            text = text.replace(/_/g, ' ');
-        }
-
-        if (options.alternating) {
-            text = text.toLowerCase();
-        }
-
-        return text;
+  
+    evaluate(formula) {
+      if (typeof formula !== "string") {
+        throw new Error("Invalid formula");
+      }
+      const tokens = this._tokenize(formula);
+      return this._evaluateTokens(tokens);
     }
-
-    getAvailableFormatters() {
-        return Array.from(this.formatters.keys());
-    }
-
-    getAvailablePatterns() {
-        return Array.from(this.customPatterns.keys());
-    }
-}
-
-module.exports = {TextFormatter};
+  }
+  
+  module.exports = { FormulaCalculator };

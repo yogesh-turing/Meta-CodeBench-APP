@@ -1,219 +1,227 @@
-const {TextFormatter} = require('./incorrect');
+const {FormulaCalculator} = require('./incorrect');
 
-describe('TextFormatter', () => {
-    let formatter;
+describe('FormulaCalculator', () => {
+    let calculator;
 
     beforeEach(() => {
-        formatter = new TextFormatter();
+        calculator = new FormulaCalculator();
     });
 
-    describe('Basic Formatting', () => {
-        test('should format text to uppercase', () => {
-            expect(formatter.format('hello', 'uppercase')).toBe('HELLO');
+    describe('Variable Management', () => {
+        test('should set and get variables correctly', () => {
+            calculator.setVariable('x', 10);
+            expect(calculator.getVariable('x')).toBe(10);
         });
 
-        test('should format text to lowercase', () => {
-            expect(formatter.format('HELLO', 'lowercase')).toBe('hello');
+        test('should throw error for undefined variables', () => {
+            expect(() => calculator.getVariable('y')).toThrow();
         });
 
-        test('should capitalize words', () => {
-            expect(formatter.format('hello world', 'capitalize'))
-                .toBe('Hello World');
-        });
-    });
-
-    describe('Advanced Formatters', () => {
-        test('should reverse text', () => {
-            expect(formatter.format('hello', 'reverse')).toBe('olleh');
-        });
-
-        test('should format text to alternating case', () => {
-            expect(formatter.format('hello', 'alternating')).toBe('hElLo');
-        });
-
-        test('should convert to snake case', () => {
-            expect(formatter.format('Hello World', 'snake')).toBe('hello_world');
-        });
-
-        test('should convert to camel case', () => {
-            expect(formatter.format('hello world', 'camel')).toBe('helloWorld');
-            expect(formatter.format('hello-world', 'camel')).toBe('helloWorld');
+        test('should throw error for non-numeric values', () => {
+            expect(() => calculator.setVariable('x', 'string')).toThrow();
+            expect(() => calculator.setVariable('x', null)).toThrow();
+            expect(() => calculator.setVariable('x', undefined)).toThrow();
+            expect(() => calculator.setVariable('x', {})).toThrow();
         });
     });
 
-    describe('Remove Formatting', () => {
-        test('should remove camelCase formatting', () => {
-            expect(formatter.removeFormatting('helloWorld', { camel: true }))
-                .toBe('hello World');
-            expect(formatter.removeFormatting('thisIsATest', { camel: true }))
-                .toBe('this Is A Test');
+    describe('Function Registration', () => {
+        test('should register and use custom functions', () => {
+            calculator.registerFunction('double', x => x * 2);
+            calculator.setVariable('x', 5);
+            expect(calculator.evaluate('double(x)')).toBe(10);
         });
 
-        test('should remove snake_case formatting', () => {
-            expect(formatter.removeFormatting('hello_world', { snake: true }))
-                .toBe('hello world');
-            expect(formatter.removeFormatting('this_is_a_test', { snake: true }))
-                .toBe('this is a test');
-        });
-
-        test('should remove alternating case', () => {
-            expect(formatter.removeFormatting('hElLo WoRlD', { alternating: true }))
-                .toBe('hello world');
-        });
-
-        test('should remove case formatting', () => {
-            expect(formatter.removeFormatting('HELLO WORLD', { case: true }))
-                .toBe('hello world');
-        });
-
-        test('should remove extra spaces', () => {
-            expect(formatter.removeFormatting('  hello   world  ', { spaces: true }))
-                .toBe('hello world');
-        });
-
-        test('should combine multiple format removals', () => {
-            expect(formatter.removeFormatting('hello_World  TEST', {
-                camel: true,
-                snake: true,
-                case: true,
-                spaces: true
-            })).toBe('hello world test');
-        });
-
-        test('should handle invalid input', () => {
-            expect(() => formatter.removeFormatting(null))
-                .toThrow();
-            expect(() => formatter.removeFormatting(''))
-                .toThrow();
-        });
-
-        test('should return original text if no options provided', () => {
-            expect(formatter.removeFormatting('helloWorld'))
-                .toBe('helloWorld');
+        test('should throw error for invalid function registration', () => {
+            expect(() => calculator.registerFunction('invalid', 'not a function')).toThrow();
+            expect(() => calculator.registerFunction('invalid', null)).toThrow();
+            expect(() => calculator.registerFunction('invalid', undefined)).toThrow();
+            expect(() => calculator.registerFunction('invalid', 123)).toThrow();
         });
     });
 
-    describe('Formatter Registration', () => {
-        test('should allow registering new formatter', () => {
-            formatter.registerFormatter('double', text => text + text);
-            expect(formatter.format('hello', 'double')).toBe('hellohello');
-        });
-
-        test('should throw error for invalid formatter function', () => {
-            expect(() => formatter.registerFormatter('invalid', 'not a function'))
-                .toThrow();
-        });
-
-        test('should throw error for duplicate formatter name', () => {
-            expect(() => formatter.registerFormatter('uppercase', text => text))
-                .toThrow();
-        });
-
-        test('should list available formatters', () => {
-            const formatters = formatter.getAvailableFormatters();
-            expect(formatters).toContain('uppercase');
-            expect(formatters).toContain('lowercase');
-            expect(formatters).toContain('capitalize');
-            expect(formatters).toContain('reverse');
-            expect(formatters).toContain('alternating');
-            expect(formatters).toContain('snake');
-            expect(formatters).toContain('camel');
-        });
-    });
-
-    describe('Pattern Registration and Usage', () => {
-        test('should register and apply pattern', () => {
-            formatter.registerPattern('removeDigits', /\d+/g, '');
-            expect(formatter.applyPattern('hello123world', 'removeDigits')).toBe('helloworld');
-        });
-
-        test('should throw error for invalid pattern', () => {
-            expect(() => formatter.registerPattern('invalid', 'not-regex', ''))
-                .toThrow();
-        });
-
-        test('should throw error for non-existent pattern', () => {
-            expect(() => formatter.applyPattern('text', 'nonexistent'))
-                .toThrow();
-        });
-
-        test('should list available patterns', () => {
-            formatter.registerPattern('test', /test/g, 'passed');
-            const patterns = formatter.getAvailablePatterns();
-            expect(patterns).toContain('test');
-        });
-    });
-
-    describe('Advanced Format Options', () => {
+    describe('Formula Evaluation', () => {
         beforeEach(() => {
-            formatter.registerPattern('removeSpaces', /\s+/g, '');
+            calculator.setVariable('x', 10);
+            calculator.setVariable('y', 5);
+            calculator.registerFunction('max', (a, b) => Math.max(a, b));
+            calculator.registerFunction('min', (a, b) => Math.min(a, b));
+            calculator.registerFunction('sum', (...args) => args.reduce((a, b) => a + b, 0));
+            calculator.registerFunction('throwingFunc', () => { throw new Error(); });
+            calculator.registerFunction('nested', (a) => a * 2);
         });
 
-        test('should apply trim option', () => {
-            expect(formatter.format('  hello  ', 'uppercase', { trim: true }))
-                .toBe('HELLO');
+        test('should evaluate basic arithmetic', () => {
+            expect(calculator.evaluate('2 + 3 * 4')).toBe(14);
+            expect(calculator.evaluate('10 - 2 * 3')).toBe(4);
+            expect(calculator.evaluate('8 / 2 + 3')).toBe(7);
+            expect(calculator.evaluate('2 * 3 + 4 * 5')).toBe(26);
+            expect(calculator.evaluate('2 * (3 + 4)')).toBe(14);
+            expect(calculator.evaluate('(2 + 3) * 4')).toBe(20);
+            expect(calculator.evaluate('2 * (3 + (4 * 5))')).toBe(46);
         });
 
-        test('should apply pattern option', () => {
-            expect(formatter.format('hello world', 'uppercase', { pattern: 'removeSpaces' }))
-                .toBe('HELLOWORLD');
+        test('should evaluate expressions with variables', () => {
+            expect(calculator.evaluate('x + y')).toBe(15);
+            expect(calculator.evaluate('x * y')).toBe(50);
+            expect(calculator.evaluate('x / y')).toBe(2);
+            expect(calculator.evaluate('x - y')).toBe(5);
+            expect(calculator.evaluate('(x + y) * 2')).toBe(30);
+            expect(calculator.evaluate('x + (y * 2)')).toBe(20);
         });
 
-        test('should apply repeat option', () => {
-            expect(formatter.format('hello', 'uppercase', { repeat: 2 }))
-                .toBe('HELLOHELLO');
+        test('should handle decimal numbers', () => {
+            expect(calculator.evaluate('2.5 + 3.7')).toBe(6.2);
+            expect(calculator.evaluate('10.5 / 2')).toBe(5.25);
+            expect(calculator.evaluate('3.14 * 2')).toBe(6.28);
+            expect(calculator.evaluate('.5 + 1.5')).toBe(2);
+            expect(calculator.evaluate('2 * .25')).toBe(0.5);
+            expect(calculator.evaluate('0.1 + 0.2')).toBeCloseTo(0.3);
         });
 
-        test('should apply multiple options together', () => {
-            expect(formatter.format('  hello world  ', 'uppercase', {
-                trim: true,
-                pattern: 'removeSpaces',
-                repeat: 2
-            })).toBe('HELLOWORLDHELLOWORLD');
-        });
-    });
-
-    describe('Chain Formatting', () => {
-        test.only('should chain multiple formatters', () => {
-            const result = formatter.chainFormat('hello world', [
-                'capitalize',
-                'reverse'
-            ]);
-            expect(result).toBe('dlroW olleH');
+        test('should handle empty or invalid input', () => {
+            expect(() => calculator.evaluate('')).toThrow();
+            expect(() => calculator.evaluate('   ')).toThrow();
+            expect(() => calculator.evaluate(null)).toThrow();
+            expect(() => calculator.evaluate(undefined)).toThrow();
+            expect(() => calculator.evaluate(123)).toThrow();
+            expect(() => calculator.evaluate({})).toThrow();
+            expect(() => calculator.evaluate([])).toThrow();
+            expect(() => calculator.evaluate('2 @ 3')).toThrow();
+            expect(() => calculator.evaluate('2 # 3')).toThrow();
+            expect(() => calculator.evaluate('2 3')).toThrow();
         });
 
-        test('should chain formatters with options', () => {
-            formatter.registerPattern('removeSpaces', /\s+/g, '');
-            const result = formatter.chainFormat('  hello world  ', [
-                { name: 'uppercase', options: { trim: true } },
-                { name: 'reverse', options: { pattern: 'removeSpaces' } }
-            ]);
-            expect(result).toBe('DLROWOLLEH');
-        });
-    });
-
-    describe('Error Handling', () => {
-        test('should throw error for non-existent formatter', () => {
-            expect(() => formatter.format('text', 'nonexistent'))
-                .toThrow();
+        test('should handle function call edge cases', () => {
+            expect(() => calculator.evaluate('max()')).toThrow();
+            expect(() => calculator.evaluate('max(,)')).toThrow();
+            expect(() => calculator.evaluate('max(1,)')).toThrow();
+            expect(() => calculator.evaluate('max(,1)')).toThrow();
+            expect(() => calculator.evaluate('max(1,,2)')).toThrow();
+            expect(() => calculator.evaluate('max (x)')).toThrow();
+            expect(() => calculator.evaluate('max')).toThrow();
+            expect(() => calculator.evaluate('throwingFunc()')).toThrow();
+            expect(() => calculator.evaluate('nonexistent(1)')).toThrow();
+            expect(() => calculator.evaluate('max(1)(2)')).toThrow();
         });
 
-        test('should throw error for invalid input', () => {
-            expect(() => formatter.format(null, 'uppercase'))
-                .toThrow();
-            expect(() => formatter.format(undefined, 'uppercase'))
-                .toThrow();
-            expect(() => formatter.format('', 'uppercase'))
-                .toThrow();
+        test('should handle operator edge cases', () => {
+            expect(() => calculator.evaluate('2+')).toThrow();
+            expect(() => calculator.evaluate('+2')).toThrow();
+            expect(() => calculator.evaluate('2 + + 3')).toThrow();
+            expect(() => calculator.evaluate('2 +')).toThrow();
+            expect(() => calculator.evaluate('* 2')).toThrow();
+            expect(() => calculator.evaluate('2 * * 3')).toThrow();
+            expect(() => calculator.evaluate('2 + * 3')).toThrow();
+            expect(() => calculator.evaluate('2 * / 3')).toThrow();
         });
 
-        test('should validate repeat option', () => {
-            expect(formatter.format('hello', 'uppercase', { repeat: 0 }))
-                .toBe('HELLO');
-            expect(formatter.format('hello', 'uppercase', { repeat: -1 }))
-                .toBe('HELLO');
-            expect(formatter.format('hello', 'uppercase', { repeat: 1.5 }))
-                .toBe('HELLO');
+        test('should handle parentheses edge cases', () => {
+            expect(() => calculator.evaluate('(')).toThrow();
+            expect(() => calculator.evaluate(')')).toThrow();
+            expect(() => calculator.evaluate('()')).toThrow();
+            expect(() => calculator.evaluate('((()))')).toThrow();
+            expect(() => calculator.evaluate('2 + (3')).toThrow();
+            expect(() => calculator.evaluate('(2 + 3')).toThrow();
+            expect(() => calculator.evaluate('2 + 3)')).toThrow();
+            expect(() => calculator.evaluate('(2)(3)')).toThrow();
+            expect(() => calculator.evaluate('2(3)')).toThrow();
+            expect(() => calculator.evaluate('(2+3)4')).toThrow();
+        });
+
+        test('should handle decimal point edge cases', () => {
+            expect(() => calculator.evaluate('2..')).toThrow();
+            expect(() => calculator.evaluate('..2')).toThrow();
+            expect(() => calculator.evaluate('2.3.')).toThrow();
+            expect(() => calculator.evaluate('.2.3')).toThrow();
+            expect(() => calculator.evaluate('2.3.4')).toThrow();
+            expect(() => calculator.evaluate('1.2.3')).toThrow();
+        });
+
+        test('should handle division by zero', () => {
+            expect(() => calculator.evaluate('1/0')).toThrow();
+            expect(() => calculator.evaluate('x/(y-5)')).toThrow();
+            expect(() => calculator.evaluate('2/(1-1)')).toThrow();
+            calculator.registerFunction('zero', () => 0);
+            expect(() => calculator.evaluate('1/zero()')).toThrow();
+        });
+
+        test('should handle nested function calls', () => {
+            expect(calculator.evaluate('max(sum(1,2), min(3,4))')).toBe(3);
+            expect(calculator.evaluate('sum(max(1,2), min(3,4), 5)')).toBe(10);
+            expect(calculator.evaluate('nested(sum(1,2))')).toBe(6);
+            expect(calculator.evaluate('max(nested(2), nested(3))')).toBe(6);
+        });
+
+        test('should handle complex function argument cases', () => {
+            expect(() => calculator.evaluate('max((1+2),()')).toThrow();
+            expect(() => calculator.evaluate('max((),())')).toThrow();
+            expect(() => calculator.evaluate('max((1+2),())')).toThrow();
+            expect(() => calculator.evaluate('max(1+,2)')).toThrow();
+            expect(() => calculator.evaluate('max(1,)+2')).toThrow();
+            expect(() => calculator.evaluate('max((()))')).toThrow();
+            expect(() => calculator.evaluate('max((1+2,))')).toThrow();
+            expect(() => calculator.evaluate('max((,1+2))')).toThrow();
+            expect(() => calculator.evaluate('max((1+2),(,))')).toThrow();
+            expect(() => calculator.evaluate('max((1+2),())')).toThrow();
+            expect(() => calculator.evaluate('max((),())')).toThrow();
+        });
+
+        test('should handle operator precedence edge cases', () => {
+            expect(calculator.evaluate('2 * 3 + 4 * 5')).toBe(26);
+            expect(calculator.evaluate('2 + 3 * 4 + 5')).toBe(19);
+            expect(calculator.evaluate('2 * 3 / 4 * 5')).toBe(7.5);
+            expect(calculator.evaluate('1 + 2 * 3 + 4 * 5 + 6')).toBe(33);
+            expect(() => calculator.evaluate('2 * / 3')).toThrow();
+            expect(() => calculator.evaluate('* / 2')).toThrow();
+            expect(() => calculator.evaluate('2 * 3 /')).toThrow();
+        });
+
+        test('should handle error propagation', () => {
+            expect(() => calculator.evaluate('throwingFunc()')).toThrow();
+            expect(() => calculator.evaluate('max(throwingFunc(), 2)')).toThrow();
+            expect(() => calculator.evaluate('1 + throwingFunc()')).toThrow();
+            expect(() => calculator.evaluate('(throwingFunc())')).toThrow();
+        });
+
+        test('should handle function argument validation', () => {
+            expect(() => calculator.evaluate('max(,)')).toThrow();
+            expect(() => calculator.evaluate('max(1,)')).toThrow();
+            expect(() => calculator.evaluate('max(,1)')).toThrow();
+            expect(() => calculator.evaluate('max(())')).toThrow();
+            expect(() => calculator.evaluate('max((,))')).toThrow();
+            expect(() => calculator.evaluate('max(1,,2)')).toThrow();
+            expect(() => calculator.evaluate('max((1,))')).toThrow();
+            expect(() => calculator.evaluate('max((,1))')).toThrow();
+        });
+
+        test('should handle operator stack validation', () => {
+            expect(() => calculator.evaluate('1 + (')).toThrow();
+            expect(() => calculator.evaluate('(1 + 2')).toThrow();
+            expect(() => calculator.evaluate('1 + 2)')).toThrow();
+            expect(() => calculator.evaluate('((1 + 2)')).toThrow();
+            expect(() => calculator.evaluate('(1 + 2))')).toThrow();
+            expect(() => calculator.evaluate('1 + (2 * )')).toThrow();
+            expect(() => calculator.evaluate('1 + (2 * ())')).toThrow();
+        });
+
+        test('should handle complex nested expressions with errors', () => {
+            expect(() => calculator.evaluate('max(1, (2 + ))')).toThrow();
+            expect(() => calculator.evaluate('sum(1, (2 * ), 3)')).toThrow();
+            expect(() => calculator.evaluate('nested((1 + ))')).toThrow();
+            expect(() => calculator.evaluate('max(1, ())')).toThrow();
+            expect(() => calculator.evaluate('max((), 1)')).toThrow();
+            expect(() => calculator.evaluate('1 + ()')).toThrow();
+            expect(() => calculator.evaluate('() + 1')).toThrow();
+        });
+
+        test('should handle invalid token sequences', () => {
+            expect(() => calculator.evaluate('1 2')).toThrow();
+            expect(() => calculator.evaluate('1 + 2 3')).toThrow();
+            expect(() => calculator.evaluate('1 2 +')).toThrow();
+            expect(() => calculator.evaluate('1 + * 2')).toThrow();
+            expect(() => calculator.evaluate('1 * + 2')).toThrow();
+            expect(() => calculator.evaluate('1 + 2 *')).toThrow();
         });
     });
 });
