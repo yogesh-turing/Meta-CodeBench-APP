@@ -1,24 +1,20 @@
-
-Unit Test:
-Advanced Formatters -> should convert to camel case:
-In prompt it is not mention to treat hyphen as space seperator to adding following check is not needed. We cannot penalize model to ignore hyphen.
-`expect(formatter.format('hello-world', 'camel')).toBe('helloWorld');`
-The test cases should include the examples given in the prompt.
-Please include/use given examples in test cases.
-
-Model Evaluations:
-Once Unit test updated, update the model evaluations.
+Unit test:
+In "Formula Evaluation" add test cases for function calls
+e.g.  expect(calculator.evaluate('sum(1,2)')).toBe(3);
+In test cases, first try to cover positive test cases, then negative test cases.
 
 
-Installed Packages:
-Include packages inside ```bash ```
+Model A, B, C, D, E: Issue seems to be different, the model is not evaluating functions calls like sum(1,2).
 
+Model F, G, H, I, J: looks good.
 
-Incorrect Solution Explanation:
-Please update the explanation once you update test cases.
-Please include details why following test case failed
-`TextFormatter › Formatter Registration › should throw error for invalid formatter function`
-`TextFormatter › Chain Formatting › should chain multiple formatters`
+Installed Packages: use ```bash ```
 
-Ideal Response Explanation:
-Please update the explanation once you update the incorrect solution explanation.
+Incorrect Solution Explanation and Ideal Response Explanation:
+Need to update it after Unit test updates.
+
+Ideal Response Test Stack Trace:
+Please update this once unit tests updated.
+
+Ideal Response:
+Make sure newly added test case works for ideal solution.

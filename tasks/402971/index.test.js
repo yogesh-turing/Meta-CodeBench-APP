@@ -1,4 +1,4 @@
-const {FormulaCalculator} = require('./incorrect');
+const {FormulaCalculator} = require('./correct');
 
 describe('FormulaCalculator', () => {
     let calculator;
@@ -144,6 +144,16 @@ describe('FormulaCalculator', () => {
             expect(() => calculator.evaluate('2/(1-1)')).toThrow();
             calculator.registerFunction('zero', () => 0);
             expect(() => calculator.evaluate('1/zero()')).toThrow();
+        });
+
+        test('should handle function calls', () => {
+            expect(calculator.evaluate('sum(1,2)')).toBe(3);
+            expect(calculator.evaluate('max(1,2))')).toBe(2);
+            expect(calculator.evaluate('min(11,21))')).toBe(11);
+            expect(calculator.evaluate('max(1,2,3)')).toBe(3);
+            expect(calculator.evaluate('min(1,2,3)')).toBe(1);
+            expect(calculator.evaluate('sum(1,2,3,4,5)')).toBe(15);
+            expect(calculator.evaluate('nested(2)')).toBe(4);            
         });
 
         test('should handle nested function calls', () => {
