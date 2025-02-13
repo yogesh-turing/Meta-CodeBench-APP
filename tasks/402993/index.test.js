@@ -1,4 +1,4 @@
-const validatePassword = require(process.env.TARGET_FILE);
+const { validatePassword } = require(process.env.TARGET_FILE);
 
 describe('Password Validator', () => {
     test('should validate a strong password', () => {
