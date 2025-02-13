@@ -1,7 +1,7 @@
 class GymManagement {
     #workouts = new Map();
     #equipment = new Map();
-    #memberLock = false;
+    #memberLock = Promise.resolve();
 
     constructor(name) {
         if (!name || typeof name !== 'string') {
@@ -21,14 +21,15 @@ class GymManagement {
         }
 
         const workoutDetails = {
+            name: workoutName,
             trainer: trainerName,
             intense: isIntense,
-            dateAdded: new Date()
+            createdAt: new Date()
         };
 
         this.#workouts.set(workoutName, workoutDetails);
-
         console.log(`${trainerName} designed the workout: ${workoutName}`);
+        
         if (isIntense) {
             console.log('Warning: Intense workout ahead!');
         }
@@ -37,23 +38,18 @@ class GymManagement {
     }
 
     async registerMember(memberName) {
-        if (!memberName) {
-            throw new Error('Member name is required');
+        if (!memberName || typeof memberName !== 'string') {
+            throw new Error('Valid member name is required');
         }
 
-        // Simple async lock mechanism
-        while (this.#memberLock) {
-            await new Promise(resolve => setTimeout(resolve, 10));
-        }
-
-        try {
-            this.#memberLock = true;
+        // Use async lock for thread-safe member registration
+        this.#memberLock = this.#memberLock.then(async () => {
             console.log(`Registering member: ${memberName}`);
             this.totalMembers++;
             return this.totalMembers;
-        } finally {
-            this.#memberLock = false;
-        }
+        });
+
+        return this.#memberLock;
     }
 
     addEquipment(equipmentName, cost) {
@@ -62,31 +58,32 @@ class GymManagement {
         }
 
         if (typeof cost !== 'number' || cost <= 0) {
-            throw new Error('Cost must be a positive number');
+            throw new Error('Equipment cost must be a positive number');
         }
 
         const equipmentDetails = {
-            cost,
-            dateAdded: new Date()
+            name: equipmentName,
+            cost: cost,
+            addedAt: new Date()
         };
 
         this.#equipment.set(equipmentName, equipmentDetails);
         return equipmentDetails;
     }
 
-    getWorkouts() {
-        return new Map(this.#workouts);
-    }
-
-    getEquipment() {
-        return new Map(this.#equipment);
-    }
-
     startFitnessClass(className) {
         if (!className) {
             throw new Error('Class name is required');
         }
-        return new FitnessClass(this.gymName, className);
+        return new FitnessClass(this.gymName, className).run();
+    }
+
+    getWorkouts() {
+        return Array.from(this.#workouts.values());
+    }
+
+    getEquipment() {
+        return Array.from(this.#equipment.values());
     }
 }
 
@@ -105,12 +102,12 @@ class FitnessClass {
 
     async run() {
         this.#status = 'ongoing';
-        console.log(`Fitness class '${this.#className}' started at ${this.#gymName}`);
+        console.log(`Fitness class ${this.#className} started at ${this.#gymName}`);
 
         try {
             await new Promise(resolve => setTimeout(resolve, 2000));
             this.#status = 'completed';
-            console.log(`Fitness class '${this.#className}' completed at ${this.#gymName}`);
+            console.log(`Fitness class ${this.#className} completed at ${this.#gymName}`);
             return this.#status;
         } catch (error) {
             this.#status = 'failed';

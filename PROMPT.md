@@ -66,29 +66,21 @@ module.exports = { GymManagement, FitnessClass };
 
 Prompt:
 
-Implement a GymManagement and FitnessClass system in JavaScript using ES6 classes with the following requirements:
+Refactor and implement a GymManagement and FitnessClass system in JavaScript using ES6 classes, ensuring modularity, proper validation, and error handling.
 
-- GymManagement:
+Requirements:
+GymManagement:
+-Require name in the constructor; throw an error if missing.
+-Maintain workouts and equipment as Maps to track details like trainer, intensity, and cost.
+-Implement manageWorkout(workoutName, isIntense, trainerName) to log and add workouts, ensuring proper input validation.
+-Provide registerMember(memberName) to safely increment totalMembers using asynchronous locking.
+-Implement addEquipment(equipmentName, cost) to validate and store equipment details.
 
-Require name in the constructor; throw an error if missing.
+FitnessClass:
+-Require gymName and className in the constructor; ensure they are mandatory and validated.
+-Implement an asynchronous run() method to simulate class execution, transitioning between "ongoing" and "completed" statuses with a 2-second delay.
 
-Maintain workouts and equipment as Maps for tracking details like trainer, intensity and  cost
-
-Implement manageWorkout(workoutName, isIntense, trainerName) to log and add workouts, validating inputs.
-
-Provide registerMember(memberName) to safely increment totalMembers with asynchronous locking.
-
-Add addEquipment(equipmentName, cost) to validate and store equipment details.
-
--FitnessClass:
-
-Require gymName and className in the constructor.
-
-Implement an asynchronous run method to simulate class execution with "ongoing" and "completed" statuses, using a 2-second delay.
-
-- General:
-
-Ensure proper validation, error handling, and modular design.
-
-Use descriptive variables, asynchronous patterns, and avoid unsafe practices.
-The implementation should align with the provided Ideal Response.
+General:
+-Refactor with best practices, improving maintainability and readability.
+-Ensure robust validation, descriptive variables, and asynchronous patterns.
+-Avoid unsafe practices and align the implementation with the provided Ideal Response.
