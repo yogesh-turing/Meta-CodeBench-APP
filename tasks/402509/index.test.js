@@ -1,4 +1,4 @@
-const { getMonthlyCalendar } = require(process.env.TARGET_FILE)
+const { getMonthlyCalendar } = require('./incorrect');
 
 describe('getMonthlyCalendar', () => {
 
