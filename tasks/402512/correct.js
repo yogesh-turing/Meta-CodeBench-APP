@@ -1,71 +1,38 @@
-// Base class for shipping strategies
-class ShippingStrategy {
-    constructor(baseRate) {
-      this.baseRate = baseRate;
+class MaximizeProfit {
+  maxProfit(prices, k) {
+    // Handle edge cases
+    if (!prices || prices.length < 2 || k <= 0) {
+      return 0;
     }
-  
-    calculateCost(weight, destination) {
-      throw new Error("calculateCost method must be implemented by subclasses");
-    }
-  }
-  
-  // Specific shipping strategies
-  class AirShipping extends ShippingStrategy {
-    calculateCost(weight, destination) {
-      let cost = this.baseRate * weight + 50;
-      if (destination === "international") {
-        cost += 100;
+
+    const n = prices.length;
+
+    // For large k, use greedy approach
+    if (k >= Math.floor(n / 2)) {
+      let profit = 0;
+
+      for (let i = 1; i < n; i++) {
+        if (prices[i] > prices[i - 1]) {
+          profit += prices[i] - prices[i - 1];
+        }
       }
-      return cost;
+      return profit;
     }
-  }
-  
-  class SeaShipping extends ShippingStrategy {
-    calculateCost(weight, destination) {
-      let cost = this.baseRate * weight * 0.8;
-      if (destination === "international") {
-        cost += 80;
+
+    // Initialize DP arrays
+    const dp = Array.from({ length: k + 1 }, () => Array(n).fill(0));
+
+    // DP calculation
+    for (let t = 1; t <= k; t++) {
+      let maxDiff = -prices[0];
+      for (let d = 1; d < n; d++) {
+        dp[t][d] = Math.max(dp[t][d - 1], prices[d] + maxDiff);
+        maxDiff = Math.max(maxDiff, dp[t - 1][d] - prices[d]);
       }
-      return cost;
     }
+
+    return dp[k][n - 1];
   }
-  
-  class GroundShipping extends ShippingStrategy {
-    calculateCost(weight, destination) {
-      let cost = this.baseRate * weight + 20;
-      if (destination === "international") {
-        cost += 60;
-      }
-      return cost;
-    }
-  }
-  
-  // ShippingCalculator class
-  class ShippingCalculator {
-    constructor(baseRate) {
-      this.baseRate = baseRate;
-      this.methods = {
-        air: new AirShipping(baseRate),
-        sea: new SeaShipping(baseRate),
-        ground: new GroundShipping(baseRate),
-      };
-    }
-  
-    addShippingMethod(methodName, strategy) {
-      this.methods[methodName] = strategy;
-    }
-  
-    calculateCost(weight, destination, method = "ground") {
-      if (weight < 0) {
-        throw new Error("Weight cannot be negative.");
-      }
-      const shippingStrategy = this.methods[method];
-      if (!shippingStrategy) {
-        throw new Error(`Shipping method '${method}' is not supported.`);
-      }
-  
-      return shippingStrategy.calculateCost(weight, destination);
-    }
-  }
-  
-  module.exports = { ShippingCalculator, ShippingStrategy, AirShipping, SeaShipping, GroundShipping };
+}
+
+module.exports = { MaximizeProfit };

@@ -1,4 +1,4 @@
-const { MaximizeProfit } = require('./incorrect');
+const { MaximizeProfit } = require("./base");
 
 describe("MaximizeProfit Tests", () => {
   let maximizeProfit;
