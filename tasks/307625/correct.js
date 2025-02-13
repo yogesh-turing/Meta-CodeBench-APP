@@ -1,62 +1,71 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (!isValidDate(startDate)) {
-        throw new Error('Invalid start date');
+// Base class for shipping strategies
+class ShippingStrategy {
+    constructor(baseRate) {
+      this.baseRate = baseRate;
     }
-    if (!isValidFrequency(frequency)) {
-        throw new Error('Invalid frequency');
+  
+    calculateCost(weight, destination) {
+      throw new Error("calculateCost method must be implemented by subclasses");
     }
-    if (!isValidCount(count)) {
-        throw new Error('Invalid count');
+  }
+  
+  // Specific shipping strategies
+  class AirShipping extends ShippingStrategy {
+    calculateCost(weight, destination) {
+      let cost = this.baseRate * weight + 50;
+      if (destination === "international") {
+        cost += 100;
+      }
+      return cost;
     }
-
-    const recurrences = [];
-    let currentDate = adjustToWeekday(new Date(startDate), onlyWeekDays);
-
-    while (recurrences.length < count) {
-        if (shouldAddDate(currentDate, onlyWeekDays)) {
-            recurrences.push(new Date(currentDate));
-        }
-        currentDate = getNextDate(currentDate, frequency, onlyWeekDays);
+  }
+  
+  class SeaShipping extends ShippingStrategy {
+    calculateCost(weight, destination) {
+      let cost = this.baseRate * weight * 0.8;
+      if (destination === "international") {
+        cost += 80;
+      }
+      return cost;
     }
-
-    return recurrences;
-}
-
-function isValidDate(date) {
-    return date && !isNaN(new Date(date));
-}
-
-function isValidFrequency(frequency) {
-    return typeof frequency === 'number' && frequency > 0;
-}
-
-function isValidCount(count) {
-    return typeof count === 'number' && count > 0;
-}
-
-function adjustToWeekday(date, onlyWeekDays) {
-    if (onlyWeekDays && (date.getDay() === 0 || date.getDay() === 6)) {
-        date.setDate(date.getDate() + 1);
+  }
+  
+  class GroundShipping extends ShippingStrategy {
+    calculateCost(weight, destination) {
+      let cost = this.baseRate * weight + 20;
+      if (destination === "international") {
+        cost += 60;
+      }
+      return cost;
     }
-    return date;
-}
-
-function shouldAddDate(date, onlyWeekDays) {
-    return !onlyWeekDays || (date.getDay() !== 0 && date.getDay() !== 6);
-}
-
-function getNextDate(date, frequency, onlyWeekDays) {
-    for (let i = 0; i < frequency; i++) {
-        date.setDate(date.getDate() + 1);
-        if (onlyWeekDays) {
-            while (date.getDay() === 0 || date.getDay() === 6) {
-                date.setDate(date.getDate() + 1);
-            }
-        }
+  }
+  
+  // ShippingCalculator class
+  class ShippingCalculator {
+    constructor(baseRate) {
+      this.baseRate = baseRate;
+      this.methods = {
+        air: new AirShipping(baseRate),
+        sea: new SeaShipping(baseRate),
+        ground: new GroundShipping(baseRate),
+      };
     }
-    return date;
-}
-
-module.exports = {
-    getNextRecurrences
-}
+  
+    addShippingMethod(methodName, strategy) {
+      this.methods[methodName] = strategy;
+    }
+  
+    calculateCost(weight, destination, method = "ground") {
+      if (weight < 0) {
+        throw new Error("Weight cannot be negative.");
+      }
+      const shippingStrategy = this.methods[method];
+      if (!shippingStrategy) {
+        throw new Error(`Shipping method '${method}' is not supported.`);
+      }
+  
+      return shippingStrategy.calculateCost(weight, destination);
+    }
+  }
+  
+  module.exports = { ShippingCalculator, ShippingStrategy, AirShipping, SeaShipping, GroundShipping };

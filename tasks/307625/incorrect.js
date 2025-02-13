@@ -1,40 +1,71 @@
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    if (startDate === null || startDate === undefined) {
-        throw new Error("startDate cannot be null or undefined");
+class ShippingStrategy {
+    constructor(baseRate) {
+      this.baseRate = baseRate;
     }
-
-    if (frequency < 0) {
-        throw new Error("frequency cannot be negative");
+  
+    calculateCost(weight, destination) {
+      throw new Error("calculateCost method must be implemented by subclasses");
     }
-
-    if (count < 0) {
-        throw new Error("count cannot be negative");
+  }
+  
+  class AirShipping extends ShippingStrategy {
+    calculateCost(weight, destination) {
+      let cost = this.baseRate * weight + 50;
+      if (destination === "international") {
+        cost += 100;
+      }
+      return cost;
     }
-
-    const recurrences = [];
-    let currentDate = new Date(startDate);
-
-    if (isNaN(currentDate.getTime())) {
-        throw new Error("Invalid date");
+  }
+  
+  class SeaShipping extends ShippingStrategy {
+    calculateCost(weight, destination) {
+      let cost = this.baseRate * weight * 0.8;
+      if (destination === "international") {
+        cost += 80;
+      }
+      return cost;
     }
-
-    for (let i = 0; i < count; i++) {
-        let nextDate = new Date(currentDate);
-        nextDate.setDate(nextDate.getDate() + frequency);
-
-        if (onlyWeekDays) {
-            while (nextDate.getDay() === 0 || nextDate.getDay() === 6) {
-                nextDate.setDate(nextDate.getDate() + 1);
-            }
-        }
-
-        recurrences.push(nextDate);
-        currentDate = nextDate;
+  }
+  
+  class GroundShipping extends ShippingStrategy {
+    calculateCost(weight, destination) {
+      let cost = this.baseRate * weight + 20;
+      if (destination === "international") {
+        cost += 60;
+      }
+      return cost;
     }
-
-    return recurrences;
-}
-
-module.exports = {
-    getNextRecurrences
-}
+  }
+  
+  class ShippingCalculator {
+    constructor(baseRate) {
+      this.baseRate = baseRate;
+      this.methods = {};
+    }
+  
+    calculateCost(weight, destination, method = "ground") {
+      if (weight < 0) {
+        throw new Error("Weight cannot be negative");
+      }
+  
+      const strategy = this.methods[method];
+      if (!strategy) {
+        throw new Error(`Shipping method '${method}' is not supported`);
+      }
+  
+      return strategy.calculateCost(weight, destination);
+    }
+  
+    addShippingMethod(methodName, strategy) {
+      this.methods[methodName] = strategy;
+    }
+  }
+  
+  module.exports = {
+    ShippingCalculator,
+    ShippingStrategy,
+    AirShipping,
+    SeaShipping,
+    GroundShipping,
+  };

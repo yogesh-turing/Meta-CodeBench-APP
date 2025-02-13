@@ -1,157 +1,99 @@
-const { getNextRecurrences } = require(process.env.TARGET_FILE)
-
-describe('getNextRecurrences', () => {
-
-    test('should throw an error for invalid start date', () => {
-        expect(() => {
-            getNextRecurrences('invalid-date', 5, 3);
-        }).toThrow(Error);
+const { ShippingCalculator, AirShipping, ShippingStrategy, SeaShipping, GroundShipping } = require('./correct');
+  
+  describe("ShippingCalculator", () => {
+    let calculator;
+  
+    beforeEach(() => {
+      calculator = new ShippingCalculator(10); // Base rate of 10
     });
-
-    test('should throw an error for invalid frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
+  
+    describe("Default Shipping Methods", () => {
+      it("should calculate cost for air shipping (domestic)", () => {
+        const cost = calculator.calculateCost(5, "domestic", "air");
+        expect(cost).toBe(100); // (10 * 5) + 50 = 100
+      });
+  
+      it("should calculate cost for air shipping (international)", () => {
+        const cost = calculator.calculateCost(5, "international", "air");
+        expect(cost).toBe(200); // (10 * 5) + 50 + 100 = 200
+      });
+  
+      it("should calculate cost for sea shipping (domestic)", () => {
+        const cost = calculator.calculateCost(5, "domestic", "sea");
+        expect(cost).toBe(40); // (10 * 5) * 0.8 = 40
+      });
+  
+      it("should calculate cost for sea shipping (international)", () => {
+        const cost = calculator.calculateCost(5, "international", "sea");
+        expect(cost).toBe(120); // (10 * 5) * 0.8 + 80 = 120
+      });
+  
+      it("should calculate cost for ground shipping (domestic)", () => {
+        const cost = calculator.calculateCost(5, "domestic", "ground");
+        expect(cost).toBe(70); // (10 * 5) + 20 = 70
+      });
+  
+      it("should calculate cost for ground shipping (international)", () => {
+        const cost = calculator.calculateCost(5, "international", "ground");
+        expect(cost).toBe(130); // (10 * 5) + 20 + 60 = 130
+      });
+  
+      it("should default to ground shipping if method is not specified", () => {
+        const cost = calculator.calculateCost(5, "domestic");
+        expect(cost).toBe(70); // Defaults to ground shipping
+      });
     });
-
-    test('should throw an error for invalid count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, 0);
-        }).toThrow(Error);
+  
+    describe("Edge Cases", () => {
+      it("should handle zero weight", () => {
+        const cost = calculator.calculateCost(0, "domestic", "air");
+        expect(cost).toBe(50); // (10 * 0) + 50 = 50
+      });
+  
+      it("should handle negative weight (invalid input)", () => {
+        expect(() => calculator.calculateCost(-5, "domestic", "air")).toThrow();
+      });
     });
-
-    // null inputs: startDate
-    test('should throw an error for null start date', () => {
-        expect(() => {
-            getNextRecurrences(null, 5, 3);
-        }).toThrow(Error);
+  
+    describe("Adding Custom Shipping Methods", () => {
+      it("should allow adding a new shipping method and calculate cost correctly", () => {
+        class ExpressShipping extends ShippingStrategy {
+          calculateCost(weight, destination) {
+            let cost = this.baseRate * weight + 100; // Use this.baseRate
+            if (destination === "international") {
+              cost += 150;
+            }
+            return cost;
+          }
+        }
+  
+        // Pass the baseRate when creating the ExpressShipping instance
+        calculator.addShippingMethod("express", new ExpressShipping(10));
+        const cost = calculator.calculateCost(5, "international", "express");
+        expect(cost).toBe(300); // (10 * 5) + 100 + 150 = 300
+      });
     });
-
-    // null inputs: frequency
-    test('should throw an error for null frequency', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', null, 3);
-        }).toThrow(Error);
+  });
+  
+  describe("ShippingStrategy Subclasses", () => {
+    const baseRate = 10;
+  
+    it("AirShipping should calculate cost correctly", () => {
+      const airShipping = new AirShipping(baseRate);
+      expect(airShipping.calculateCost(5, "domestic")).toBe(100); // (10 * 5) + 50 = 100
+      expect(airShipping.calculateCost(5, "international")).toBe(200); // (10 * 5) + 50 + 100 = 200
     });
-
-    // null inputs: count
-    test('should throw an error for null count', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', 5, null);
-        }).toThrow(Error);
+  
+    it("SeaShipping should calculate cost correctly", () => {
+      const seaShipping = new SeaShipping(baseRate);
+      expect(seaShipping.calculateCost(5, "domestic")).toBe(40); // (10 * 5) * 0.8 = 40
+      expect(seaShipping.calculateCost(5, "international")).toBe(120); // (10 * 5) * 0.8 + 80 = 120
     });
-
-    // undefined inputs: startDate
-    test('should throw an error for undefined start date', () => {
-        expect(() => {
-            getNextRecurrences(undefined, 5, 3);
-        }).toThrow(Error);
+  
+    it("GroundShipping should calculate cost correctly", () => {
+      const groundShipping = new GroundShipping(baseRate);
+      expect(groundShipping.calculateCost(5, "domestic")).toBe(70); // (10 * 5) + 20 = 70
+      expect(groundShipping.calculateCost(5, "international")).toBe(130); // (10 * 5) + 20 + 60 = 130
     });
-
-    // frequency less than 0
-    test('should throw an error for frequency less than 0', () => {
-        expect(() => {
-            getNextRecurrences('2023-10-15', -1, 3);
-        }).toThrow(Error);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 1;
-        const count = 5;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-16'), // Monday
-            new Date('2023-10-17'), // Tuesday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-19')  // Thursday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should handle crossing weekends correctly with onlyWeekDays', () => {
-        const startDate = '2023-10-13'; // Friday
-        const frequency = 3;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-13'), // Friday
-            new Date('2023-10-18'), // Wednesday
-            new Date('2023-10-23')  // Monday
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, true);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences without onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 5;
-        const count = 3;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-20'),
-            new Date('2023-10-25')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15'; // Sunday
-        const frequency = 5;
-        const count = 3;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-23'),
-            new Date('2023-10-30')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = false;
-        const expected = [
-            new Date('2023-10-15'),
-            new Date('2023-10-25'),
-            new Date('2023-11-04'),
-            new Date('2023-11-14'),
-            new Date('2023-11-24')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-
-    test('should return correct recurrences with onlyWeekDays', () => {
-        const startDate = '2023-10-15';
-        const frequency = 10;
-        const count = 5;
-        const onlyWeekDays = true;
-        const expected = [
-            new Date('2023-10-16'),
-            new Date('2023-10-30'),
-            new Date('2023-11-13'),
-            new Date('2023-11-27'),
-            new Date('2023-12-11')
-        ];
-        const result = getNextRecurrences(startDate, frequency, count, onlyWeekDays);
-        expect(result).toEqual(expected);
-    });
-});
+  });
+  
