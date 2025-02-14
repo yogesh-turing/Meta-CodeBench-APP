@@ -1,112 +1,108 @@
-function validateRefactorOutput(originalOutput, refactoredOutput) {
-    if (!deepEqual(originalOutput, refactoredOutput)) {
-      throw new Error("Refactored version does not match expected output");
+const uuid = require('uuid');
+
+function initializeOrderBook() {
+  return { buy: [], sell: [], history: [] };
+}
+
+function placeOrder(orderBook, order) {
+  if (!validateOrder(order)) throw new Error("Invalid order");
+
+  if (order.type === "market") {
+    return executeMarketOrder(orderBook, order);
+  } else if (order.type === "limit") {
+    return addLimitOrder(orderBook, order);
+  } else {
+    addDeferredOrder(orderBook, order);
+  }
+  return orderBook;
+}
+
+function executeMarketOrder(orderBook, order) {
+  const oppositeSide = order.side === "buy" ? "sell" : "buy";
+  const orderBookSide = orderBook[oppositeSide];
+  let remainingAmount = order.amount;
+  const trades = [];
+
+  for (let i = 0; i < orderBookSide.length && remainingAmount > 0; i++) {
+    const bestOrder = orderBookSide[i];
+    const tradeAmount = Math.min(bestOrder.amount, remainingAmount);
+
+    processTrade(order, bestOrder, tradeAmount);
+    trades.push({
+      price: bestOrder.price,
+      amount: tradeAmount,
+      time: new Date().toISOString(),
+      tradeId: uuid.v4(),
+    });
+
+    bestOrder.amount -= tradeAmount;
+    remainingAmount -= tradeAmount;
+
+    if (bestOrder.amount === 0) {
+      orderBookSide.splice(i, 1);
+      i--;
     }
   }
-  
-  function deepEqual(obj1, obj2) {
-    return JSON.stringify(obj1) === JSON.stringify(obj2);
+
+  if (remainingAmount > 0) {
+    console.warn(`Market order partially filled: ${remainingAmount} units remaining`);
   }
-  
-  class OrderBook {
-    constructor() {
-      this.buy = [];
-      this.sell = [];
-      this.history = [];
-      this.deferredOrders = [];
-    }
-  
-    placeOrder(order) {
-      if (!validateOrder(order)) {
-        throw new Error("Invalid order");
-      }
-  
-      if (order.type === "market") {
-        this.executeMarketOrder(order);
-      } else if (order.type === "limit") {
-        this.addLimitOrder(order);
-      } else {
-        this.deferredOrders.push(order);
-      }
-    }
-  
-    executeMarketOrder(order) {
-      const oppositeSide = order.side === "buy" ? "sell" : "buy";
-      const orderBookSide = this[oppositeSide];
-      let remainingAmount = order.amount;
-      let trades = [];
-  
-      while (orderBookSide.length > 0 && remainingAmount > 0) {
-        const bestOrder = orderBookSide[0];
-        const tradeAmount = Math.min(bestOrder.amount, remainingAmount);
-  
-        this.processTrade(order, bestOrder, tradeAmount);
-        trades.push({
-          price: bestOrder.price,
-          amount: tradeAmount,
-          time: new Date().toISOString(),
-          tradeId: this.generateRandomId(),
-        });
-  
-        bestOrder.amount -= tradeAmount;
-        remainingAmount -= tradeAmount;
-  
-        if (bestOrder.amount === 0) orderBookSide.shift();
-      }
-  
-      if (remainingAmount > 0) {
-        console.warn(`Market order partially filled: ${remainingAmount} units remaining`);
-      }
-  
-      this.history.push(...trades);
-    }
-  
-    addLimitOrder(order) {
-      this[order.side].push({ ...order, timestamp: Date.now(), orderId: this.generateRandomId() });
-      this[order.side].sort((a, b) => {
-        if (a.price === b.price) {
-          return a.timestamp - b.timestamp; // Prioritize older orders with the same price
-        }
-        return order.side === "buy" ? b.price - a.price : a.price - b.price;
-      });
-    }
-  
-    processTrade(buyer, seller, amount) {
-      console.log(`[${new Date().toISOString()}] Trade executed: ${amount} units at ${seller.price}`);
-      // Complex state-based manipulation or recursive trade adjustment can be introduced here.
-    }
-  
-    handlePriceChange(newPrice) {
-      this.sell = this.sell.filter(order => order.price <= newPrice);
-      this.buy = this.buy.filter(order => order.price >= newPrice);
-    }
-  
-    validateOrder(order) {
-      if (!order.type || !order.side || typeof order.price !== "number" || order.amount <= 0) {
-        return false;
-      }
-      if (order.side !== "buy" && order.side !== "sell") {
-        return false;
-      }
-      if (order.type !== "market" && order.type !== "limit") {
-        return false;
-      }
-      return true;
-    }
-  
-    generateRandomId() {
-      return Math.random().toString(36).substring(2, 15);
-    }
-  
-    executeDeferredOrders() {
-      while (this.deferredOrders.length > 0) {
-        const order = this.deferredOrders.shift();
-        this.placeOrder(order);
-      }
-    }
-  }
-  
-  module.exports = {
-    validateRefactorOutput,
-    OrderBook,
-  };
+
+  orderBook.history.push(...trades);
+  return { orderBook, trades };
+}
+
+function addLimitOrder(orderBook, order) {
+  orderBook[order.side].push({ ...order, timestamp: Date.now(), orderId: uuid.v4() });
+  sortLimitOrders(orderBook[order.side], order.side);
+  return orderBook;
+}
+
+function sortLimitOrders(orders, side) {
+  orders.sort((a, b) => {
+    if (a.price === b.price) return a.timestamp - b.timestamp;
+    return side === "buy" ? b.price - a.price : a.price - b.price;
+  });
+}
+
+function processTrade(buyer, seller, amount) {
+  console.log(`[${new Date().toISOString()}] Trade executed: ${amount} units at ${seller.price}`);
+}
+
+function addDeferredOrder(orderBook, order) {
+  orderBook.history.push({ ...order, status: "deferred", time: new Date().toISOString() });
+}
+
+function validateOrder(order) {
+  if (!order.type || !order.side || typeof order.price !== "number" || order.amount <= 0) return false;
+  if (order.side !== "buy" && order.side !== "sell") return false;
+  if (order.type !== "market" && order.type !== "limit") return false;
+  if (order.amount % 1 !== 0) return false; // reject fractional amounts
+  if (order.price <= 0) return false; // reject non-positive prices
+  if (order.amount > 1000000 || order.price > 1000000) return false; // reject extremely large values
+  return true;
+}
+
+function handlePriceChange(orderBook, newPrice) {
+  orderBook.sell = orderBook.sell.filter(order => order.price <= newPrice);
+  orderBook.buy = orderBook.buy.filter(order => order.price >= newPrice);
+  return orderBook;
+}
+
+function validateRefactorOutput(orderBook) {
+  if (!orderBook.buy || !orderBook.sell || !orderBook.history) return false;
+  if (!Array.isArray(orderBook.buy) || !Array.isArray(orderBook.sell) || !Array.isArray(orderBook.history)) return false;
+  return true;
+}
+
+module.exports = {
+  validateRefactorOutput,
+  initializeOrderBook,
+  placeOrder,
+  executeMarketOrder,
+  addLimitOrder,
+  processTrade,
+  handlePriceChange,
+  validateOrder,
+  generateRandomId: uuid.v4,
+};
