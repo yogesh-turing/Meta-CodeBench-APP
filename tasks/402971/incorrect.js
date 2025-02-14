@@ -188,9 +188,6 @@ class FormulaCalculator {
         if (b === 0) throw new Error("Invalid formula");
         stack.push(a / b);
         break;
-      case "(":
-      case ")":
-        break;
       default:
         throw new Error("Invalid formula");
     }
