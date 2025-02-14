@@ -1,4 +1,4 @@
-const { extractDeepKeys } = require('./solution'); // Replace functionNames with the correct function(s)
+const { extractDeepKeys } = require('./alternate_responses/model7'); // Replace functionNames with the correct function(s)
 
 describe('functionNames', () => {
     test("should extract keys from a simple object", () => {
