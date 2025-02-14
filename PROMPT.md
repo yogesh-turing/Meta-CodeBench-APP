@@ -73,18 +73,18 @@ function searchInObject(obj, searchTerm, searchType = 'both') {
     
     return [...results];
 }
+
+model.exports = { searchInObject };
 ```
 
 
 Prompt:
 I need you to refactor my implementation for searching for items in large, complex objects. The refactored code should meet the following requirements:
- - Create a proper class structure called searchObject with methods for the different search types
- - Split into smaller, focused functions, namely: 
-      - compareValues for all value comparisons in the code   
-      - isMatch which should correctly identify if there is a match based on entries, searchTerm and searchType
-      - The search function that holds the search logic; this function should be recursive
+ - Create a proper class structure called `searchObject` with methods for the different search types
+ - Break the code down into smaller, focused functions. The functions should be: 
+      - A function called `compareValues` which will take any 2 values and perform a comparison to see if they are the same.
+      - A function called `isMatch` function. It should take an object with a key-value pair called `entry`,  a search term called `searchTerm` and the search type `searchType` . The function should return a boolean indicating if there is a match
+      - A function called `search` that holds the search logic; it should take the search object of key  input called `obj`,  `searchTerm` and `searchType` as parameters and should return the result of the search. The function should be recursive
  - Provide brief and structured comments before every function
  - Replace visited array with Set to improve lookup from O(n) to O(1)
- - Cache array indices instead of recreating with Array(length).keys() 
- - Move string conversion and normalization logic of searchTerm to a function called stringConversion to avoid repeated conversions
- - Remove extra type conversions in string and number comparisons
+ - Move both the string conversion and normalization logic of `searchTerm` to a function called `stringConversion`. This function should take a value and should  ensure the value is converted to a string and returned in lowercase

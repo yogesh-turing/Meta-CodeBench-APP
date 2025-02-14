@@ -1,42 +1,66 @@
 class SearchObject {
   /**
-   * Searches for a term in a complex object.
-   * @param {object} obj - The object to search in.
-   * @param {*} searchTerm - The term to search for.
-   * @param {string} [searchType='both'] - The type of search to perform. Can be 'key', 'value', or 'both'.
-   * @returns {object[]} An array of objects containing the key, value, depth, and match type of each match.
+   * Compare two values to see if they are the same
+   * @param {*} value1
+   * @param {*} value2
+   * @returns {boolean}
    */
-  search(obj, searchTerm, searchType = 'both') {
-    const results = [];
-    const visited = new Set();
+  compareValues(value1, value2) {
+    return String(value1).toLowerCase() === String(value2).toLowerCase();
+  }
+
+  /**
+   * Check if a key-value pair matches the search term
+   * @param {Object} entry - key-value pair
+   * @param {*} searchTerm
+   * @param {string} searchType - 'key', 'value', or 'both'
+   * @returns {boolean}
+   */
+  isMatch(entry, searchTerm, searchType) {
+    const { key, value } = entry;
     const searchTermStr = this.stringConversion(searchTerm);
-    const stack = [{ obj, depth: 0 }];
+    const keyStr = this.stringConversion(key);
+    const valueStr = this.stringConversion(value);
 
-    while (stack.length > 0) {
-      const { obj: current, depth } = stack.pop();
+    if (searchType === 'key' || searchType === 'both') {
+      return keyStr === searchTermStr;
+    }
 
-      if (!current || typeof current !== 'object' || visited.has(current)) continue;
-      visited.add(current);
+    if (searchType === 'value' || searchType === 'both') {
+      return valueStr === searchTermStr;
+    }
 
-      const entries = Array.isArray(current)
-        ? current.entries()
-        : Object.entries(current);
+    return false;
+  }
 
-      for (const [key, value] of entries) {
-        const match = this.isMatch(key, value, searchTermStr, searchType);
+  /**
+   * Recursively search for matches in the object
+   * @param {Object} obj
+   * @param {*} searchTerm
+   * @param {string} searchType - 'key', 'value', or 'both'
+   * @param {number} depth
+   * @param {Set} visited
+   * @returns {Array} - search results
+   */
+  search(obj, searchTerm, searchType, depth = 0, visited = new Set()) {
+    const results = [];
 
-        if (match) {
-          results.push({
-            key,
-            value,
-            depth,
-            matchType: match,
-          });
-        }
+    if (!obj || typeof obj !== 'object') return results;
 
-        if (value && typeof value === 'object') {
-          stack.push({ obj: value, depth: depth + 1 });
-        }
+    if (visited.has(obj)) return results;
+    visited.add(obj);
+
+    const entries = Array.isArray(obj)
+      ? [...Array(obj.length).keys()].map(i => [String(i), obj[i]])
+      : Object.entries(obj);
+
+    for (const entry of entries) {
+      if (this.isMatch(entry, searchTerm, searchType)) {
+        results.push({ key: entry[0], value: entry[1], depth, matchType: [searchType] });
+      }
+
+      if (entry[1] && typeof entry[1] === 'object') {
+        results.push(...this.search(entry[1], searchTerm, searchType, depth + 1, visited));
       }
     }
 
@@ -44,61 +68,13 @@ class SearchObject {
   }
 
   /**
-   * Checks if a key-value pair matches the search term and type.
-   * @param {string} key - The key to check.
-   * @param {*} value - The value to check.
-   * @param {string} searchTermStr - The search term as a string.
-   * @param {string} searchType - The type of search to perform.
-   * @returns {string[]|null} An array of match types if the key-value pair matches, or null if it doesn't.
-   */
-  isMatch(key, value, searchTermStr, searchType) {
-    const matches = [];
-
-    if (searchType === 'key' || searchType === 'both') {
-      if (this.compareValues(key, searchTermStr)) {
-        matches.push('key');
-      }
-    }
-
-    if (searchType === 'value' || searchType === 'both') {
-      if (this.compareValues(value, searchTermStr)) {
-        matches.push('value');
-      }
-    }
-
-    return matches.length > 0 ? matches : null;
-  }
-
-  /**
-   * Compares two values for equality.
-   * @param {*} value1 - The first value to compare.
-   * @param {*} value2 - The second value to compare.
-   * @returns {boolean} True if the values are equal, false otherwise.
-   */
-  compareValues(value1, value2) {
-    if (value1 === null || value1 === undefined) {
-      return value1 === value2;
-    }
-
-    if (typeof value1 === 'number' && typeof value2 === 'number') {
-      return value1 === value2;
-    }
-
-    return String(value1).toLowerCase() === String(value2).toLowerCase();
-  }
-
-  /**
-   * Converts a value to a string and normalizes it for comparison.
-   * @param {*} value - The value to convert.
-   * @returns {string} The converted and normalized string.
+   * Convert a value to a string and return it in lowercase
+   * @param {*} value
+   * @returns {string}
    */
   stringConversion(value) {
-    if (value === null) return 'null';
-    if (value === undefined) return 'undefined';
     return String(value).toLowerCase();
   }
 }
 
-module.exports = {
-  SearchObject
-};
+module.exports = { SearchObject };

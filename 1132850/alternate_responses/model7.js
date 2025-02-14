@@ -1,123 +1,92 @@
 class SearchObject {
     /**
-     * Creates a new SearchObject instance.
-     */
-    constructor() {
-        this.visited = new Set();
-        this.results = [];
-    }
-
-    /**
-     * Converts a value to a string and its lowercase equivalent.
-     * @param {*} value - The value to convert.
-     * @returns {{str: string, lower: string}} - An object containing the string and lowercase representations.
-     */
-    stringConversion(value) {
-        const str = value === null ? 'null' : value === undefined ? 'undefined' : String(value);
-        return { str, lower: str.toLowerCase() };
-    }
-
-    /**
-     * Compares two values for equality, considering string and number comparisons.
-     * @param {*} value1 - The first value to compare.
-     * @param {*} value2 - The second value to compare.
-     * @returns {boolean} - True if the values are equal, false otherwise.
+     * Compares two values to see if they are the same.
+     * 
+     * @param {*} value1 
+     * @param {*} value2 
+     * @returns {boolean}
      */
     compareValues(value1, value2) {
-        if (typeof value1 === 'number' && typeof value2 === 'number') {
-            return value1 === value2;
-        }
-        const { str: str1, lower: lower1 } = this.stringConversion(value1);
-        const { str: str2, lower: lower2 } = this.stringConversion(value2);
-        return str1 === str2 || lower1 === lower2;
+      const value1Str = String(value1).toLowerCase();
+      const value2Str = String(value2).toLowerCase();
+      return value1Str === value2Str;
     }
-
+  
     /**
-     * Checks if a key-value pair matches the search term based on the search type.
-     * @param {string} key - The key to check.
-     * @param {*} value - The value to check.
-     * @param {*} searchTerm - The search term to match.
-     * @param {string} searchType - The type of search (key, value, or both).
-     * @returns {string[]} - An array of match types (key, value, or both).
+     * Checks if an entry (key-value pair) matches a search term.
+     * 
+     * @param {Object} entry 
+     * @param {*} searchTerm 
+     * @param {string} searchType 
+     * @returns {boolean}
      */
-    isMatch(key, value, searchTerm, searchType) {
-        const matches = [];
-        if (searchType === 'key' || searchType === 'both') {
-            if (this.compareValues(key, searchTerm)) {
-                matches.push('key');
-            }
-        }
-        if (searchType === 'value' || searchType === 'both') {
-            if (this.compareValues(value, searchTerm)) {
-                matches.push('value');
-            }
-        }
-        return matches;
+    isMatch(entry, searchTerm, searchType) {
+      const { key, value } = entry;
+      const searchTermStr = this.stringConversion(searchTerm);
+      const keyStr = this.stringConversion(key);
+      const valueStr = this.stringConversion(value);
+  
+      if (searchType === 'key' || searchType === 'both') {
+        if (keyStr === searchTermStr) return true;
+      }
+  
+      if (searchType === 'value' || searchType === 'both') {
+        if (valueStr === searchTermStr) return true;
+      }
+  
+      return false;
     }
-
+  
     /**
-     * Recursively searches for matches in an object.
-     * @param {object} obj - The object to search.
-     * @param {*} searchTerm - The search term to match.
-     * @param {string} searchType - The type of search (key, value, or both).
-     * @param {number} depth - The current depth of the search.
+     * Converts a value to a string and returns it in lowercase.
+     * 
+     * @param {*} value 
+     * @returns {string}
      */
-    search(obj, searchTerm, searchType, depth = 0) {
-        if (!obj || typeof obj !== 'object' || this.visited.has(obj)) {
-            return;
-        }
-        this.visited.add(obj);
-
-        const { str: searchTermStr, lower: searchTermLower } = this.stringConversion(searchTerm);
-
-        const entries = Array.isArray(obj) ? Object.entries(obj) : Object.entries(obj);
-
-        for (const [key, value] of entries) {
-            const matches = this.isMatch(key, value, searchTerm, searchType);
-            if (matches.length > 0) {
-                this.results.push({
-                    key: String(key),
-                    value,
-                    depth,
-                    matchType: matches,
-                });
-            }
-            if (value && typeof value === 'object') {
-                this.search(value, searchTerm, searchType, depth + 1);
-            }
-        }
+    stringConversion(value) {
+      return String(value).toLowerCase();
     }
-
+  
     /**
-     * Searches for matches in an object and returns the results.
-     * @param {object} obj - The object to search.
-     * @param {*} searchTerm - The search term to match.
-     * @param {string} searchType - The type of search (key, value, or both).
-     * @returns {object[]} - An array of match objects.
+     * Recursively searches an object for a search term.
+     * 
+     * @param {Object} obj 
+     * @param {*} searchTerm 
+     * @param {string} searchType 
+     * @param {number} depth 
+     * @param {Set} visited 
+     * @param {Array} results 
+     * @returns {Array}
      */
-    findMatches(obj, searchTerm, searchType = 'both') {
-        this.results = [];
-        this.visited = new Set();
-        this.search(obj, searchTerm, searchType);
-        return this.results;
+    search(obj, searchTerm, searchType, depth = 0, visited = new Set(), results = []) {
+      if (!obj || typeof obj !== 'object') return results;
+  
+      if (visited.has(obj)) return results;
+      visited.add(obj);
+  
+      const entries = Array.isArray(obj) 
+        ? [...Array(obj.length).keys()].map(i => [String(i).toString(), obj[i]])
+        : Object.entries(obj);
+  
+      for (const entry of entries) {
+        if (this.isMatch(entry, searchTerm, searchType)) {
+          results.push({ 
+            key: entry[0],
+            value: entry[1],
+            depth,
+            matchType: searchType
+          });
+        }
+  
+        if (entry[1] && typeof entry[1] === 'object') {
+          this.search(entry[1], searchTerm, searchType, depth + 1, visited, results);
+        }
+      }
+  
+      return results;
     }
-}
-
-// Example usage:
-// const searchObject = new SearchObject();
-// const obj = {
-//     a: 1,
-//     b: 'hello',
-//     c: {
-//         d: 2,
-//         e: 'world',
-//     },
-// };
-// const results = searchObject.findMatches(obj, 'hello', 'value');
-// // Use the global console object
-// globalThis.console.log(results);
-
-
-module.exports = {
+  }
+  
+  module.exports = {
     SearchObject
-};
+  };

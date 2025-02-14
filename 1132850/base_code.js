@@ -72,6 +72,4 @@ function searchInObject(obj, searchTerm, searchType = 'both') {
     return [...results];
 }
 
-module.exports = {
-    searchInObject
-};
+module.exports = { searchInObject };

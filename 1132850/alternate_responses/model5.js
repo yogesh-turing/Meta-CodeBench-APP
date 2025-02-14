@@ -1,15 +1,12 @@
 class SearchObject {
     constructor() {
         this.visited = new Set();
-        this.results = [];
-        // Cache array indices for common array lengths
-        this.arrayIndices = new Map();
     }
 
     /**
-     * Converts any value to its string representation
+     * Converts any value to a normalized string representation
      * @param {*} value - The value to convert
-     * @returns {string} - Normalized string representation
+     * @returns {string} - Normalized lowercase string
      */
     stringConversion(value) {
         if (value === null) return 'null';
@@ -18,42 +15,28 @@ class SearchObject {
     }
 
     /**
-     * Compares two values for equality considering different types
+     * Compares two values for equality considering different data types
      * @param {*} value1 - First value to compare
      * @param {*} value2 - Second value to compare
-     * @returns {boolean} - Whether the values match
+     * @returns {boolean} - True if values match
      */
     compareValues(value1, value2) {
-        if (value1 === value2) return true;
         const str1 = this.stringConversion(value1);
         const str2 = this.stringConversion(value2);
-        return str1 === str2;
+        
+        return value1 === value2 || str1 === str2;
     }
 
     /**
-     * Gets cached array indices or creates new ones
-     * @param {number} length - Length of array
-     * @returns {string[]} - Array of string indices
-     */
-    getArrayIndices(length) {
-        if (!this.arrayIndices.has(length)) {
-            this.arrayIndices.set(length, 
-                Array.from({ length }, (_, i) => String(i)));
-        }
-        return this.arrayIndices.get(length);
-    }
-
-    /**
-     * Determines if an entry matches the search criteria
-     * @param {string} key - Entry key
-     * @param {*} value - Entry value
+     * Checks if an entry matches the search criteria
+     * @param {Object} entry - Object containing key and value
      * @param {*} searchTerm - Term to search for
      * @param {string} searchType - Type of search (key, value, or both)
-     * @returns {string[]} - Array of match types
+     * @returns {string[]} - Array of match types (key and/or value)
      */
-    isMatch(key, value, searchTerm, searchType) {
+    isMatch(entry, searchTerm, searchType) {
         const matches = [];
-        const searchTermStr = this.stringConversion(searchTerm);
+        const { key, value } = entry;
 
         if (searchType === 'key' || searchType === 'both') {
             if (this.compareValues(key, searchTerm)) {
@@ -62,11 +45,11 @@ class SearchObject {
         }
 
         if (searchType === 'value' || searchType === 'both') {
-            // Skip numeric index matching for value-only searches
+            // Skip numeric index matching when searching by value
             if (searchType === 'value' && 
-                !isNaN(key) && 
-                !isNaN(searchTerm) && 
-                Number(key) === Number(searchTerm)) {
+                !isNaN(String(key)) && 
+                !isNaN(String(searchTerm)) && 
+                Number(String(key)) === Number(String(searchTerm))) {
                 return matches;
             }
 
@@ -79,29 +62,31 @@ class SearchObject {
     }
 
     /**
-     * Recursive search function to traverse object
-     * @param {Object} current - Current object to search
+     * Performs recursive search through object
+     * @param {Object} obj - Object to search in
      * @param {*} searchTerm - Term to search for
-     * @param {string} searchType - Type of search
-     * @param {number} depth - Current depth in object
+     * @param {string} searchType - Type of search (key, value, or both)
+     * @param {number} depth - Current depth in object tree
+     * @returns {Array} - Array of matching results
      */
-    searchRecursive(current, searchTerm, searchType, depth) {
-        if (!current || typeof current !== 'object' || this.visited.has(current)) {
-            return;
+    search(obj, searchTerm, searchType = 'both', depth = 0) {
+        if (!obj || typeof obj !== 'object' || this.visited.has(obj)) {
+            return [];
         }
 
-        this.visited.add(current);
+        this.visited.add(obj);
+        const results = [];
 
-        const entries = Array.isArray(current)
-            ? this.getArrayIndices(current.length).map(i => [i, current[i]])
-            : Object.entries(current);
+        const entries = Array.isArray(obj)
+            ? [...Array(obj.length).keys()].map(i => [String(i), obj[i]])
+            : Object.entries(obj);
 
         for (const [key, value] of entries) {
-            const matches = this.isMatch(key, value, searchTerm, searchType);
-
+            const matches = this.isMatch({ key, value }, searchTerm, searchType);
+            
             if (matches.length > 0) {
-                this.results.push({
-                    key,
+                results.push({
+                    key: String(key),
                     value,
                     depth,
                     matchType: matches
@@ -109,27 +94,25 @@ class SearchObject {
             }
 
             if (value && typeof value === 'object') {
-                this.searchRecursive(value, searchTerm, searchType, depth + 1);
+                results.push(...this.search(value, searchTerm, searchType, depth + 1));
             }
         }
+
+        return results;
     }
 
     /**
-     * Main search function
-     * @param {Object} obj - Object to search
+     * Main search method that initializes the search process
+     * @param {Object} obj - Object to search in
      * @param {*} searchTerm - Term to search for
      * @param {string} searchType - Type of search (key, value, or both)
      * @returns {Array} - Array of search results
      */
-    search(obj, searchTerm, searchType = 'both') {
+    searchInObject(obj, searchTerm, searchType = 'both') {
+        this.visited.clear(); // Reset visited Set for new search
         if (!obj || typeof obj !== 'object') return [];
-
-        this.visited.clear();
-        this.results = [];
         
-        this.searchRecursive(obj, searchTerm, searchType, 0);
-        
-        return [...this.results];
+        return this.search(obj, searchTerm, String(searchType));
     }
 }
 

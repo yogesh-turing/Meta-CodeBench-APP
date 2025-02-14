@@ -1,13 +1,12 @@
 class SearchObject {
     constructor() {
         this.visited = new Set();
-        this.results = [];
     }
 
     /**
-     * Converts any value to its string representation
-     * @param {*} value - Value to convert
-     * @returns {string} Normalized string representation
+     * Converts any value to a lowercase string
+     * @param {*} value - The value to convert
+     * @returns {string} - Lowercase string representation
      */
     stringConversion(value) {
         if (value === null) return 'null';
@@ -16,99 +15,102 @@ class SearchObject {
     }
 
     /**
-     * Compares two values for equality considering different types
+     * Compares two values for equality
      * @param {*} value1 - First value to compare
      * @param {*} value2 - Second value to compare
-     * @returns {boolean} True if values are equal
+     * @returns {boolean} - True if values match
      */
     compareValues(value1, value2) {
-        if (value1 === value2) return true;
         const str1 = this.stringConversion(value1);
         const str2 = this.stringConversion(value2);
-        return str1 === str2;
+        
+        return value1 === value2 || str1 === str2;
     }
 
     /**
-     * Determines if there's a match based on search criteria
-     * @param {string} key - Object key
-     * @param {*} value - Object value
+     * Checks if an entry matches the search criteria
+     * @param {Object} entry - Key-value pair to check
      * @param {*} searchTerm - Term to search for
      * @param {string} searchType - Type of search (key, value, or both)
-     * @returns {string[]} Array of match types found
+     * @returns {string[]} - Array of match types (key and/or value)
      */
-    isMatch(key, value, searchTerm, searchType) {
+    isMatch(entry, searchTerm, searchType) {
         const matches = [];
-        
+        const { key, value } = entry;
+
         if (searchType === 'key' || searchType === 'both') {
             if (this.compareValues(key, searchTerm)) {
                 matches.push('key');
             }
         }
-        
+
         if (searchType === 'value' || searchType === 'both') {
-            // Skip numeric index matches when searching by value
-            if (searchType === 'value' && !isNaN(key) && !isNaN(searchTerm)) {
+            // Skip numeric index matching for value searches
+            if (searchType === 'value' && 
+                !isNaN(String(key)) && 
+                !isNaN(String(searchTerm)) && 
+                Number(String(key)) === Number(String(searchTerm))) {
                 return matches;
             }
-            
+
             if (this.compareValues(value, searchTerm)) {
                 matches.push('value');
             }
         }
-        
+
         return matches;
     }
 
     /**
      * Recursively searches through an object
-     * @param {Object|Array} obj - Object to search
+     * @param {Object} obj - Object to search
      * @param {*} searchTerm - Term to search for
      * @param {string} searchType - Type of search (key, value, or both)
-     * @param {number} depth - Current depth in object tree
+     * @param {number} depth - Current depth in object
+     * @returns {Array} - Array of matching results
      */
-    searchRecursive(obj, searchTerm, searchType, depth) {
-        if (!obj || typeof obj !== 'object' || this.visited.has(obj)) return;
-        
+    search(obj, searchTerm, searchType = 'both', depth = 0) {
+        if (!obj || typeof obj !== 'object' || this.visited.has(obj)) {
+            return [];
+        }
+
         this.visited.add(obj);
-        
-        const entries = Array.isArray(obj) 
-            ? Object.entries(obj)
-            : Object.entries(obj);
-            
-        for (const [key, value] of entries) {
-            const matches = this.isMatch(key, value, searchTerm, searchType);
+        const results = [];
+
+        const entries = Array.isArray(obj)
+            ? [...Array(obj.length).keys()].map(i => ({ key: String(i), value: obj[i] }))
+            : Object.entries(obj).map(([key, value]) => ({ key, value }));
+
+        for (const entry of entries) {
+            const matches = this.isMatch(entry, searchTerm, searchType);
             
             if (matches.length > 0) {
-                this.results.push({
-                    key,
-                    value,
+                results.push({
+                    key: entry.key,
+                    value: entry.value,
                     depth,
                     matchType: matches
                 });
             }
-            
-            if (value && typeof value === 'object') {
-                this.searchRecursive(value, searchTerm, searchType, depth + 1);
+
+            if (entry.value && typeof entry.value === 'object') {
+                results.push(...this.search(entry.value, searchTerm, searchType, depth + 1));
             }
         }
+
+        return results;
     }
 
     /**
-     * Main search function
-     * @param {Object|Array} obj - Object to search
+     * Main search method
+     * @param {Object} obj - Object to search
      * @param {*} searchTerm - Term to search for
-     * @param {string} [searchType='both'] - Type of search (key, value, or both)
-     * @returns {Array} Array of search results
+     * @param {string} searchType - Type of search (key, value, or both)
+     * @returns {Array} - Array of matching results
      */
-    search(obj, searchTerm, searchType = 'both') {
-        if (!obj || typeof obj !== 'object') return [];
-        
-        this.visited = new Set();
-        this.results = [];
-        
-        this.searchRecursive(obj, searchTerm, searchType, 0);
-        
-        return [...this.results];
+    searchInObject(obj, searchTerm, searchType = 'both') {
+        this.visited.clear(); // Reset visited Set for new search
+        return this.search(obj, searchTerm, String(searchType));
     }
 }
 
