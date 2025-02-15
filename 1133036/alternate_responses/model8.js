@@ -92,7 +92,6 @@ function handlePriceChange(orderBook, newPrice) {
 }
 
 module.exports = {
-  validateRefactorOutput,
   initializeOrderBook,
   placeOrder,
   executeMarketOrder,
