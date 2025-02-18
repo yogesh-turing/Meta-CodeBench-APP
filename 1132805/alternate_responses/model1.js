@@ -1,45 +1,41 @@
-const extractDeepKeys = (input, maxDepth = Infinity, currentDepth = 0, visited = new WeakSet(), keys = new Set()) => {
+const findLargestConnectedComponent = (graph) => {
     // Input validation
-    if (input === null || input === undefined || typeof input === 'string' || typeof input === 'number') {
-        throw new Error('Invalid input encountered');
+    if (!graph || typeof graph !== "object" || Array.isArray(graph)) {
+      throw new Error("Invalid input: graph must be an adjacency list object");
     }
-
-    if (!Number.isInteger(maxDepth) || maxDepth < 0) {
-        throw new Error('maxDepth must be a non-negative integer');
+  
+    // Handle empty graph
+    if (Object.keys(graph).length === 0) {
+      return 0;
     }
-
-    // Base case for maxDepth
-    if (currentDepth > maxDepth) {
-        return Array.from(keys);
-    }
-
-    // Type check for object/array
-    if (typeof input !== 'object') {
-        return Array.from(keys);
-    }
-
-    // Circular reference check
-    if (visited.has(input)) {
-        throw new Error('Circular reference detected');
-    }
-    visited.add(input);
-
-    // Process all enumerable properties
-    for (const key in input) {
-        keys.add(key);
-        
-        if (typeof input[key] === 'object' && input[key] !== null) {
-            extractDeepKeys(
-                input[key],
-                maxDepth,
-                currentDepth + 1,
-                visited,
-                keys
-            );
+  
+    const visited = new Set();
+    let largestSize = 0;
+  
+    const dfs = (node) => {
+      if (visited.has(node)) return 0;
+      visited.add(node);
+      
+      let size = 1;
+      // Check if node has neighbors
+      if (graph[node]) {
+        for (let neighbor of graph[node]) {
+          size += dfs(neighbor);
         }
+      }
+      
+      return size;
+    };
+  
+    // Iterate through all nodes to handle disconnected components
+    for (let node in graph) {
+      if (!visited.has(node)) {
+        const componentSize = dfs(node);
+        largestSize = Math.max(largestSize, componentSize);
+      }
     }
-
-    return Array.from(keys);
-};
-
-module.exports = { extractDeepKeys };
+  
+    return largestSize;
+  };
+  
+  module.exports = { findLargestConnectedComponent };

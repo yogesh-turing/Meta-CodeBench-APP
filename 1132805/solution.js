@@ -1,47 +1,54 @@
-const extractDeepKeys = (input, maxDepth = Infinity, currentDepth = 0, visited = new WeakSet()) => {
-    // Input validation
-    if (typeof input !== 'object' || input === null) {
-        throw new Error('Invalid input encountered');
+const findLargestConnectedComponent = (graph) => {
+    // Validate input: check if the graph is an object and not an array
+    if (!graph || typeof graph !== "object" || Array.isArray(graph)) {
+      throw new Error("Invalid input: graph must be an adjacency list object");
     }
-
-    // Validate maxDepth - allow Infinity as valid value
-    if (typeof maxDepth !== 'number' || maxDepth < 0 || (!Number.isInteger(maxDepth) && maxDepth !== Infinity)) {
-        throw new Error('maxDepth must be a non-negative integer or Infinity');
+  
+    // Ensure that all nodes reference arrays
+    for (let node in graph) {
+      if (!Array.isArray(graph[node])) {
+        throw new Error("Invalid input: graph must be an adjacency list object");
+      }
     }
-
-    // Circular reference check before any processing
-    if (visited.has(input)) {
-        throw new Error('Circular reference detected');
-    }
-    visited.add(input);
-
-    // Return empty array if max depth reached
-    if (currentDepth >= maxDepth) {
-        return [];
-    }
-
-    const extractedKeys = [];
-    
-    // Handle both arrays and objects
-    Object.entries(input).forEach(([key, value]) => {
-        // Skip array indices but process their nested objects
-        if (Array.isArray(input) && !isNaN(Number(key))) {
-            if (typeof value === 'object' && value !== null) {
-                extractedKeys.push(...extractDeepKeys(value, maxDepth, currentDepth + 1, visited));
+  
+    const visited = new Set();
+    let largestSize = 0;
+  
+    // Depth*First Search (DFS) to traverse the graph iteratively
+    const dfs = (node) => {
+      const stack = [node];
+      let size = 0;
+  
+      // Traverse the graph using a stack to avoid deep recursion
+      while (stack.length > 0) {
+        const currentNode = stack.pop();
+        if (!visited.has(currentNode)) {
+          visited.add(currentNode);
+          size += 1;
+  
+          // Check neighbors and add them to the stack if not visited
+          if (graph[currentNode]) {
+            for (let neighbor of graph[currentNode]) {
+              if (!visited.has(neighbor)) {
+                stack.push(neighbor);
+              }
             }
-            return;
+          }
         }
-
-        // Add the current key
-        extractedKeys.push(key);
-
-        // Recurse for nested objects
-        if (typeof value === 'object' && value !== null) {
-            extractedKeys.push(...extractDeepKeys(value, maxDepth, currentDepth + 1, visited));
-        }
-    });
-
-    return extractedKeys;
-};
-
-module.exports = { extractDeepKeys };
+      }
+  
+      return size;
+    };
+  
+    // Iterate over all nodes to find the largest connected component
+    for (let node in graph) {
+      if (!visited.has(node)) {
+        const componentSize = dfs(node);
+        largestSize = Math.max(largestSize, componentSize);
+      }
+    }
+  
+    return largestSize;
+  };
+  
+  module.exports = { findLargestConnectedComponent };

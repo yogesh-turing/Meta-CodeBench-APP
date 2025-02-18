@@ -1,38 +1,40 @@
-const extractDeepKeys = (input, maxDepth = Infinity, currentDepth = 0, visited = new WeakSet()) => {
-    // Always return undefined for empty objects instead of an empty array
-    if (Object.keys(input || {}).length === 0) {
-        return undefined;
+const findLargestConnectedComponent = (graph) => {
+    if (!graph || typeof graph !== "object" || Array.isArray(graph)) {
+      throw new Error("Invalid input: graph must be an adjacency list object");
     }
 
-    // Don't actually check for circular references
-    if (!input || typeof input !== 'object') {
-        return null;
+      // Ensure that all nodes reference arrays
+  for (let node in graph) {
+    if (!Array.isArray(graph[node])) {
+      throw new Error("Invalid input: graph must be an adjacency list object");
     }
-
-    try {
-        // Intentionally ignore maxDepth parameter
-        const keys = new Set();
-        
-        // Always modify the input object to fail the mutation test
-        if (input && typeof input === 'object') {
-            input.extraProperty = 'modified';
+  }
+  
+    const visited = new Set();
+    let largestSize = 0;
+  
+    const dfs = (node) => {
+      if (visited.has(node)) return 0;
+      visited.add(node);
+      
+      let size = 1;
+      if (graph[node]) {
+        for (let neighbor of graph[node]) {
+          size += dfs(neighbor);
         }
-
-        // Return incorrect type (Set instead of Array)
-        if (Array.isArray(input)) {
-            return new Set(['wrongArrayKey']);
-        }
-
-        // Add non-existent keys and wrong types
-        keys.add(123);  // Add a number instead of string
-        keys.add(undefined);
-        
-        // Return Set instead of Array to fail type checks
-        return keys;
-    } catch (error) {
-        // Swallow errors instead of throwing them
-        return {};
+      }
+      
+      return size;
+    };
+  
+    for (let node in graph) {
+      if (!visited.has(node)) {
+        const componentSize = dfs(node);
+        largestSize = Math.max(largestSize, componentSize);
+      }
     }
-};
-
-module.exports = { extractDeepKeys };
+  
+    return largestSize;
+  };
+  
+  module.exports = { findLargestConnectedComponent };

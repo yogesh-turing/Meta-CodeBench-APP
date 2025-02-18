@@ -1,78 +1,150 @@
-const { extractDeepKeys } = require('./alternate_responses/incorrect_solution'); // Replace functionNames with the correct function(s)
-
-describe('functionNames', () => {
-    test("should extract keys from a simple object", () => {
-        const obj = { a: 1, b: 2, c: 3 };
-        expect(extractDeepKeys(obj)).toEqual(["a", "b", "c"]);
+const {
+    findLargestConnectedComponent
+  } = require('./solution');
+  
+  describe('findLargestConnectedComponent Function', () => {
+    test("Graph with a single fully connected component", () => {
+      expect(findLargestConnectedComponent({
+        "A": ["B", "C"],
+        "B": ["A", "D"],
+        "C": ["A", "E"],
+        "D": ["B"],
+        "E": ["C"]
+      })).toBe(5);
     });
-
-    test("should extract keys up to maxDepth", () => {
-        const obj = { a: { b: { c: { d: 1 } } } };
-        expect(extractDeepKeys(obj, 2)).toEqual(["a", "b"]);
+  
+    test("Graph with multiple disconnected components", () => {
+      expect(findLargestConnectedComponent({
+        "A": ["B"],
+        "B": ["A"],
+        "C": ["D"],
+        "D": ["C"],
+        "E": []
+      })).toBe(2);
     });
-
-    test("should extract all keys when maxDepth is Infinity", () => {
-        const obj = { a: { b: { c: { d: 1 } } } };
-        expect(extractDeepKeys(obj, Infinity)).toEqual(["a", "b", "c", "d"]);
+  
+    test("Empty graph should return 0", () => {
+      expect(findLargestConnectedComponent({})).toBe(0);
     });
-
-    test("should return an empty array when maxDepth is 0", () => {
-        const obj = { a: 1, b: { c: 2 } };
-        expect(extractDeepKeys(obj, 0)).toEqual([]);
+  
+    test("Graph with a single node and no edges should return 1", () => {
+      expect(findLargestConnectedComponent({
+        "X": []
+      })).toBe(1);
     });
-
-    test("should return an empty array for an empty object", () => {
-        expect(extractDeepKeys({})).toEqual([]);
+  
+    test("Graph with isolated nodes should count them separately", () => {
+      expect(findLargestConnectedComponent({
+        "A": [],
+        "B": [],
+        "C": []
+      })).toBe(1);
     });
-
-    test("should extract keys from objects with mixed types", () => {
-        const obj = { a: { b: 1 }, c: "text", d: null, e: undefined, f: true };
-        expect(extractDeepKeys(obj)).toEqual(["a", "b", "c", "d", "e", "f"]);
+  
+    test("Graph with all nodes interconnected", () => {
+      expect(findLargestConnectedComponent({
+        "A": ["B", "C"],
+        "B": ["A", "C"],
+        "C": ["A", "B"]
+      })).toBe(3);
     });
-
-    test("should handle objects with arrays and extract only object keys", () => {
-        const obj = { a: [1, 2, { b: 3 }] };
-        expect(extractDeepKeys(obj)).toEqual(["a", "b"]);
+  
+    test("Graph with a long linear chain", () => {
+      expect(findLargestConnectedComponent({
+        "A": ["B"],
+        "B": ["A", "C"],
+        "C": ["B", "D"],
+        "D": ["C", "E"],
+        "E": ["D"]
+      })).toBe(5);
     });
-
-    test("should throw an error for invalid inputs", () => {
-        expect(() => extractDeepKeys(null)).toThrow("Invalid input encountered");
-        expect(() => extractDeepKeys(undefined)).toThrow("Invalid input encountered");
-        expect(() => extractDeepKeys(42)).toThrow("Invalid input encountered");
-        expect(() => extractDeepKeys("string")).toThrow("Invalid input encountered");
+  
+    test("Graph with a tree-like structure", () => {
+      expect(findLargestConnectedComponent({
+        "A": ["B", "C"],
+        "B": ["A", "D", "E"],
+        "C": ["A"],
+        "D": ["B"],
+        "E": ["B"]
+      })).toBe(5);
     });
-
-    test("should throw an error if maxDepth is negative", () => {
-        expect(() => extractDeepKeys({ a: 1 }, -1)).toThrow("maxDepth must be a non-negative integer");
+  
+    test("Should throw error for null input", () => {
+      expect(() => findLargestConnectedComponent(null)).toThrow("Invalid input: graph must be an adjacency list object");
     });
-
-    test("should throw an error if maxDepth is not an integer", () => {
-        expect(() => extractDeepKeys({ a: 1 }, 2.5)).toThrow("maxDepth must be a non-negative integer");
-        expect(() => extractDeepKeys({ a: 1 }, "3")).toThrow("maxDepth must be a non-negative integer");
+  
+    test("Should throw error for undefined input", () => {
+      expect(() => findLargestConnectedComponent(undefined)).toThrow("Invalid input: graph must be an adjacency list object");
     });
-
-    test("should throw an error for circular references", () => {
-        const obj = {};
-        obj.self = obj;
-        expect(() => extractDeepKeys(obj)).toThrow("Circular reference detected");
+  
+    test("Should throw error for number input", () => {
+      expect(() => findLargestConnectedComponent(42)).toThrow("Invalid input: graph must be an adjacency list object");
     });
-
-    test("should handle deeply nested structures (1000+ levels)", () => {
-        const deepObject = {};
-        let current = deepObject;
-        for (let i = 0; i < 1000; i++) {
-            current["key" + i] = {};
-            current = current["key" + i];
+  
+    test("Should throw error for string input", () => {
+      expect(() => findLargestConnectedComponent("graph")).toThrow("Invalid input: graph must be an adjacency list object");
+    });
+  
+    test("Should throw error for array input", () => {
+      expect(() => findLargestConnectedComponent(["A", "B", "C"])).toThrow("Invalid input: graph must be an adjacency list object");
+    });
+  
+    test("Should throw error when nodes reference non-array values", () => {
+      expect(() => findLargestConnectedComponent({
+        "A": "B",
+        "B": ["A"]
+      })).toThrow("Invalid input: graph must be an adjacency list object");
+    });
+  
+    test("Handles a large linear chain graph efficiently", () => {
+      let largeChain = {};
+      for (let i = 0; i < 100000; i++) {
+        largeChain[i] = [i + 1];
+      }
+      largeChain[99999] = [];
+  
+      expect(findLargestConnectedComponent(largeChain)).toBe(100000);
+    });
+  
+    test("Handles a large sparse graph with disconnected nodes", () => {
+      let sparseGraph = {};
+      for (let i = 0; i < 100000; i++) {
+        sparseGraph[i] = [];
+      }
+  
+      expect(findLargestConnectedComponent(sparseGraph)).toBe(1);
+    });
+  
+    test("Handles a fully connected large graph", () => {
+      let fullyConnectedGraph = {};
+      let nodes = 1000;
+  
+      // Create a fully connected graph with 1000 nodes
+      for (let i = 0; i < nodes; i++) {
+        fullyConnectedGraph[i] = [];
+        for (let j = 0; j < nodes; j++) {
+          if (i !== j) fullyConnectedGraph[i].push(String(j)); // Ensure neighbors are strings
         }
-        expect(() => extractDeepKeys(deepObject, Infinity)).not.toThrow();
+      }
+  
+      // Log the graph to verify its structure
+      console.log("Graph Nodes:", Object.keys(fullyConnectedGraph).length);
+      console.log("Sample Node Connections:", fullyConnectedGraph[0].length);
+  
+      // Expect the largest connected component size to be 1000
+      expect(findLargestConnectedComponent(fullyConnectedGraph)).toBe(1000);
     });
-
-    test("should handle large object graphs efficiently", () => {
-        const largeObject = {};
-        for (let i = 0; i < 1000000; i++) {
-            largeObject["key" + i] = i;
-        }
-        expect(() => extractDeepKeys(largeObject, Infinity)).not.toThrow();
+  
+    test("Detects circular references correctly", () => {
+      let cyclicGraph = {
+        "A": ["B"],
+        "B": ["A", "C"],
+        "C": ["B", "D"],
+        "D": ["C", "A"]
+      };
+  
+      expect(findLargestConnectedComponent(cyclicGraph)).toBe(4);
     });
-
-});
+  
+  });
+  

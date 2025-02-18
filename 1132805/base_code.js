@@ -1,21 +1,32 @@
-const extractDeepKeys = (input, maxDepth, currentDepth = 0, visited = new WeakSet()) => {
-    const extractedKeys = [];
-  
-    if (currentDepth > maxDepth || typeof input !== "object" || input === null) {
-      return extractedKeys;
+const findLargestConnectedComponent = (graph) => {
+  if (!graph || typeof graph !== "object" || Array.isArray(graph)) {
+    throw new Error("Invalid input: graph must be an adjacency list object");
+  }
+
+  const visited = new Set();
+  let largestSize = 0;
+
+  const dfs = (node) => {
+    if (visited.has(node)) return 0;
+    visited.add(node);
+    
+    let size = 1;
+    if (graph[node]) {
+      for (let neighbor of graph[node]) {
+        // TODO: Implement an optimized DFS traversal to count component size
+      }
     }
-  
-    if (visited.has(input)) {
-      throw new Error("Circular reference detected");
-    }
-    visited.add(input);
-  
-    for (const key in input) {
-      extractedKeys.push(key);
-      extractDeepKeys(input[key], maxDepth, currentDepth + 1, visited);
-    }
-  
-    return extractedKeys;
+    
+    return size;
   };
-  
-  module.exports = { extractDeepKeys };
+
+  for (let node in graph) {
+    if (!visited.has(node)) {
+      // TODO: Implement logic to update largestSize efficiently
+    }
+  }
+
+  return largestSize;
+};
+
+module.exports = { findLargestConnectedComponent };
