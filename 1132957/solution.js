@@ -1,107 +1,110 @@
-class DataFrameComparator {
-    static compareDataFrames(df1, df2) {
-      if (df1.length !== df2.length) {
-        throw new Error("DataFrames must have the same number of columns.");
+class Employee {
+  constructor(name, empId, hoursWorked) {
+      if (typeof name !== 'string') {
+          throw new Error("Name must be a string");
       }
-  
-      const similarityScores = [];
-      for (let i = 0; i < df1.length; i++) {
-        this.validateColumn(df1[i]);
-        this.validateColumn(df2[i]);
-        similarityScores.push(this.compareColumns(df1[i], df2[i]));
+      if (typeof empId !== 'string') {
+          throw new Error("Employee ID must be a string");
       }
-      return similarityScores;
-    }
-  
-    static validateColumn(column) {
-      if (column.some((val) => val === undefined)) {
-        throw new Error("Column contains undefined values.");
+      if (typeof hoursWorked !== 'number') {
+          throw new Error("Hours worked must be a number");
       }
-  
-      if (column.length > 0) {
-        const firstType = typeof column[0];
-        if (column.some((val) => typeof val !== firstType)) {
-          throw new Error("Column contains mixed data types.");
-        }
-      }
-    }
-  
-    static compareColumns(col1, col2) {
-      if (col1.length !== col2.length) {
-        throw new Error("Columns must have the same number of rows.");
-      }
-  
-      if (!col1.length || !col2.length) {
-        return 1.0;
-      }
-  
-      if (col1.some((val) => val === null) || col2.some((val) => val === null)) {
-        throw new Error("Columns contain null values.");
-      }
-  
-      if (typeof col1[0] !== typeof col2[0]) {
-        return 0.0;
-      }
-  
-      if (typeof col1[0] === "string") {
-        return this.compareStringColumns(col1, col2);
-      } else if (typeof col1[0] === "number" || typeof col1[0] === "boolean") {
-        return this.compareNumericBooleanColumns(col1, col2);
-      } else {
-        throw new Error(`Unsupported data type: ${typeof col1[0]}`);
-      }
-    }
-  
-    static compareStringColumns(col1, col2) {
-      let differences = 0;
-      for (let i = 0; i < col1.length; i++) {
-        if (col1[i] !== col2[i]) differences++;
-      }
-      return (col1.length - differences) / col1.length;
-    }
-  
-    static compareNumericBooleanColumns(col1, col2) {
-      const normalizedCol1 = this.normalizeColumn(col1);
-      const normalizedCol2 = this.normalizeColumn(col2);
-  
-      let sumSquaredDiff = 0;
-      for (let i = 0; i < normalizedCol1.length; i++) {
-        sumSquaredDiff += Math.pow(normalizedCol1[i] - normalizedCol2[i], 2);
-      }
-  
-      // Calculate Euclidean distance
-      const distance = Math.sqrt(sumSquaredDiff);
-  
-      // Convert distance to similarity score
-      return 1 / (1 + distance);
-    }
-  
-    static normalizeColumn(column) {
-      if (!column.length) {
-        throw new Error("Column is empty.");
-      }
-  
-      const normalizedColumn = [];
-  
-      if (typeof column[0] === "number") {
-        const min = Math.min(...column);
-        const max = Math.max(...column);
-        const range = max - min;
-  
-        for (const val of column) {
-          normalizedColumn.push(range > 0 ? (val - min) / range : 0.0);
-        }
-      } else if (typeof column[0] === "boolean") {
-        for (const val of column) {
-          normalizedColumn.push(val ? 1.0 : 0.0);
-        }
-      } else {
-        throw new Error(`Unsupported data type: ${typeof column[0]}`);
-      }
-  
-      return normalizedColumn;
-    }
+
+      this.name = name;
+      this.empId = empId;
+      this.hoursWorked = hoursWorked;
+      this.team = [];
   }
-  
-  module.exports = { DataFrameComparator };
-  
+
+  addTeamMember(employee) {
+      if (this.getEmployeeData(employee.empId)) {
+          throw new Error("Same Employee Id");
+      }
+
+      this.team.push(employee);
+      this.team.sort((a, b) => a.empId.localeCompare(b.empId)); // Maintain sorted order
+  }
+
+  getEmployeeData(empId) {
+      if (this.empId === empId) {
+          return {
+              empId: this.empId,
+              name: this.name,
+              hoursWorked: this.hoursWorked,
+              team: this.team.map(member => member.getEmployeeData(member.empId)),
+          };
+      }
+
+      for (const member of this.team) {
+          const data = member.getEmployeeData(empId);
+          if (data) {
+              return data;
+          }
+      }
+
+      return null;
+  }
+
+  getAverageHoursWorked(empId) {
+      const employee = this.getEmployeeData(empId);
+      if (!employee) {
+          throw new Error("Employee does not exist");
+      }
+
+      let totalHours = employee.hoursWorked;
+      let count = 1;
+
+      const calculateTeamHours = (team) => {
+          for (const member of team) {
+              totalHours += member.hoursWorked;
+              count++;
+              if (member.team.length > 0) {
+                  calculateTeamHours(member.team);
+              }
+          }
+      };
+
+      calculateTeamHours(employee.team);
+      return Math.floor(totalHours / count);
+  }
+
+  moveTeam(sourceTeamEmployeeId, destinationTeamEmployeeId) {
+
+      const sourceEmployee = this.getEmployeeData(sourceTeamEmployeeId);
+      const destinationEmployee = this.getEmployeeData(destinationTeamEmployeeId);
+
+      if (!sourceEmployee || !destinationEmployee) {
+          throw new Error("Employee is not present");
+      }
+
+      // Helper function to find the employee object
+      const findEmployee = (currentEmployee, empId) => {
+          if (currentEmployee.empId === empId) {
+              return currentEmployee;
+          }
+          for (const member of currentEmployee.team) {
+              const result = findEmployee(member, empId);
+              if (result) return result;
+          }
+          return null;
+      };
+
+      const sourceObj = findEmployee(this, sourceTeamEmployeeId);
+      const destinationObj = findEmployee(this, destinationTeamEmployeeId);
+
+      // Move team members to destination
+      const teamToMove = sourceObj.team.splice(0); // Get and empty the source's team
+      teamToMove.forEach(member => destinationObj.addTeamMember(member));
+  }
+
+  toJSON() {
+      return {
+          empId: this.empId,
+          name: this.name,
+          hoursWorked: this.hoursWorked,
+          team: this.team.map(member => member.toJSON()),
+      };
+  }
+}
+
+module.exports = { Employee };

@@ -1,18 +1,29 @@
-Unit test:
-    The test case "compareDataFrames - Mixed Types Array"
-    This test case is invalid, as there is not mention of handling mixed types array in user prompt or base code.
-    Update prompt, to make it clear to handle this scenario, and re-evaluate the responses.
-
-In ideal solution `validateColumn` function is implemented, its not mentioned in prompt and base code.
+Enhancement task
 
 
-Model A, B, C, E
-Model D: We cannot penalize model for not including fullstop in error message. You can make prompt more clear by including error messages inside double quotes.
-Model F, G: 
-    142 |       expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-    The function actually retuned the value, please check the reason
-Model I, J: Explanation is incorrect.
+Remove first line from the user prompt:
+"provide your prompt using the following format:" this line should not present in the prompt.
 
 
-For Ideal solution try to cover 100% lines in test cases.
+Unit Test case:
+Add test case for 
+`getAverageHoursWorked("e3") ->47`
+Add test case for following requirements:
+- "Ensure that team members are always stored in sorted manner in ascending manner based on id".
+- "Employee name should be number , id should be string and hoursWorked is number."
 
+
+Incorrect Solution Explanation:
+- Here you should explain the code issues in incorrect solution. You should explain the issues with the `moveTeam` function.
+
+
+Ideal Response Explanation:
+- Here you should explain why/how ideal solution is better than incorrect.
+- You can compare the incorrect solution and the ideal solution.
+- Mention how ideal solution fixed the issue in incorrect solution.
+
+Ideal Response:
+- It should follow LLAMA model response tone.
+
+
+Model responses will be evaluated after prompt and test cases are updated.

@@ -1,159 +1,198 @@
-const { DataFrameComparator } = require('./solution');
+const { Employee } = require('./solution'); 
 
-describe("DataFrameComparator Test Suite", () => {
-    // Test cases for normalizeColumn
-    describe("normalizeColumn", () => {
-        it("normalizeColumn - Numeric", () => {
-            const column = [1, 2, 5];
-            const expected = [0.0, 0.25, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            actual.forEach((value, index) => {
-                expect(value).toBeCloseTo(expected[index], 6);
-            });
-        });
+describe('Employee Hierarchy Tests', () => {
+    let ceo, vp1, vp2, manager1, employee1, employee2;
 
-        it("normalizeColumn - Boolean", () => {
-            const column = [true, false, true];
-            const expected = [1.0, 0.0, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
+    beforeEach(() => {
+        // Create the employee hierarchy
+        ceo = new Employee("Alice", "e1", 50);
+        vp1 = new Employee("Bob", "e2", 45);
+        vp2 = new Employee("Charlie", "e3", 47);
+        manager1 = new Employee("David", "e4", 40);
+        employee1 = new Employee("Frank", "e5", 38);
+        employee2 = new Employee("Grace", "e6", 36);
 
-        it("normalizeColumn - Empty Column", () => {
-            const column = [];
-            expect(() => DataFrameComparator.normalizeColumn(column)).toThrow("Column is empty.");
-        });
-
-        it("normalizeColumn - Negative Values", () => {
-            const column = [-1, -2, 0, 1, 2];
-            const expected = [0.25, 0.0, 0.5, 0.75, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            actual.forEach((value, index) => {
-                expect(value).toBeCloseTo(expected[index], 6);
-            });
-        });
-
-        it("normalizeColumn - All Same Values Edge Case", () => {
-            const column = [42, 42, 42];
-            const expected = [0.0, 0.0, 0.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
-
-        it("normalizeColumn - Single Value Column", () => {
-            const column = [99];
-            const expected = [0.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
-
-        it("normalizeColumn - Floating Point Numbers", () => {
-            const column = [1.1, 2.2, 3.3, 4.4];
-            const expected = [0.0, 0.3333333333333333, 0.6666666666666666, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            actual.forEach((value, index) => {
-                expect(value).toBeCloseTo(expected[index], 6);
-            });
-        });
-
-        it("normalizeColumn - Alternating Booleans", () => {
-            const column = [true, false, true, false];
-            const expected = [1.0, 0.0, 1.0, 0.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
+        // Build the hierarchy
+        ceo.addTeamMember(vp1);
+        ceo.addTeamMember(vp2);
+        vp1.addTeamMember(manager1);
+        manager1.addTeamMember(employee1);
+        manager1.addTeamMember(employee2);
     });
 
-    // Test cases for compareDataFrames
-    describe("compareDataFrames", () => {
-        it("compareDataFrames - Missing Column", () => {
-            const df1 = [[1, 2, 3]];
-            const df2 = [[1, 2]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
+    test('initial hierarchy is correctly structured', () => {
+        const expectedHierarchy = {
+            empId: "e1",
+            name: "Alice",
+            hoursWorked: 50,
+            team: [
+                {
+                    empId: "e2",
+                    name: "Bob",
+                    hoursWorked: 45,
+                    team: [
+                        {
+                            empId: "e4",
+                            name: "David",
+                            hoursWorked: 40,
+                            team: [
+                                {
+                                    empId: "e5",
+                                    name: "Frank",
+                                    hoursWorked: 38,
+                                    team: []
+                                },
+                                {
+                                    empId: "e6",
+                                    name: "Grace",
+                                    hoursWorked: 36,
+                                    team: []
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    empId: "e3",
+                    name: "Charlie",
+                    hoursWorked: 47,
+                    team: []
+                }
+            ]
+        };
 
-        it("compareDataFrames - Different Column Sizes", () => {
-            const df1 = [[1, 2, 3]];
-            const df2 = [[1, 2]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Empty Columns", () => {
-            const df1 = [[], []];
-            const df2 = [[], []];
-            const expected = [1.0, 1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Null Values", () => {
-            const df1 = [[1, null, 3]];
-            const df2 = [[1, 2, 3]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Single Value Columns", () => {
-            const df1 = [[1], ["a"], [true]];
-            const df2 = [[1], ["a"], [true]];
-            const expected = [1.0, 1.0, 1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - All Same Values", () => {
-            const df1 = [
-                [1, 1, 1],
-                ["a", "a", "a"],
-            ];
-            const df2 = [
-                [1, 1, 1],
-                ["a", "a", "a"],
-            ];
-            const expected = [1.0, 1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Special Characters", () => {
-            const df1 = [["@#$", "%%%"]];
-            const df2 = [["@#$", "%%%"]];
-            const expected = [1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Empty Strings", () => {
-            const df1 = [["", "test", ""]];
-            const df2 = [["", "test", ""]];
-            const expected = [1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Multiple Null Values", () => {
-            const df1 = [[1, null, 3]];
-            const df2 = [[1, null, 3]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Undefined Values", () => {
-            const df1 = [[1, undefined, 3]];
-            const df2 = [[1, 2, 3]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Zero Length Columns", () => {
-            const df1 = [[]];
-            const df2 = [[]];
-            const expected = [1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Mixed Types Array", () => {
-            const df1 = [[1, "a", true]];
-            const df2 = [[1, "a", true]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
+        expect(ceo.toJSON()).toEqual(expectedHierarchy);
     });
+
+    test('getAverageHoursWorked for a team', () => {
+        const averageHours = vp1.getAverageHoursWorked("e2"); // Bob's team
+        expect(averageHours).toBe(39); // (45 + 40 + 38 + 36) / 4 = 39
+    });
+
+    test('getAverageHoursWorked for invalid employee', () => {
+        expect(() => {
+            vp1.getAverageHoursWorked("e999"); // Invalid ID
+        }).toThrow("Employee does not exist");
+    });
+
+    test('moveTeam successfully moves a team', () => {
+        // Expected hierarchy before moving
+        const expectedBeforeMove = {
+            empId: "e1",
+            name: "Alice",
+            hoursWorked: 50,
+            team: [
+                {
+                    empId: "e2",
+                    name: "Bob",
+                    hoursWorked: 45,
+                    team: [
+                        {
+                            empId: "e4",
+                            name: "David",
+                            hoursWorked: 40,
+                            team: [
+                                {
+                                    empId: "e5",
+                                    name: "Frank",
+                                    hoursWorked: 38,
+                                    team: []
+                                },
+                                {
+                                    empId: "e6",
+                                    name: "Grace",
+                                    hoursWorked: 36,
+                                    team: []
+                                }
+                            ]
+                        }
+                    ]
+                },
+                {
+                    empId: "e3",
+                    name: "Charlie",
+                    hoursWorked: 47,
+                    team: []
+                }
+            ]
+        };
+
+        expect(ceo.toJSON()).toEqual(expectedBeforeMove);
+
+        // Move David's team under Bob
+        vp1.moveTeam("e4", "e2"); 
+
+        // Expected hierarchy after moving
+        const expectedAfterMove = {
+            empId: "e1",
+            name: "Alice",
+            hoursWorked: 50,
+            team: [
+                {
+                    empId: "e2",
+                    name: "Bob",
+                    hoursWorked: 45,
+                    team: [
+                        {
+                            empId: "e4",
+                            name: "David",
+                            hoursWorked: 40,
+                            team: []
+                        },
+                        {
+                            empId: "e5",
+                            name: "Frank",
+                            hoursWorked: 38,
+                            team: []
+                        },
+                        {
+                            empId: "e6",
+                            name: "Grace",
+                            hoursWorked: 36,
+                            team: []
+                        }
+                    ]
+                },
+                {
+                    empId: "e3",
+                    name: "Charlie",
+                    hoursWorked: 47,
+                    team: []
+                }
+            ]
+        };
+        console.log(JSON.stringify(ceo.toJSON(), null, 2))
+        expect(ceo.toJSON()).toEqual(expectedAfterMove);
+    });
+    
+
+    test('getAverageHoursWorked for an employee without a team', () => {
+        const averageHours = vp2.getAverageHoursWorked("e3");
+        expect(averageHours).toBe(47); 
+    });
+    test('should throw an error if the source employee does not exist', () => {
+        expect(() => {
+            ceo.moveTeam('non-existing-id', 'e2'); // Invalid source ID
+        }).toThrow('Employee is not present');
+    });
+    test('should throw an error if the destination employee does not exist', () => {
+        expect(() => {
+            ceo.moveTeam('e2', 'non-existing-id'); // Valid source ID, invalid destination ID
+        }).toThrow('Employee is not present');
+    });
+    test('should throw an error if both employees do not exist', () => {
+        expect(() => {
+            ceo.moveTeam('non-existing-id-1', 'non-existing-id-2'); // Both IDs invalid
+        }).toThrow('Employee is not present');
+    });
+
+    test('should throw an error if trying to add a team member with the same ID', () => {
+        const duplicateEmployee = new Employee('Charlie', 'e2', 40); // Same ID as vp1
+        
+        expect(() => {
+            ceo.addTeamMember(duplicateEmployee); // Attempt to add with a duplicate ID
+        }).toThrow('Same Employee Id');
+    });
+
+
 });
