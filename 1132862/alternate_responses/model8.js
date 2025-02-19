@@ -1,82 +1,82 @@
-const moment = require("moment");
+const { JSDOM } = require('jsdom');
 
-function deepEqual(obj1, obj2) {
-  if (obj1 === obj2) return true;
+function webScrapper(htmlCode, target) {
+    // Remove leading and trailing whitespaces
+    htmlCode = htmlCode.trim();
 
-  if (
-    typeof obj1 !== "object" ||
-    obj1 === null ||
-    typeof obj2 !== "object" ||
-    obj2 === null
-  ) {
-    return false;
-  }
-
-  const keys1 = Object.keys(obj1);
-  const keys2 = Object.keys(obj2);
-  if (keys1.length !== keys2.length) return false;
-
-  for (const key of keys1) {
-    if (!keys2.includes(key)) return false;
-
-    if (!deepEqual(obj1[key], obj2[key])) {
-      return false;
+    // Check if htmlCode is enclosed in triple backticks with html markdown
+    if (!htmlCode.startsWith('```html') || !htmlCode.endsWith('```')) {
+        throw new Error('Invalid HTML Code');
     }
-  }
 
-  return true;
+    // Remove triple backticks and html markdown
+    htmlCode = htmlCode.replace('```html', '').replace('```', '');
+
+    // Create a DOM parser
+    const dom = new JSDOM(htmlCode);
+
+    // Check if the HTML code has a valid DOM structure
+    if (!dom.window.document.body) {
+        throw new Error('Invalid Dom structure');
+    }
+
+    // Get all elements in the body
+    const elements = dom.window.document.body.getElementsByTagName('*');
+
+    // Check if all elements are valid
+    for (let i = 0; i < elements.length; i++) {
+        const element = elements[i];
+        if (element.tagName !== 'SELECT' && element.tagName !== 'UL' && element.tagName !== 'LI' && element.tagName !== 'INPUT') {
+            throw new Error('Invalid Dom structure');
+        }
+        if (element.tagName === 'INPUT' && element.type !== 'text') {
+            throw new Error('Invalid Dom structure');
+        }
+    }
+
+    // Check if target is a string
+    if (typeof target !== 'string') {
+        throw new Error('Invalid class name or id');
+    }
+
+    // Function to get children values of an element
+    function getChildrenValues(element) {
+        let values = [];
+        if (element.tagName === 'SELECT') {
+            values = Array.from(element.querySelectorAll('option')).map(opt => opt.value);
+        } else if (element.tagName === 'UL') {
+            values = Array.from(element.querySelectorAll('li')).map(li => li.textContent);
+        } else if (element.tagName === 'INPUT' && element.type === 'text') {
+            values = element.placeholder ? [element.placeholder] : ['input'];
+        } else if (element.tagName === 'LI') {
+            Array.from(element.getElementsByTagName('*')).forEach(child => {
+                if (child.tagName === 'SELECT') {
+                    values.push(...Array.from(child.querySelectorAll('option')).map(opt => opt.value));
+                } else if (child.tagName === 'UL') {
+                    values.push(...Array.from(child.querySelectorAll('li')).map(li => li.textContent));
+                } else if (child.tagName === 'INPUT' && child.type === 'text') {
+                    values.push(child.placeholder ? child.placeholder : 'input');
+                }
+            });
+        }
+        return values;
+    }
+
+    // Get the target element
+    const element = dom.window.document.querySelector(`#${target}`) || dom.window.document.querySelector(`.${target}`);
+
+    // Check if the target element exists
+    if (!element) {
+        throw new Error('Element not found');
+    }
+
+    // Get the children values of the target element
+    const values = getChildrenValues(element);
+
+    // Return the values sorted in ascending order
+    return values.sort();
 }
 
-function getChangedFields(newData, document, fields = []) {
-  const changes = {};
-
-  for (const key of fields.length > 0 ? fields : Object.keys(newData)) {
-    const newField = newData[key];
-    const oldField = document.toObject()[key];
-
-    if (typeof oldField === "object" && typeof newField === "object") {
-      if (Array.isArray(oldField) && Array.isArray(newField)) {
-        const added = newField.filter((item) => !oldField.includes(item));
-        const removed = oldField.filter((item) => !newField.includes(item));
-
-        if (added.length > 0 || removed.length > 0) {
-          changes[key] = { added, removed };
-        }
-        continue;
-      }
-
-      if (!deepEqual(oldField, newField)) {
-        changes[key] = { old: oldField, new: newField };
-      }
-      continue;
-    }
-
-    if (moment.isMoment(oldField) || moment.isDate(oldField)) {
-      const oldDate = moment(oldField);
-      const newDate = moment(newField);
-
-      if (!newDate.isSame(oldDate)) {
-        changes[key] = {
-          old: oldDate.format("YYYY-MM-DD"),
-          new: newDate.format("YYYY-MM-DD"),
-        };
-        continue;
-      }
-    }
-
-    if (oldField !== newField) {
-      if (key.toLowerCase().endsWith("id")) {
-        if (String(oldField) !== String(newField)) {
-          changes[key] = { old: oldField.toString(), new: newField };
-        }
-        continue;
-      }
-
-      changes[key] = { old: oldField, new: newField };
-    }
-  }
-
-  return changes;
-}
-
-module.exports = { getChangedFields };
+module.exports = {
+    webScrapper
+};

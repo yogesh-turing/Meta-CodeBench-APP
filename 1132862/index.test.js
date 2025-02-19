@@ -1,253 +1,195 @@
-const { getChangedFields } = require('./alternate_responses/incorrect_solution');
+const { webScrapper } = require('./alternate_responses/incorrect_solution');
+// const { webScrapper } = require('./solution');
 
-// Unit test
-const mongoose = require("mongoose");
-const moment = require("moment");
+describe('webScrapper', () => {
 
-describe("getChangedFields", () => {
-  let oldDocument;
-  const userId = new mongoose.Types.ObjectId();
-  const friendId = new mongoose.Types.ObjectId();
-
-  const userSchema = new mongoose.Schema({
-    name: String,
-    age: Number,
-    isActive: Boolean,
-    address: {
-      street: String,
-      city: String,
-      residenceType: {
-        residential: Boolean,
-      },
-      residenceChanges: [
-        {
-          street: String,
-          city: String,
-          residenceType: {
-            residential: Boolean,
-          },
-        },
-      ],
-    },
-    skills: [String],
-    preferences: {
-      theme: String,
-      notifications: Boolean,
-    },
-    userId: mongoose.Schema.Types.ObjectId,
-    friend: mongoose.Schema.Types.ObjectId,
-    otherId: mongoose.Schema.Types.ObjectId,
-    createdAt: Date,
-    updatedAt: Date,
-    lastLoginDate: Date,
-    bio: String,
-    profile: mongoose.Schema.Types.Mixed,
+  test('should return the values of <select> option elements when provided with valid html and id', () => {
+    const validHtml = `
+      \`\`\`html
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li>
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+            </li>
+        </ul>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+      \`\`\`
+    `;
+    const result = webScrapper(validHtml, 'test');
+    expect(result).toEqual(['A', 'B']);
   });
 
-  const User = mongoose.model("User", userSchema);
-
-  beforeEach(() => {
-    oldDocument = new User({
-      name: "John Doe",
-      age: 30,
-      isActive: true,
-      address: { street: "123 Main St", city: "Lagos" },
-      skills: ["JavaScript", "Python", "React"],
-      preferences: { theme: "dark", notifications: true },
-      _id: new mongoose.Types.ObjectId("60d21b4667d0d8992e610c85"),
-      userId,
-      friend: friendId,
-      createdAt: new Date("2023-01-01"),
-      updatedAt: new Date("2023-06-15"),
-      lastLoginDate: new Date("2023-06-15"),
-      bio: "Software Engineer",
-      profile: null,
-    });
+  test('should return the placeholder values of <input> text fields', () => {
+    const validHtml = `
+      \`\`\`html
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li>
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+            </li>
+        </ul>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+      \`\`\`
+    `;
+    const result = webScrapper(validHtml, 'i');
+    expect(result).toEqual(['salman']);
   });
 
-  test("should return empty object when no changes occur", () => {
-    const newData = { ...oldDocument.toObject() };
-    expect(getChangedFields(newData, oldDocument)).toEqual({});
+  test('targeted element have enclosed many elements in it ', () => {
+    const validHtml = `
+      \`\`\`html
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li class="second">
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+                <input class="j" type="text" placeholder="kaif">
+            </li>
+        </ul>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+      \`\`\`
+    `;
+    const result = webScrapper(validHtml, 'second');
+    expect(result).toEqual(['A','B',"kaif"]);
+  });
+ 
+  test('targeted element is input but has no placeholder value so return default input string ', () => {
+    const validHtml = `
+      \`\`\`html
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li class="second">
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+                <input class="j" type="text" placeholder="kaif">
+            </li>
+        </ul>
+        <input class="i" type="text">
+      </body>
+      \`\`\`
+    `;
+    const result = webScrapper(validHtml, 'i');
+    expect(result).toEqual(["input"]);
   });
 
-  test("should return empty object when nothing is passed in", () => {
-    const newData = {};
-    expect(getChangedFields(newData, oldDocument)).toEqual({});
-
-    const newData1 = undefined;
-    expect(getChangedFields(newData1, oldDocument, ["age"])).toEqual({});
+ 
+  test('should throw an error if html code is not in valid markdown format', () => {
+    const invalidHtml = `
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li>
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+            </li>
+        </ul>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+    `;
+    expect(() => webScrapper(invalidHtml, 'test')).toThrow('Invalid HTML Code');
   });
 
-  test("should detect primitive value changes", () => {
-    const newData = { ...oldDocument.toObject(), age: 35, isActive: false };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      age: { old: 30, new: 35 },
-      isActive: { old: true, new: false },
-    });
+  test('should throw an error if the dom contains invalid tags', () => {
+    const invalidDomHtml = `
+      \`\`\`html
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li>
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+            </li>
+        </ul>
+        <span>This is span</span>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+      \`\`\`
+    `;
+    expect(() => webScrapper(invalidDomHtml, 'test')).toThrow('Invalid Dom structure');
   });
 
-  test("should detect nested object changes", () => {
-    const newData = {
-      ...oldDocument.toObject(),
-      address: {
-        street: "123 Main St",
-        city: "Abuja",
-        residenceType: { residential: true },
-        residenceChanges: [
-          {
-            street: "1 Place",
-            city: "The City",
-            residenceType: {
-              residential: false,
-            },
-          },
-        ],
-      },
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      address: {
-        old: { street: "123 Main St", city: "Lagos", residenceChanges: [] },
-        new: {
-          street: "123 Main St",
-          city: "Abuja",
-          residenceType: { residential: true },
-          residenceChanges: [
-            {
-              street: "1 Place",
-              city: "The City",
-              residenceType: {
-                residential: false,
-              },
-            },
-          ],
-        },
-      },
-    });
+
+  test('should throw an error if the valid element are present outside of body tag', () => {
+    const invalidDomHtml = `
+      \`\`\`html
+      <li>This is Salman</li>
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li>
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+            </li>
+        </ul>
+        <span>This is span</span>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+      \`\`\`
+    `;
+    expect(() => webScrapper(invalidDomHtml, 'test')).toThrow('Invalid Dom structure');
   });
 
-  test("should detect array changes and show added and/or removed", () => {
-    const newData = {
-      ...oldDocument.toObject(),
-      skills: ["JavaScript", "Go", "React"],
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      skills: {
-        removed: ["Python"],
-        added: ["Go"],
-      },
-    });
+  test('should throw an error if the element with the given id/class does not exist', () => {
+    const validHtml = `
+      \`\`\`html
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li>
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+            </li>
+        </ul>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+      \`\`\`
+    `;
+    expect(() => webScrapper(validHtml, 'nonexistent')).toThrow('Element not found');
   });
 
-  test("should handle ID field comparison correctly when new ID is a string", () => {
-    const newUserId = new mongoose.Types.ObjectId();
-
-    const newData = {
-      ...oldDocument.toObject(),
-      userId: newUserId.toString(),
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      userId: {
-        old: userId.toString(),
-        new: newUserId.toString(),
-      },
-    });
+  test('should throw an error if the class or id provided is not a string', () => {
+    const validHtml = `
+      \`\`\`html
+      <body>
+        <ul>
+            <li>This is Salman</li>
+            <li>
+                <select id="test"> 
+                    <option value="A">A</option>
+                    <option value="B">B</option>
+                </select>
+            </li>
+        </ul>
+        <input class="i" type="text" placeholder="salman">
+      </body>
+      \`\`\`
+    `;
+    expect(() => webScrapper(validHtml, 123)).toThrow('Invalid class name or id');
   });
 
-  test("should handle ID field comparison correctly when old ID is nothing", () => {
-    const otherId = new mongoose.Types.ObjectId();
-
-    const newData = {
-      ...oldDocument.toObject(),
-      otherId: otherId.toString(),
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      otherId: {
-        old: undefined,
-        new: otherId.toString(),
-      },
-    });
-  });
-
-  test("should handle ID field comparison correctly when new ID field does not end with id", () => {
-    const newFriendId = new mongoose.Types.ObjectId();
-
-    const newData = {
-      ...oldDocument.toObject(),
-      friend: newFriendId.toString(),
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      friend: {
-        old: friendId.toString(),
-        new: newFriendId.toString(),
-      },
-    });
-  });
-
-  test("should handle date field comparison that ends with 'date' correctly", () => {
-    const newData = {
-      ...oldDocument.toObject(),
-      lastLoginDate: "2023-07-01",
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      lastLoginDate: {
-        old: moment("2023-06-15").format("YYYY-MM-DD"),
-        new: "2023-07-01",
-      },
-    });
-  });
-
-  test("should handle various formats of date field that ends with 'date' correctly", () => {
-    const newData = {
-      ...oldDocument.toObject(),
-      lastLoginDate: "20240101",
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      lastLoginDate: {
-        old: "2023-06-15",
-        new: "2024-01-01",
-      },
-    });
-  });
-
-  test("should handle date field comparison that does not end with 'date' correctly", () => {
-    const newData = {
-      ...oldDocument.toObject(),
-      updatedAt: "2023-07-01",
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      updatedAt: {
-        old: moment("2023-06-15").format("YYYY-MM-DD"),
-        new: "2023-07-01",
-      },
-    });
-  });
-
-  test("should detect changes from null to object", () => {
-    const newData = {
-      ...oldDocument.toObject(),
-      profile: { github: "https://github.com/johndoe" },
-    };
-    expect(getChangedFields(newData, oldDocument)).toEqual({
-      profile: {
-        old: null,
-        new: { github: "https://github.com/johndoe" },
-      },
-    });
-  });
-
-  test("should ignore undefined values", () => {
-    const newData = { ...oldDocument.toObject(), bio: undefined };
-    expect(getChangedFields(newData, oldDocument)).toEqual({});
-  });
-
-  test("should only check specific fields when provided", () => {
-    const newData = {
-      ...oldDocument.toObject(),
-      age: 35,
-      bio: "Senior Software Engineer",
-    };
-    expect(getChangedFields(newData, oldDocument, ["age"])).toEqual({
-      age: { old: 30, new: 35 },
-    });
-  });
 });

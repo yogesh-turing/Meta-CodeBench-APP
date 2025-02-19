@@ -1,129 +1,99 @@
-const moment = require("moment");
-const mongoose = require("mongoose");
+const { JSDOM } = require('jsdom');
 
-function isValidDate(date) {
-  return moment(date, moment.ISO_8601, true).isValid();
-}
-
-function isObjectId(value) {
-  return mongoose.Types.ObjectId.isValid(value) || 
-         (typeof value === 'string' && /^[0-9a-fA-F]{24}$/.test(value));
-}
-
-function normalizeObjectId(value) {
-  if (!value) return null;
-  return value.toString();
-}
-
-function normalizeDate(date) {
-  if (!date) return null;
-  return moment(date).format("YYYY-MM-DD");
-}
-
-function getArrayDifferences(oldArr, newArr) {
-  if (!Array.isArray(oldArr) || !Array.isArray(newArr)) return null;
-  
-  const added = newArr.filter(item => !oldArr.some(oldItem => 
-    deepEqual(item, oldItem)
-  ));
-  
-  const removed = oldArr.filter(item => !newArr.some(newItem => 
-    deepEqual(item, newItem)
-  ));
-
-  if (added.length === 0 && removed.length === 0) return null;
-  
-  const changes = {};
-  if (added.length > 0) changes.added = added;
-  if (removed.length > 0) changes.removed = removed;
-  return changes;
-}
-
-function deepEqual(obj1, obj2) {
-  if (obj1 === obj2) return true;
-  
-  if (obj1 === null || obj2 === null || 
-      typeof obj1 !== 'object' || typeof obj2 !== 'object') {
-    return false;
-  }
-
-  if (Array.isArray(obj1) !== Array.isArray(obj2)) return false;
-  
-  if (Array.isArray(obj1)) {
-    if (obj1.length !== obj2.length) return false;
-    return obj1.every((item, index) => deepEqual(item, obj2[index]));
-  }
-
-  const keys1 = Object.keys(obj1);
-  const keys2 = Object.keys(obj2);
-  
-  if (keys1.length !== keys2.length) return false;
-  
-  return keys1.every(key => 
-    keys2.includes(key) && deepEqual(obj1[key], obj2[key])
-  );
-}
-
-function getChangedFields(newData, document, fields = []) {
-  const changes = {};
-  const oldData = document.toObject();
-  const keysToCheck = fields.length > 0 ? fields : Object.keys(newData);
-
-  for (const key of keysToCheck) {
-    const newField = newData[key];
-    const oldField = oldData[key];
-
-    // Skip if both values are undefined/null
-    if (!newField && !oldField) continue;
-
-    // Handle arrays
-    if (Array.isArray(oldField) || Array.isArray(newField)) {
-      const arrayDiffs = getArrayDifferences(oldField || [], newField || []);
-      if (arrayDiffs) {
-        changes[key] = arrayDiffs;
-      }
-      continue;
+function webScrapper(htmlCode, target) {
+    // Validate HTML code format
+    if (typeof htmlCode !== 'string' || typeof target !== 'string') {
+        throw new Error(typeof htmlCode !== 'string' ? 'Invalid HTML Code' : 'Invalid class name or id');
     }
 
-    // Handle dates
-    if (isValidDate(oldField) || isValidDate(newField)) {
-      if (!moment(newField).isSame(moment(oldField))) {
-        changes[key] = {
-          old: normalizeDate(oldField),
-          new: normalizeDate(newField)
-        };
-      }
-      continue;
+    // Remove leading/trailing whitespace
+    const trimmedHtml = htmlCode.trim();
+    
+    // Check for triple backticks and html markdown
+    if (!trimmedHtml.startsWith('```html') || !trimmedHtml.endsWith('```')) {
+        throw new Error('Invalid HTML Code');
     }
 
-    // Handle ObjectIds
-    if (isObjectId(oldField) || isObjectId(newField)) {
-      const normalizedOld = normalizeObjectId(oldField);
-      const normalizedNew = normalizeObjectId(newField);
-      if (normalizedOld !== normalizedNew) {
-        changes[key] = {
-          old: normalizedOld,
-          new: normalizedNew
-        };
-      }
-      continue;
+    // Extract actual HTML content
+    const actualHtml = trimmedHtml
+        .substring(7, trimmedHtml.length - 3)
+        .trim();
+
+    // Create DOM
+    const dom = new JSDOM(actualHtml);
+    const { document } = dom.window;
+
+    // Validate DOM structure
+    function validateDomStructure() {
+        // Check if content is wrapped in body tag
+        const body = document.querySelector('body');
+        if (!body || document.body !== body) {
+            throw new Error('Invalid Dom structure');
+        }
+
+        // Get all elements
+        const allElements = document.getElementsByTagName('*');
+        const validTags = new Set(['BODY', 'SELECT', 'OPTION', 'UL', 'LI', 'INPUT']);
+
+        // Check for invalid tags
+        for (const element of allElements) {
+            if (!validTags.has(element.tagName)) {
+                throw new Error('Invalid Dom structure');
+            }
+            // Validate input type
+            if (element.tagName === 'INPUT' && element.getAttribute('type') !== 'text') {
+                throw new Error('Invalid Dom structure');
+            }
+        }
+
+        // Check for elements outside body
+        const htmlContent = document.documentElement.innerHTML;
+        const bodyContent = body.outerHTML;
+        const cleanHtml = htmlContent.replace(bodyContent, '').trim();
+        if (cleanHtml) {
+            throw new Error('Invalid Dom structure');
+        }
     }
 
-    // Handle nested objects
-    if (typeof oldField === 'object' && typeof newField === 'object') {
-      if (!deepEqual(oldField, newField)) {
-        changes[key] = { old: oldField, new: newField };
-      }
-      continue;
+    // Validate DOM structure
+    validateDomStructure();
+
+    function getChildrenValues(element) {
+        let values = [];
+
+        // Handle direct element types
+        if (element.tagName === 'SELECT') {
+            values = Array.from(element.querySelectorAll('option')).map(opt => opt.value);
+        } else if (element.tagName === 'UL') {
+            values = Array.from(element.querySelectorAll('li')).map(li => li.textContent.trim());
+        } else if (element.tagName === 'INPUT' && element.type === 'text') {
+            values = [element.placeholder || 'input'];
+        } else {
+            // Handle nested elements
+            const children = element.getElementsByTagName('*');
+            for (const child of children) {
+                if (child.tagName === 'SELECT') {
+                    values.push(...Array.from(child.querySelectorAll('option')).map(opt => opt.value));
+                } else if (child.tagName === 'UL') {
+                    values.push(...Array.from(child.querySelectorAll('li')).map(li => li.textContent.trim()));
+                } else if (child.tagName === 'INPUT' && child.type === 'text') {
+                    values.push(child.placeholder || 'input');
+                }
+            }
+        }
+
+        return values;
     }
 
-    // Handle primitive values
-    if (oldField !== newField) {
-      changes[key] = { old: oldField, new: newField };
+    // Find target element
+    const element = document.querySelector(`#${target}`) || document.querySelector(`.${target}`);
+    if (!element) {
+        throw new Error('Element not found');
     }
-  }
 
-  return changes;
+    // Get and sort values
+    const values = getChildrenValues(element);
+    return values.sort();
 }
 
-module.exports = { getChangedFields };
+module.exports = { webScrapper };

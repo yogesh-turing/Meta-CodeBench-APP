@@ -1,86 +1,37 @@
-https://labeling-m.turing.com/conversations/1133350/view/review
+Prompt:
+The user prompt is very lengthy, please make is concise.
+You can structure the prompt in sections, like
+- How `webScrapper` function work.
+- The bug/s in the function.
+- How `webScrapper` function should work.
+    - Inputs to functions
+    - Validations to be added to functions.
+    - Logic details
+    - What and how output should be returned.
+- Provide example inputs and expected outputs.
+Consider adding details on edge cases like, htmlCode is null/undefined/not string etc.
 
-Ideal Response Explanation:
-    Please make use of tick to highlight function names/variable names/key words, etc.
-
-Ideal Response:
-    Follow LLAMA style of response here, you can refer how LLAMA models are responding, use same tone/style.
-
-Unit Test:
-    Update import statement to
-    const { getChangedFields } = require('./solution');
-
-Prompt Evaluation -> Difficulty: set it to 3
-
----
-In an incorrect solution try to find the issue in the code.
-I see the following issue in the code:
-- The `isObjectId` function returns true when the value is 35, then in the `normalizeObjectId` function it converts the numeric 35 to string "35"
-Similarly please try to debug the code and find the issue in the code.
-
----
-Then in an ideal response, you can mention how it fixed the issues in an incorrect solution.
-E.g. In the ideal solution, the `isValidObjectId` function is implemented correctly to check object id
-
-The ideal response should explain how it is better than an incorrect solution.
+Unit test:
+Add test cases for edge cases like htmlCode/target is null/undefined/not string etc.
+Html code without body tag.
+Input tag with type number/email etc.
+If you have included examples in the prompt, those should be covered in unit test cases.
 
 
+Model Responses:
+    There are grammatical mistakes in "First Observed Failure Reason" make sure you run the text through grammer check tools.
 
 
-
----------------------
-
-
-
-
-
-In incorrect solution try to find the issue in the code.
-I see following issue in code:
-- The `isObjectId` function return true when value is 35, then in `normalizeObjectId` function it converts numeric 35 to string "35"
-Similarly please try to debug the code and find the issue in the code.
-
-Then in ideal response, you can mention how it fixed the issues in incorrect solution.
-E.g. In ideal solution `isValidObjectId` function implemented correctly to check object id
-
-
-----
-Stack traces: for language use 'javascript' instead of 'js'
-
-Model Evaluations:
-First Observed Failure: here first failed test case stack should be pasted inside backticks.
-Model E "First Observed Failure" is correct. You can use the same in other models (use javascript instead of js)
-e.g.
-```javascript
-● getChangedFields › should return an empty object when nothing is passed in
-
-TypeError: Cannot read properties of undefined (reading 'age')
-
-71 |
-72 | for (const key of keysToCheck) {
-> 73 | const newField = newData[key];
-| ^
-74 | const oldField = oldData[key];
-75 |
-76 | // Skip if both values are undefined/null
-
-at getChangedFields (1133350/alternate_responses/model1.js:73:29)
-at Object.getChangedFields (1133350/index.test.js:78:12)
-```
-
-
-Installed Packages: Enclose command in side ```bash ```
-e.g.
-```bash
-npm i jest
-```
+Installed Packages:
+    You can combine two comands to one like
+    npm install jest jsdom
 
 Incorrect Solution Explanation:
-It should explain the issues in the code, you can take test case results as a reference.
-e.g. The incorrect solution did not check if the variable `newData` is null/undefined.
-Here you have to mention all the issues with incorrect solutions.
-
-
+    All the test cases are failing for the solution, there should be more issues with the code.
+    The explanation seems to incomplete, please check it.
 
 Ideal Response Explanation:
-It should explain how an ideal solution is better than an incorrect solution.
-e.g. In the ideal solution, added validation in `getChangedFields` function for newData. So if `newData` is null/undefined it returns an empty object.
+    Include only second part here "Better than Incorrect solution by following points:"
+
+Ideal Response:
+    In ideal response you can structure the response the way like LLAMA model structured.

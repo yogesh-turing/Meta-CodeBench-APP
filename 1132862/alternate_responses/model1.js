@@ -1,131 +1,106 @@
-const moment = require("moment");
-const mongoose = require("mongoose");
+const { JSDOM } = require('jsdom');
 
-function isValidDate(value) {
-  return moment(value, moment.ISO_8601, true).isValid();
-}
-
-function isObjectId(value) {
-  return mongoose.Types.ObjectId.isValid(value) || 
-         (typeof value === 'object' && value?._bsontype === "ObjectID");
-}
-
-function formatDate(date) {
-  return moment(date).format("YYYY-MM-DD");
-}
-
-function normalizeObjectId(value) {
-  if (!value) return null;
-  return value.toString();
-}
-
-function compareArrays(newArr, oldArr) {
-  if (!Array.isArray(newArr) || !Array.isArray(oldArr)) return null;
-
-  const added = newArr.filter(item => !oldArr.some(oldItem => 
-    deepEqual(item, oldItem)
-  ));
-  
-  const removed = oldArr.filter(item => !newArr.some(newItem => 
-    deepEqual(item, newItem)
-  ));
-
-  if (added.length === 0 && removed.length === 0) return null;
-
-  const changes = {};
-  if (added.length > 0) changes.added = added;
-  if (removed.length > 0) changes.removed = removed;
-  return changes;
-}
-
-function deepEqual(obj1, obj2) {
-  if (obj1 === obj2) return true;
-
-  if (
-    typeof obj1 !== "object" ||
-    obj1 === null ||
-    typeof obj2 !== "object" ||
-    obj2 === null
-  ) {
-    return false;
-  }
-
-  const keys1 = Object.keys(obj1);
-  const keys2 = Object.keys(obj2);
-  if (keys1.length !== keys2.length) return false;
-
-  for (const key of keys1) {
-    if (!keys2.includes(key)) return false;
-    if (!deepEqual(obj1[key], obj2[key])) return false;
-  }
-
-  return true;
-}
-
-function getChangedFields(newData, document, fields = []) {
-  const changes = {};
-  const oldData = document.toObject();
-  const keysToCheck = fields.length > 0 ? fields : Object.keys(newData);
-
-  for (const key of keysToCheck) {
-    const newField = newData[key];
-    const oldField = oldData[key];
-
-    // Skip if both values are undefined/null
-    if (!newField && !oldField) continue;
-
-    // Handle arrays
-    if (Array.isArray(oldField) || Array.isArray(newField)) {
-      const arrayChanges = compareArrays(newField, oldField);
-      if (arrayChanges) {
-        changes[key] = arrayChanges;
-      }
-      continue;
+function webScrapper(htmlCode, target) {
+    // Validate HTML code format
+    if (typeof htmlCode !== 'string') {
+        throw new Error('Invalid HTML Code');
     }
 
-    // Handle dates
-    if (isValidDate(oldField) || isValidDate(newField)) {
-      const oldDate = moment(oldField);
-      const newDate = moment(newField);
-      
-      if (!newDate.startOf('day').isSame(oldDate.startOf('day'))) {
-        changes[key] = {
-          old: oldField ? formatDate(oldField) : null,
-          new: newField ? formatDate(newField) : null
-        };
-      }
-      continue;
+    // Remove leading/trailing whitespace
+    const trimmedHtml = htmlCode.trim();
+
+    // Check for triple backticks and html markdown
+    if (!trimmedHtml.startsWith('```html') || !trimmedHtml.endsWith('```')) {
+        throw new Error('Invalid HTML Code');
     }
 
-    // Handle ObjectIds
-    if (isObjectId(oldField) || isObjectId(newField)) {
-      const normalizedOld = normalizeObjectId(oldField);
-      const normalizedNew = normalizeObjectId(newField);
-      
-      if (normalizedOld !== normalizedNew) {
-        changes[key] = {
-          old: normalizedOld,
-          new: normalizedNew
-        };
-      }
-      continue;
+    // Extract actual HTML content
+    const actualHtml = trimmedHtml
+        .substring(7, trimmedHtml.length - 3)
+        .trim();
+
+    // Validate target parameter
+    if (typeof target !== 'string') {
+        throw new Error('Invalid class name or id');
     }
 
-    // Handle objects (recursive comparison)
-    if (typeof oldField === "object" && typeof newField === "object") {
-      if (!deepEqual(oldField, newField)) {
-        changes[key] = { old: oldField, new: newField };
-      }
-      continue;
+    // Create DOM
+    const dom = new JSDOM(actualHtml);
+    const { document } = dom.window;
+
+    // Check if body tag exists and is the root of valid elements
+    const body = document.querySelector('body');
+    if (!body || document.body !== body) {
+        throw new Error('Invalid Dom structure');
     }
 
-    // Handle primitive values
-    if (oldField !== newField) {
-      changes[key] = { old: oldField, new: newField };
-    }
-  }
+    // Validate DOM structure
+    function validateDomStructure(node) {
+        const validTags = ['BODY', 'SELECT', 'UL', 'LI', 'INPUT', 'OPTION'];
+        
+        // Check text nodes or document node
+        if (node.nodeType === 3 || node.nodeType === 9) return true;
+        
+        // Check if current tag is valid
+        if (!validTags.includes(node.tagName)) {
+            return false;
+        }
 
-  return changes;
+        // If it's an input, verify it's a text input
+        if (node.tagName === 'INPUT' && node.getAttribute('type') !== 'text') {
+            return false;
+        }
+
+        // Recursively check all child nodes
+        for (const child of node.childNodes) {
+            if (!validateDomStructure(child)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    if (!validateDomStructure(body)) {
+        throw new Error('Invalid Dom structure');
+    }
+
+    // Find target element
+    const element = document.querySelector(`#${target}`) || document.querySelector(`.${target}`);
+    if (!element) {
+        throw new Error('Element not found');
+    }
+
+    function getChildrenValues(element) {
+        let values = [];
+
+        if (element.tagName === 'SELECT') {
+            values = Array.from(element.querySelectorAll('option'))
+                .map(opt => opt.value);
+        } else if (element.tagName === 'UL') {
+            values = Array.from(element.querySelectorAll('li'))
+                .map(li => li.textContent.trim());
+        } else if (element.tagName === 'INPUT' && element.type === 'text') {
+            values = [element.placeholder || 'input'];
+        } else {
+            // For container elements, get values from all valid child elements
+            element.querySelectorAll('*').forEach(child => {
+                if (child.tagName === 'SELECT') {
+                    values.push(...Array.from(child.querySelectorAll('option'))
+                        .map(opt => opt.value));
+                } else if (child.tagName === 'UL') {
+                    values.push(...Array.from(child.querySelectorAll('li'))
+                        .map(li => li.textContent.trim()));
+                } else if (child.tagName === 'INPUT' && child.type === 'text') {
+                    values.push(child.placeholder || 'input');
+                }
+            });
+        }
+
+        return values;
+    }
+
+    const values = getChildrenValues(element);
+    return values.sort();
 }
 
-module.exports = { getChangedFields };
+module.exports = { webScrapper };
