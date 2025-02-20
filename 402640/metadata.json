@@ -1,0 +1,8 @@
+{
+    "time_to_develop_prompt": "30 -40",
+    "programming_language": "JavaScript",
+    "task_type": "Completion",
+    "difficulty": "3",
+    "estimated_skill_requirements": "Data Structure and Algorithms,Language-Specific Features,Knowledge of a Specialized Software Area,Library Feature",
+    "user_prompt": "Base Code: \n```javascript\nclass Solution {\n    static isReacheable(start, end, n) {\n        // fill in the code\n    }\n\n    static sameDiagonal(sX, sY, eX, eY) {\n        return (Math.abs(sX - sY) === Math.abs(eX - eY)) || (sX + sY === eX + eY);\n    }\n}\n\nmodule.exports = { Solution };\n```\n\nPrompt:\nYou supervise a warehouse robot that moves diagonally on an 8x8 grid labeled from \"a1\" at the bottom-left to \"h8\" at the top-right. The robot\u2019s job is to travel from its current location to a specified target location within a given maximum number of diagonal moves. The `isReacheable`  function should determine if this is possible based on three inputs: the robot's starting position, the target position, and the maximum moves allowed. If the robot is already at the target location, it doesn\u2019t need to move. The function should also validate the inputs, ensuring that positions are valid grid coordinates and that the maximum number of moves is zero or positive. For invalid inputs, it should throw an exception. Now, write the function to implement this logic."
+}

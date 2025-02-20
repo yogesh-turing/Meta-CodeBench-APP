@@ -1,0 +1,8 @@
+{
+    "time_to_develop_prompt": "20 - 30",
+    "programming_language": "JavaScript",
+    "task_type": "Completion",
+    "difficulty": "3",
+    "estimated_skill_requirements": "Language-Specific Features,Knowledge of a Specialized Software Area,Software Engineering Best Practices",
+    "user_prompt": "Base Code:\n```JavaScript\nfunction calculateMolarMass(formula) {\n    // Atomic masses of common elements (in g/mol)\n\n    const elementNames = [\n      'H', 'He', 'Li', 'Be', 'B', 'C', 'N', 'O', 'F', 'Ne', \n      'Na', 'Mg', 'Al', 'Si', 'P', 'S', 'Cl', 'Ar', 'K', 'Ca', \n      'Fe', 'Cu', 'Zn', 'Ag', 'Au'\n    ];\n\n    // update this with the atomic masses\n    const atomicMasses = {\n    };\n\n    // Your code here\n    // Calculate the molar mass of the chemical formula\n    // Return the result\n}\n\nmodule.exports = {calculateMolarMass};\n\n```\nPrompt:\nThe `calculateMolarMass` function is responsible for calculating the molar masses of chemical compounds. It's incomplete and i want you to finish the implementation. Only valid chemical compounds should be allowed and errors should be thrown. The atomic masses used should be to the nearest whole number are in g/mol.\n\nExamples\ncalculateMolarMass('Fe2O3')\nexpected output:160\n\ncalculateMolarMass('(He)2')\nexpected output:8"
+}

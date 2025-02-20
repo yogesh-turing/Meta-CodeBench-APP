@@ -5,7 +5,7 @@ const util = require('util');
 
 async function runTests(taskId) {
     const taskDir = path.join(process.cwd(), taskId);
-    const testFilePath = path.join(taskDir, 'index.test.js');
+    const testFilePath = path.join(taskDir, 'test.js');
     const originalTestContent = fs.readFileSync(testFilePath, 'utf8');
     
      // Match both import patterns: destructured ({ func }) and direct (ClassName)
@@ -76,7 +76,7 @@ async function runTests(taskId) {
         
         try {
             // Run Jest with --json flag to get detailed test results
-            const jsonOutput = execSync(`npx jest ${taskId} --json --colors`, {
+            const jsonOutput = execSync(`npx jest ${taskId} --json --colors --coverage`, {
                 encoding: 'utf8',
                 stdio: ['pipe', 'pipe', 'pipe']
             });

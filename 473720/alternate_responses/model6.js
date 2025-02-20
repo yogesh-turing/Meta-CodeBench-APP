@@ -1,0 +1,115 @@
+class Song {
+  constructor(title, artist, duration) {
+    if (typeof title !== 'string' || title.trim() === '') {
+      throw new Error('Invalid input: title must be a non-empty string');
+    }
+    if (typeof artist !== 'string' || artist.trim() === '') {
+      throw new Error('Invalid input: artist must be a non-empty string');
+    }
+    if (typeof duration !== 'number' || duration <= 0) {
+      throw new Error('Invalid input: duration must be a positive number and greater than zero');
+    }
+    this.title = title;
+    this.artist = artist;
+    this.duration = duration;
+  }
+
+  getDetails() {
+    return { title: this.title, artist: this.artist, duration: this.duration };
+  }
+
+  isMatchingTitle(title) {
+    return this.title === title;
+  }
+}
+
+class Playlist {
+  constructor(name) {
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('Invalid input: name must be a non-empty string');
+    }
+    this.name = name;
+    this.songs = [];
+  }
+
+  addSong(song) {
+    if (!(song instanceof Song)) {
+      throw new Error('Invalid input: song must be a Song instance');
+    }
+    this.songs.push(song);
+  }
+
+  getSongs() {
+    return this.songs;
+  }
+}
+
+class User {
+  constructor(name) {
+    if (typeof name !== 'string' || name.trim() === '') {
+      throw new Error('Invalid input: name must be a non-empty string');
+    }
+    this.name = name;
+    this.playlists = {};
+  }
+
+  createPlaylist(name) {
+    if (this.playlists[name]) {
+      throw new Error(`Playlist with name ${name} already exists`);
+    }
+    this.playlists[name] = new Playlist(name);
+  }
+
+  getPlaylist(name) {
+    return this.playlists[name] || -1;
+  }
+
+  getName() {
+    return this.name;
+  }
+}
+
+class MusicLibrary {
+  constructor() {
+    this.songs = [];
+    this.users = {};
+  }
+
+  addSong(title, artist, duration) {
+    const song = new Song(title, artist, duration);
+    this.songs.push(song);
+    return song;
+  }
+
+  registerUser(name) {
+    if (this.users[name]) {
+      throw new Error(`User with name ${name} already exists`);
+    }
+    this.users[name] = new User(name);
+    return this.users[name];
+  }
+
+  addSongToUserPlaylist(userName, playlistName, songTitle) {
+    if (!this.users[userName]) {
+      throw new Error('Operation failed: User not found');
+    }
+    const user = this.users[userName];
+    const playlist = user.getPlaylist(playlistName);
+    if (playlist === -1) {
+      throw new Error('Operation failed: Playlist not found');
+    }
+    const song = this.songs.find(s => s.isMatchingTitle(songTitle));
+    if (!song) {
+      throw new Error('Operation failed: Song not found');
+    }
+    playlist.addSong(song);
+    return true;
+  }
+}
+
+module.exports = {
+  Song,
+  Playlist,
+  User,
+  MusicLibrary,
+};

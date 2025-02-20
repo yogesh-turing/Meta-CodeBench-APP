@@ -1,0 +1,8 @@
+{
+    "time_to_develop_prompt": "30 -40",
+    "programming_language": "JavaScript",
+    "task_type": "Completion",
+    "difficulty": "3",
+    "estimated_skill_requirements": "Data Structure and Algorithms,Language-Specific Features",
+    "user_prompt": "Base Code:\n```javascript\n/**\n * Solution class to partition an array into two subarrays of equal length\n * and minimize the absolute difference between their sums.\n */\nclass Solution {\n    \n    /**\n     * Finds the minimum possible absolute difference between the sums of two partitions.\n     *\n     * @param {number[]} nums - An integer array of size 2 * n.\n     * @returns {number} The minimum absolute difference between the sums of two equal partitions.\n     */\n    minimumDifference(nums) {\n        // Implementation goes here\n    }\n}\n\n// Export the Solution class\nmodule.exports = {Solution};\n\n```\n\nPrompt:\nYou are given an integer array `nums` consisting of `2 * n` elements. Your task is to divide `nums` into two separate arrays, each containing exactly `n` elements, such that the absolute difference between the sums of these two arrays is minimized. Each element in `nums` must be placed in one of the two arrays.\n\nTo complete the code, you need to:\n\n1. **Compute all possible subset sums for each half of the array.**\n2. **Use binary search techniques to efficiently determine the closest subset sum that minimizes the difference.**\n3. **Optimize the approach by leveraging sorted lists and subset enumeration.**\n4. **Return the smallest possible absolute difference between the sums of the two partitions.**\n\n**Example:**\nInput: `nums = [-36, 36]`\nOutput: `72` "
+}

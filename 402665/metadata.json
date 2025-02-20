@@ -1,0 +1,8 @@
+{
+    "time_to_develop_prompt": "30 -40",
+    "programming_language": "JavaScript",
+    "task_type": "Completion",
+    "difficulty": "3",
+    "estimated_skill_requirements": "Knowledge of a Specialized Software Area,Data Structure and Algorithms,Language-Specific Features,Library Feature",
+    "user_prompt": "Base Code:\n```javascript\nclass CafeOrderScheduling {\n    maxOrdersWithinDeadline(orders) {\n        // Find the maximum number of orders that can be completed within their deadlines.\n    }\n}\nmodule.exports={ CafeOrderScheduling };\n```\n\nPrompt:\nA cafe receives multiple online orders, each with a preparation time and a deadline for delivery. Since some orders share the same deadline, the cafe needs to decide which ones to prepare first. The goal is to complete and deliver as many orders as possible before their deadlines.\n\nComplete the maxOrdersWithinDeadline function in the CafeOrderScheduling class to return the maximum number of orders that can be successfully delivered on time.\n\nInput:\n-An integer n representing the number of orders.\n-A 2D array orders of size n x 2, where each order is given as:\norders[i][0]: Time required to prepare the i-th order (in minutes).\norders[i][1]: Latest time by which the i-th order must be delivered (in minutes since the cafe opens).\n\nOutput:\n-An integer indicating the maximum number of orders that can be successfully delivered on time.\n-If any order has a preparation time greater than its delivery deadline, return -1 as invalid input.\n-If the input is empty or null, return 0."
+}

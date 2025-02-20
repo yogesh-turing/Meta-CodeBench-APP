@@ -1,0 +1,113 @@
+class IBCCUser {
+    constructor(email, password) {
+        this.email = email;
+        this.password = password;
+        this.appointments = [];
+    }
+
+    createAccount(email, password) {
+        if (!this.isValidEmail(email) || password.length < 6) {
+            throw new Error("Error Encountered");
+        }
+        this.email = email;
+        this.password = password;
+        return "Successful";
+    }
+
+    requestAppointment(date, time) {
+        if (!this.isValidDate(date) || !this.isValidTime(time)) {
+            throw new Error("Error Encountered");
+        }
+
+        if (!this.isAvailableSlot(date, time)) {
+            throw new Error("Error Encountered");
+        }
+
+        this.appointments.push({ date, time });
+        return "Successful";
+    }
+
+    editAppointment(oldDate, oldTime, newDate, newTime) {
+        const appointmentIndex = this.appointments.findIndex(
+            app => app.date === oldDate && app.time === oldTime
+        );
+
+        if (appointmentIndex === -1) {
+            throw new Error("Error Encountered");
+        }
+
+        if (!this.isValidDate(newDate) || !this.isValidTime(newTime)) {
+            throw new Error("Error Encountered");
+        }
+
+        if (!this.isAvailableSlot(newDate, newTime)) {
+            throw new Error("Error Encountered");
+        }
+
+        this.appointments[appointmentIndex] = { date: newDate, time: newTime };
+        return "Successful";
+    }
+
+    checkAvailableSlots(date) {
+        if (!this.isValidDate(date)) {
+            throw new Error("Error Encountered");
+        }
+        return this.getAvailableSlotsForDate(date);
+    }
+
+    viewAppointments() {
+        return this.appointments;
+    }
+
+    deleteAppointment(date, time) {
+        const appointmentIndex = this.appointments.findIndex(
+            app => app.date === date && app.time === time
+        );
+
+        if (appointmentIndex === -1) {
+            throw new Error("Error Encountered");
+        }
+
+        this.appointments.splice(appointmentIndex, 1);
+        return "Successful";
+    }
+
+    isValidEmail(email) {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    }
+
+    isValidDate(date) {
+        const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+        if (!dateRegex.test(date)) return false;
+        
+        const parsedDate = new Date(date);
+        return parsedDate instanceof Date && !isNaN(parsedDate);
+    }
+
+    isValidTime(time) {
+        const timeRegex = /^([01]\d|2[0-3]):([0-5]\d)$/;
+        return timeRegex.test(time);
+    }
+
+    isAvailableSlot(date, time) {
+        return !this.isSlotBooked(date, time);
+    }
+
+    getAvailableSlotsForDate(date) {
+        const allSlots = [
+            "09:00", "10:00", "11:00", "12:00", "13:00", 
+            "14:00", "15:00", "16:00", "17:00"
+        ];
+        
+        return allSlots.filter(time => !this.isSlotBooked(date, time));
+    }
+
+    isSlotBooked(date, time) {
+        return this.appointments.some(
+            app => app.date === date && app.time === time
+        );
+    }
+}
+
+module.exports = { IBCCUser };

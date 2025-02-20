@@ -1,0 +1,8 @@
+{
+    "time_to_develop_prompt": "30 -40",
+    "programming_language": "JavaScript",
+    "task_type": "Bug Fix",
+    "difficulty": "3",
+    "estimated_skill_requirements": "Language-Specific Features,Software Engineering Best Practices,Data Structure and Algorithms",
+    "user_prompt": "Base Code:\n\n```javascript\nfunction processData(input) {\n    return input.map(num => {\n        let strNum = num.toString();\n        if (num < 0) {\n            strNum = '-' + strNum.split('').reverse().join('');\n        } else {\n            strNum = strNum.split('').reverse().join('');\n        }\n\n        if (strNum.includes('.')) {\n            let parts = strNum.split('.');\n            strNum = parts[1] + '.' + parts[0];\n        }\n\n        return strNum;\n    }).join('|');\n}\n\nmodule.exports = {processData};\n```\n\nPrompt:\n\nFix the bugs in the `processData` function to correctly process an array of numbers while handling the following edge cases: If a number is negative, the minus sign should stay at the beginning after reversing, not appear in the middle. For floats, the integer and decimal parts should be reversed separately while maintaining the correct decimal placement. Integers with trailing zeros, like 1000, should have their reversed versions correctly preserve them as \"0001.\" If an input is `NaN`, `Infinity`, or `-Infinity`, return \"INVALID\" instead of processing it. Numbers exceeding JavaScript\u2019s safe integer limit (`Number.MAX_SAFE_INTEGER`) should be handled as `BigInt` without converting them to regular numbers. Single-digit numbers should remain unchanged, and floating-point numbers with a single-digit integer part should correctly reverse only the decimal part."
+}

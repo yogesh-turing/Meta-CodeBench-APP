@@ -1,0 +1,179 @@
+class PaymentSystem {
+  constructor() {
+    this.transactions = [];
+    this.refundTransactions = [];
+    this.nextTransactionId = 1;
+    this.nextRefundTransactionId = 1;
+    this.exchangeRates = new Map([
+      ["USD", 1],
+      ["EUR", 0.85],
+      ["GBP", 0.73],
+      ["JPY", 110.0],
+    ]);
+    this.paymentMethods = new Map([
+      ["CREDIT_CARD", { fee: 0.029, fixedFee: 0.3 }],
+      ["DEBIT_CARD", { fee: 0.015, fixedFee: 0.2 }],
+      ["BANK_TRANSFER", { fee: 0.005, fixedFee: 0.5 }],
+      ["CRYPTO", { fee: 0.01, fixedFee: 0 }],
+    ]);
+  }
+
+  calculateFees(amount, paymentMethod) {
+    const method = this.paymentMethods.get(paymentMethod);
+    if (!method) {
+      throw new Error("Invalid payment method");
+    }
+    const percentageFee = amount * method.fee;
+    return {
+      percentageFee,
+      fixedFee: method.fixedFee,
+      totalFee: percentageFee + method.fixedFee,
+    };
+  }
+
+  convertCurrency(amount, fromCurrency, toCurrency) {
+    if (
+      !this.exchangeRates.has(fromCurrency) ||
+      !this.exchangeRates.has(toCurrency)
+    ) {
+      throw new Error("Unsupported currency");
+    }
+    const fromRate = this.exchangeRates.get(fromCurrency);
+    const toRate = this.exchangeRates.get(toCurrency);
+    return (amount / fromRate) * toRate;
+  }
+
+  async processPayment(amount, options = {}) {
+    const {
+      currency = "USD",
+      paymentMethod = "CREDIT_CARD",
+      description = "",
+      metadata = {},
+    } = options;
+
+    if (amount <= 0) {
+      throw new Error("Invalid amount");
+    }
+
+    // Convert to USD for fee calculation
+    const usdAmount =
+      currency === "USD"
+        ? amount
+        : this.convertCurrency(amount, currency, "USD");
+
+    // Calculate fees
+    const fees = this.calculateFees(usdAmount, paymentMethod);
+
+    const transaction = {
+      id: this.nextTransactionId++,
+      amount,
+      currency,
+      paymentMethod,
+      description,
+      metadata,
+      fees,
+      amountWithFees:
+        amount + this.convertCurrency(fees.totalFee, "USD", currency),
+      status: "pending",
+      timestamp: new Date().toISOString(),
+      lastUpdated: new Date().toISOString(),
+    };
+
+    // Simulate async payment processing
+    await new Promise((resolve) => setTimeout(resolve, 100));
+
+    // Simulate payment validation
+    if (metadata.shouldFail) {
+      transaction.status = "failed";
+      transaction.error = "Payment validation failed";
+    } else {
+      transaction.status = "completed";
+    }
+
+    transaction.lastUpdated = new Date().toISOString();
+    this.transactions.push(transaction);
+    return transaction;
+  }
+
+  getTransaction(transactionId) {
+    return this.transactions.find((t) => t.id === transactionId) || null;
+  }
+
+  getTransactionsByStatus(status) {
+    return this.transactions.filter((t) => t.status === status);
+  }
+
+  getTransactionsByDateRange(startDate, endDate) {
+    return this.transactions.filter((t) => {
+      const timestamp = new Date(t.timestamp);
+      const afterStart = timestamp >= startDate;
+      const beforeEnd = timestamp <= endDate;
+      return afterStart && beforeEnd;
+    });
+  }
+
+  getTransactionsByPaymentMethod(paymentMethod) {
+    return this.transactions.filter((t) => t.paymentMethod === paymentMethod);
+  }
+
+  getSupportedPaymentMethods() {
+    return Array.from(this.paymentMethods.keys());
+  }
+
+  getSupportedCurrencies() {
+    return Array.from(this.exchangeRates.keys());
+  }
+
+  async refundPayment(transactionId, refundAmount) {
+    const originalTransaction = this.getTransaction(transactionId);
+    if (!originalTransaction || originalTransaction.status !== "completed") {
+      throw new Error("Invalid transaction or transaction not completed");
+    }
+
+    if (refundAmount > originalTransaction.amount) {
+      throw new Error("Refund amount exceeds original transaction amount");
+    }
+
+    const refundTransaction = {
+      id: this.nextRefundTransactionId++,
+      originalTransactionId: transactionId,
+      type: "refund",
+      amount: refundAmount,
+      currency: originalTransaction.currency,
+      timestamp: new Date().toISOString(),
+      status: "completed",
+    };
+
+    this.refundTransactions.push(refundTransaction);
+    return refundTransaction;
+  }
+
+  calculateTotalRevenue(options = {}) {
+    const {
+      currency = "USD",
+      startDate,
+      endDate,
+      includeFailedTransactions = false,
+      includeFees = false,
+    } = options;
+
+    let totalRevenue = 0;
+
+    this.transactions.forEach((transaction) => {
+      if (
+        (includeFailedTransactions || transaction.status === "completed") &&
+        (!startDate || new Date(transaction.timestamp) >= startDate) &&
+        (!endDate || new Date(transaction.timestamp) <= endDate)
+      ) {
+        const amount = includeFees
+          ? transaction.amountWithFees
+          : transaction.amount;
+        totalRevenue += this.convertCurrency(amount, transaction.currency, currency);
+      }
+    });
+
+    return Number(totalRevenue.toFixed(2));
+  }
+}
+
+module.exports = { PaymentSystem };
