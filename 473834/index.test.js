@@ -1,198 +1,552 @@
-const { Employee } = require('./solution'); 
 
-describe('Employee Hierarchy Tests', () => {
-    let ceo, vp1, vp2, manager1, employee1, employee2;
 
-    beforeEach(() => {
-        // Create the employee hierarchy
-        ceo = new Employee("Alice", "e1", 50);
-        vp1 = new Employee("Bob", "e2", 45);
-        vp2 = new Employee("Charlie", "e3", 47);
-        manager1 = new Employee("David", "e4", 40);
-        employee1 = new Employee("Frank", "e5", 38);
-        employee2 = new Employee("Grace", "e6", 36);
+const { checkDataset, billingAmount, billedMembers } = require('./alternate_responses/incorrect_solution');
 
-        // Build the hierarchy
-        ceo.addTeamMember(vp1);
-        ceo.addTeamMember(vp2);
-        vp1.addTeamMember(manager1);
-        manager1.addTeamMember(employee1);
-        manager1.addTeamMember(employee2);
+describe('Dataset validation', () => {
+    it('should throw error if meterNo is not an integer', () => {
+        const invalidDataset = [
+            {
+                meterNo: '1', // Invalid meterNo
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30k',
+                        age: 21
+                    }
+                ],
+                adharno: ["ghf"],
+                meterReading: '100W',
+                floors: 3
+            }
+        ];
+
+        expect(() => checkDataset(invalidDataset)).toThrow('Dataset is not valid');
     });
 
-    test('initial hierarchy is correctly structured', () => {
-        const expectedHierarchy = {
-            empId: "e1",
-            name: "Alice",
-            hoursWorked: 50,
-            team: [
-                {
-                    empId: "e2",
-                    name: "Bob",
-                    hoursWorked: 45,
-                    team: [
-                        {
-                            empId: "e4",
-                            name: "David",
-                            hoursWorked: 40,
-                            team: [
-                                {
-                                    empId: "e5",
-                                    name: "Frank",
-                                    hoursWorked: 38,
-                                    team: []
-                                },
-                                {
-                                    empId: "e6",
-                                    name: "Grace",
-                                    hoursWorked: 36,
-                                    team: []
-                                }
-                            ]
-                        }
-                    ]
-                },
-                {
-                    empId: "e3",
-                    name: "Charlie",
-                    hoursWorked: 47,
-                    team: []
-                }
-            ]
-        };
+    it('should throw error if meterReading does not end with W', () => {
+        const invalidDataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30k',
+                        age: 21
+                    }
+                ],
+                adharno: ["ghf"],
+                meterReading: '100', // Invalid meterReading
+                floors: 3
+            }
+        ];
 
-        expect(ceo.toJSON()).toEqual(expectedHierarchy);
+        expect(() => checkDataset(invalidDataset)).toThrow('Dataset is not valid');
     });
 
-    test('getAverageHoursWorked for a team', () => {
-        const averageHours = vp1.getAverageHoursWorked("e2"); // Bob's team
-        expect(averageHours).toBe(39); // (45 + 40 + 38 + 36) / 4 = 39
+    it('should throw error if any memberName is not a string', () => {
+        const invalidDataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 123, // Invalid memberName
+                        Salary: '$30k',
+                        age: 21
+                    }
+                ],
+                adharno: ["ghf"],
+                meterReading: '100W',
+                floors: 3
+            }
+        ];
+
+        expect(() => checkDataset(invalidDataset)).toThrow('Dataset is not valid');
     });
 
-    test('getAverageHoursWorked for invalid employee', () => {
-        expect(() => {
-            vp1.getAverageHoursWorked("e999"); // Invalid ID
-        }).toThrow("Employee does not exist");
+    it('should throw error if salary format is invalid', () => {
+        const invalidDataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30', // Invalid salary format
+                        age: 21
+                    }
+                ],
+                adharno: ["ghf"],
+                meterReading: '100W',
+                floors: 3
+            }
+        ];
+
+        expect(() => checkDataset(invalidDataset)).toThrow('Dataset is not valid');
     });
 
-    test('moveTeam successfully moves a team', () => {
-        // Expected hierarchy before moving
-        const expectedBeforeMove = {
-            empId: "e1",
-            name: "Alice",
-            hoursWorked: 50,
-            team: [
-                {
-                    empId: "e2",
-                    name: "Bob",
-                    hoursWorked: 45,
-                    team: [
-                        {
-                            empId: "e4",
-                            name: "David",
-                            hoursWorked: 40,
-                            team: [
-                                {
-                                    empId: "e5",
-                                    name: "Frank",
-                                    hoursWorked: 38,
-                                    team: []
-                                },
-                                {
-                                    empId: "e6",
-                                    name: "Grace",
-                                    hoursWorked: 36,
-                                    team: []
-                                }
-                            ]
-                        }
-                    ]
-                },
-                {
-                    empId: "e3",
-                    name: "Charlie",
-                    hoursWorked: 47,
-                    team: []
-                }
-            ]
-        };
+    it('should pass if dataset is valid', () => {
+        const validDataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30k',
+                        age: 21
+                    },
+                    {
+                        memberName: 'Sarah',
+                        Salary: '$40k',
+                        age: 22
+                    }
+                ],
+                adharno: ["ghf", "qqw"],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 2,
+                members: [
+                    {
+                        memberName: 'John',
+                        Salary: '$50k',
+                        age: 20
+                    }
+                ],
+                adharno: ["ppp"],
+                meterReading: '200W',
+                floors: 2
+            }
+        ];
 
-        expect(ceo.toJSON()).toEqual(expectedBeforeMove);
-
-        // Move David's team under Bob
-        vp1.moveTeam("e4", "e2"); 
-
-        // Expected hierarchy after moving
-        const expectedAfterMove = {
-            empId: "e1",
-            name: "Alice",
-            hoursWorked: 50,
-            team: [
-                {
-                    empId: "e2",
-                    name: "Bob",
-                    hoursWorked: 45,
-                    team: [
-                        {
-                            empId: "e4",
-                            name: "David",
-                            hoursWorked: 40,
-                            team: []
-                        },
-                        {
-                            empId: "e5",
-                            name: "Frank",
-                            hoursWorked: 38,
-                            team: []
-                        },
-                        {
-                            empId: "e6",
-                            name: "Grace",
-                            hoursWorked: 36,
-                            team: []
-                        }
-                    ]
-                },
-                {
-                    empId: "e3",
-                    name: "Charlie",
-                    hoursWorked: 47,
-                    team: []
-                }
-            ]
-        };
-        console.log(JSON.stringify(ceo.toJSON(), null, 2))
-        expect(ceo.toJSON()).toEqual(expectedAfterMove);
-    });
-    
-
-    test('getAverageHoursWorked for an employee without a team', () => {
-        const averageHours = vp2.getAverageHoursWorked("e3");
-        expect(averageHours).toBe(47); 
-    });
-    test('should throw an error if the source employee does not exist', () => {
-        expect(() => {
-            ceo.moveTeam('non-existing-id', 'e2'); // Invalid source ID
-        }).toThrow('Employee is not present');
-    });
-    test('should throw an error if the destination employee does not exist', () => {
-        expect(() => {
-            ceo.moveTeam('e2', 'non-existing-id'); // Valid source ID, invalid destination ID
-        }).toThrow('Employee is not present');
-    });
-    test('should throw an error if both employees do not exist', () => {
-        expect(() => {
-            ceo.moveTeam('non-existing-id-1', 'non-existing-id-2'); // Both IDs invalid
-        }).toThrow('Employee is not present');
+        expect(() => checkDataset(validDataset)).not.toThrow();
     });
 
-    test('should throw an error if trying to add a team member with the same ID', () => {
-        const duplicateEmployee = new Employee('Charlie', 'e2', 40); // Same ID as vp1
-        
-        expect(() => {
-            ceo.addTeamMember(duplicateEmployee); // Attempt to add with a duplicate ID
-        }).toThrow('Same Employee Id');
+    it('should throw an error if dataset is not an array', () => {
+        const invalidDataset = {};
+        expect(() => checkDataset(invalidDataset)).toThrow('Invalid DataSet');
     });
 
+    it('should throw an error if dataset is empty', () => {
+        const invalidDataset = [];
+        expect(() => checkDataset(invalidDataset)).toThrow('Invalid DataSet');
+    });
+
+    it('should throw an error if same meter number is assigned', () => {
+        const invalidDataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30k',
+                        age: 21
+                    }
+                ],
+                adharno: ["ghf"],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'S',
+                        Salary: '$30k',
+                        age: 21
+                    }
+                ],
+                adharno: ["qqw"],
+                meterReading: '100W',
+                floors: 3
+            }
+        ];
+        expect(() => checkDataset(invalidDataset)).toThrow('Meter number cant be same');
+    });
+
+    it('should throw an error if adhar list has invalid data', () => {
+        const invalidDataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30k',
+                        age: 21
+                    }
+                ],
+                adharno: [1],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'S',
+                        Salary: '$30k',
+                        age: 21
+                    }
+                ],
+                adharno: ["qqw"],
+                meterReading: '100W',
+                floors: 3
+            }
+        ];
+        expect(() => checkDataset(invalidDataset)).toThrow('Dataset is not valid');
+    });
 
 });
+
+describe('Billing calculation', () => {
+    it('should apply default billing if total income is below 100k', () => {
+        const validDataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30k',
+                        age: 21
+                    },
+                    {
+                        memberName: 'Sarah',
+                        Salary: '$40k',
+                        age: 22
+                    }
+                ],
+                adharno: ["ghf", "qqw"],
+
+                meterReading: '100W',
+                floors: 3
+            }
+        ];
+
+        const result = billingAmount(validDataset);
+        expect(result).toEqual([13]); // 10 from default billing + 3 from floor charge
+    });
+
+    it('should apply $2 for every 10W for income between 100k and 200k', () => {
+        const validDataset = [
+            {
+                meterNo: 2,
+                members: [
+                    {
+                        memberName: 'John',
+                        Salary: '$150k',
+                        age: 30
+                    },
+                    {
+                        memberName: 'Alice',
+                        Salary: '$49k',
+                        age: 38
+                    }
+                ],
+                adharno: ["ghf", "qqw"],
+                meterReading: '200W',
+                floors: 2
+            }
+        ];
+
+        const result = billingAmount(validDataset);
+        expect(result).toEqual([60]); // 40 from meter reading and 20 from floor charge
+    });
+
+    it('should apply $3 for every 10W for income above 200k', () => {
+        const validDataset = [
+            {
+                meterNo: 3,
+                members: [
+                    {
+                        memberName: 'Mike',
+                        Salary: '$250k',
+                        age: 35
+                    },
+                    {
+                        memberName: 'Alice',
+                        Salary: '$100k',
+                        age: 40
+                    }
+                ],
+                adharno: ["ghf", "qqw"],
+                meterReading: '300W',
+                floors: 1
+            }
+        ];
+
+        const result = billingAmount(validDataset);
+        expect(result).toEqual([180]); // 90 from meter reading and 90 from floor charge
+    });
+
+    it('should apply default billing if no eligible members (age outside 18-45)', () => {
+        const validDataset = [
+            {
+                meterNo: 4,
+                members: [
+                    {
+                        memberName: 'Tom',
+                        Salary: '$10k',
+                        age: 17 // age < 18
+                    },
+                    {
+                        memberName: 'Jerry',
+                        Salary: '$10k',
+                        age: 50 // age > 45
+                    }
+                ],
+                adharno: ["ghf", "qqw"],
+                meterReading: '100W',
+                floors: 1
+            }
+        ];
+
+        const result = billingAmount(validDataset);
+        expect(result).toEqual([20]); // Default billing since no eligible members
+    });
+
+    // New test case with house having members both below 18 and above 45
+    it('should apply default billing based on income of eligible members (between 18 and 45)', () => {
+        const validDataset = [
+            {
+                meterNo: 5,
+                members: [
+                    {
+                        memberName: 'Kajal',
+                        Salary: '$150k',
+                        age: 16 // Below 18
+                    },
+                    {
+                        memberName: 'Sharuk',
+                        Salary: '$30k',
+                        age: 46 // Above 45
+                    },
+                    {
+                        memberName: 'Ravi',
+                        Salary: '$50k',
+                        age: 30 // Eligible member
+                    }
+                ],
+                adharno: ["ghf", "qqw", "wer"],
+                meterReading: '100W',
+                floors: 2
+            }
+        ];
+
+        const result = billingAmount(validDataset);
+        expect(result).toEqual([15]); // Only Ravi's salary counts: 50k, default billing applies: 10 + 5 from floors
+    });
+
+    // Case with house having multiple members, and only some eligible
+    it('should calculate billing amount for house with mixed age members (some eligible and some ineligible)', () => {
+        const validDataset = [
+            {
+                meterNo: 6,
+                members: [
+                    {
+                        memberName: 'Ravi',
+                        Salary: '$100k',
+                        age: 40 // Eligible
+                    },
+                    {
+                        memberName: 'Jai',
+                        Salary: '$50k',
+                        age: 16 // Ineligible
+                    },
+                    {
+                        memberName: 'Simran',
+                        Salary: '$70k',
+                        age: 50 // Ineligible
+                    }
+                ],
+                adharno: ["ghf", "qqw", "wer"],
+                meterReading: '200W',
+                floors: 3
+            }
+        ];
+
+        const result = billingAmount(validDataset);
+        expect(result).toEqual([53]);
+    });
+
+    it('should calculate billing amount correctly based on total income and floors', () => {
+        const dataset = [
+            {
+                meterNo: 1,
+                members: [
+                    { memberName: 'Salman', Salary: '$30k', age: 21 },
+                    { memberName: 'Saif', Salary: '$150k', age: 21 }
+                ],
+                adharno: ["abc", "ddf"],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 2,
+                members: [
+                    { memberName: 'Sharuk', Salary: '$30k', age: 46 }, // Ineligible
+                    { memberName: 'Kajal', Salary: '$150k', age: 16 }  // Ineligible
+                ],
+                adharno: ["ghf", "qqw"],
+                meterReading: '100W',
+                floors: 3
+            }
+        ];
+
+        const result = billingAmount(dataset);
+
+
+        expect(result).toEqual([26, 13]);
+    });
+
+    it('should calculate billing amount correctly based on total income and floors if same members are present in multiple houses ', () => {
+        const dataset = [
+
+            {
+                meterNo: 1,
+                members: [{ memberName: 'Salman', Salary: '$30k', age: 21 }, { memberName: 'Saif', Salary: '$150k', age: 21 }],
+                adharno: ["abc", "ddf"],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 2,
+                members: [{ memberName: 'Sharuk', Salary: '$30k', age: 46 }, { memberName: 'Salman', Salary: '$30k', age: 21 }],
+                adharno: ["ghf", "abc"],
+                meterReading: '100W',
+
+                floors: 3
+            }
+
+        ]
+
+        const result = billingAmount(dataset);
+
+
+        expect(result).toEqual([26, 13]);
+    });
+});
+
+describe('Billed members', () => {
+    it('should return billed members for each house', () => {
+        const dataset = [
+            {
+                meterNo: 1,
+                members: [
+                    {
+                        memberName: 'Salman',
+                        Salary: '$30k',
+                        age: 21
+                    },
+                    {
+                        memberName: 'Sarah',
+                        Salary: '$40k',
+                        age: 22
+                    }
+                ],
+                adharno: ["abc", "ddf"],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 2,
+                members: [
+                    {
+                        memberName: 'Sharuk',
+                        Salary: '$30k',
+                        age: 46
+                    },
+                    {
+                        memberName: 'Kajal',
+                        Salary: '$150k',
+                        age: 16
+                    }
+                ],
+                adharno: ["a", "b"],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 3,
+                members: [
+                    {
+                        memberName: 'Alok',
+                        Salary: '$200k',
+                        age: 30
+                    },
+                    {
+                        memberName: 'Ravi',
+                        Salary: '$50k',
+                        age: 25
+                    }
+                ],
+                adharno: ["c", "d"],
+                meterReading: '200W',
+                floors: 2
+            },
+            {
+                meterNo: 4,
+                members: [
+                    {
+                        memberName: 'Mike',
+                        Salary: '$10k',
+                        age: 55
+                    },
+                    {
+                        memberName: 'Alice',
+                        Salary: '$50k',
+                        age: 17
+                    }
+                ],
+                adharno: ["e", "f"],
+                meterReading: '100W',
+                floors: 2
+            },
+            {
+                meterNo: 5,
+                members: [
+                    {
+                        memberName: 'John',
+                        Salary: '$50k',
+                        age: 23
+                    }
+                ],
+                adharno: ["g"],
+                meterReading: '100W',
+                floors: 1
+            }
+        ];
+
+        const result = billedMembers(dataset);
+        expect(result).toEqual([
+            { house1: ['Salman', 'Sarah'] },
+            { house2: [] },
+            { house3: ['Alok', 'Ravi'] },
+            { house4: [] },
+            { house5: ['John'] }
+        ]);
+    });
+    it('should return billed members for each house if members are present in multiple houses', () => {
+        const dataset = [
+            {
+                meterNo: 1,
+                members: [{ memberName: 'Salman', Salary: '$30k', age: 21 }, { memberName: 'Saif', Salary: '$150k', age: 21 }],
+                adharno: ["abc", "ddf"],
+                meterReading: '100W',
+                floors: 3
+            },
+            {
+                meterNo: 2,
+                members: [{ memberName: 'Sharuk', Salary: '$30k', age: 46 }, { memberName: 'Salman', Salary: '$30k', age: 21 }],
+                adharno: ["ghf", "abc"],
+                meterReading: '100W',
+                floors: 3
+            }
+        ]
+
+        const result = billedMembers(dataset);
+        expect(result).toEqual([
+            { house1: ['Salman', 'Saif'] },
+            { house2: [] },
+        ]);
+    });
+});
+

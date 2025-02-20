@@ -1,90 +1,118 @@
-class DataFrameComparator {
-    static compareDataFrames(df1, df2) {
-      if (df1.length != df2.length) throw new Error("DataFrames must have same number of columns.");
-  
-      var similarityScores = [];
-  
-      for (var i = 0; i < df1.length; i++) {
-        var col1 = df1[i];
-        var col2 = df2[i];
-  
-        similarityScores.push(DataFrameComparator.compareColumns(col1, col2));
-      }
-      return similarityScores;
-    }
-  
-    static compareColumns(col1, col2) {
-      if (col1.length != col2.length) throw new Error("Columns must have same number of rows.");
-  
-      if (!col1.length || !col2.length) {
-        return 1.0;
-      }
-  
-      if (typeof col1[0] !== typeof col2[0]) {
-        return 0.0;
-      }
-  
-      if (typeof col1[0] === "number" || typeof col1[0] === "boolean") {
-        return DataFrameComparator.compareNumericBooleanColumns(col1, col2);
-      } else if (typeof col1[0] === "string") {
-        return DataFrameComparator.compareStringColumns(col1, col2);
-      } else {
-        throw new Error("Unsupported data type: " + typeof col1[0]);
-      }
-    }
-  
-    static compareStringColumns(col1, col2) {
-      var differences = 0;
-      for (var k = 0; k < col1.length; k++) {
-        if (col1[k] !== col2[k]) differences++;
-      }
-      return (1.0 * (col1.length - differences)) / col1.length;
-    }
-  
-    static compareNumericBooleanColumns(col1, col2) {
-      var normalizedCol1 = DataFrameComparator.normalizeColumn(col1);
-      var normalizedCol2 = DataFrameComparator.normalizeColumn(col2);
-  
-      var distance = 0;
-      for (var j = 0; j < normalizedCol1.length; j++) {
-        distance += Math.pow(normalizedCol1[j] - normalizedCol2[j], 2);
-      }
-      distance = Math.sqrt(distance);
-  
-      return 1 / (1 + distance);
-    }
-  
-    static normalizeColumn(column) {
-      if (!column.length) throw new Error("Column is empty.");
-  
-      var normalizedColumn = [];
-  
-      if (typeof column[0] === "number") {
-        var min = Number.MAX_VALUE;
-        var max = Number.MIN_VALUE;
-  
-        for (var i = 0; i < column.length; i++) {
-          var num = column[i];
-          min = Math.min(min, num);
-          max = Math.max(max, num);
-        }
-  
-        var range = max - min;
-  
-        for (var j = 0; j < column.length; j++) {
-          var val = column[j];
-          normalizedColumn.push(range > 0 ? (val - min) / range : 0.0);
-        }
-      } else if (typeof column[0] === "boolean") {
-        for (var k = 0; k < column.length; k++) {
-          normalizedColumn.push(column[k] ? 1.0 : 0.0);
-        }
-      } else {
-        throw new Error("Unsupported data type: " + typeof column[0]);
-      }
-  
-      return normalizedColumn;
-    }
+function checkDataset(dataset) {
+  if (!Array.isArray(dataset) || dataset.length === 0) {
+    throw new Error("Invalid DataSet");
   }
-  
-  module.exports = { DataFrameComparator };
+
+  dataset.forEach((record, index) => {
+    if (typeof record.meterNo !== "number" || record.meterNo <= 0) {
+      throw new Error(`Meter number should be a positive integer at index ${index}`);
+    }
+
+    if (!Array.isArray(record.members) || record.members.length === 0) {
+      throw new Error(`Members list should not be empty at index ${index}`);
+    }
+
+    record.members.forEach((member) => {
+      if (typeof member.memberName !== "string") {
+        throw new Error(`Member name should be a string at index ${index}`);
+      }
+
+      if (typeof member.age !== "number" || member.age < 0) {
+        throw new Error(`Age should be a non-negative integer at index ${index}`);
+      }
+
+      if (!/^\$\d+k$/.test(member.Salary)) {
+        throw new Error(`Salary should be in the format $Xk at index ${index}`);
+      }
+    });
+
+    if (!/^\d+W$/.test(record.meterReading)) {
+      throw new Error(`Meter reading should be in the format XW at index ${index}`);
+    }
+
+    if (typeof record.floors !== "number" || record.floors <= 0) {
+      throw new Error(`Number of floors should be a positive integer at index ${index}`);
+    }
+
+    if (!Array.isArray(record.adharno) || record.adharno.length !== record.members.length) {
+      throw new Error(`Adhar number list should be an array of strings and match the length of members list at index ${index}`);
+    }
+
+    record.adharno.forEach((adhar) => {
+      if (typeof adhar !== "string") {
+        throw new Error(`Adhar number should be a string at index ${index}`);
+      }
+    });
+  });
+
+  return dataset;
+}
+
+function billingAmount(dataset) {
+  checkDataset(dataset);
+
+  const billedMembers = billedMembers(dataset);
+  const billingAmounts = [];
+
+  dataset.forEach((record, index) => {
+    const eligibleMembers = billedMembers[index][`house${index + 1}`];
+    let totalIncome = 0;
+
+    eligibleMembers.forEach((memberName) => {
+      const member = record.members.find((member) => member.memberName === memberName);
+      totalIncome += parseInt(member.Salary.slice(1, -1), 10) * 1000;
+    });
+
+    let billingRate;
+    if (totalIncome < 100000) {
+      billingRate = 1;
+    } else if (totalIncome < 200000) {
+      billingRate = 2;
+    } else {
+      billingRate = 3;
+    }
+
+    const meterReading = parseInt(record.meterReading.slice(0, -1), 10);
+    const billingAmount = Math.floor(meterReading / 10) * billingRate;
+    const additionalCharges = Math.floor(billingAmount / record.floors);
+
+    billingAmounts.push(billingAmount + additionalCharges);
+  });
+
+  return billingAmounts;
+}
+
+function billedMembers(dataset) {
+  const billedMembers = [];
+
+  dataset.forEach((record, index) => {
+    const eligibleMembers = [];
+
+    record.members.forEach((member) => {
+      if (member.age >= 18 && member.age <= 45) {
+        eligibleMembers.push(member.memberName);
+      }
+    });
+
+    const processedMembers = [];
+
+    if (index > 0) {
+      for (let i = 0; i < index; i++) {
+        processedMembers.push(...billedMembers[i][`house${i + 1}`]);
+      }
+    }
+
+    const filteredMembers = eligibleMembers.filter((member) => {
+      const adharIndex = record.members.findIndex((m) => m.memberName === member);
+      const adharNumber = record.adharno[adharIndex];
+
+      return !processedMembers.includes(member) || !dataset.slice(0, index).some((prevRecord) => prevRecord.adharno.includes(adharNumber));
+    });
+
+    billedMembers.push({ [`house${index + 1}`]: filteredMembers });
+  });
+
+  return billedMembers;
+}
+
+module.exports = { checkDataset, billingAmount, billedMembers };

@@ -1,29 +1,42 @@
-Enhancement task
+Completion task
 
+Prompt is good
+You just have to structure it better. There are grammatical mistakes in the prompt.
+You can run test through online tools like https://www.grammarcheck.net/editor/ or install grammerly chrome extension.
+In prompt you can highlight function names/variable names/javascript keyword using single backticks. This not mandatory but it make prompt easily readable.
+If you include javascript code in the prompt use three backticks followed by javascript (```javascript ```), also make sure code is properly structured.
 
-Remove first line from the user prompt:
-"provide your prompt using the following format:" this line should not present in the prompt.
+For ideal solution, run jest test coverage there you will find the lines which are not cover then you can add more test cases to test uncovered lines.
+For task 473834, 
+-------------|---------|----------|---------|---------|-------------------
+File         | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s
+-------------|---------|----------|---------|---------|-------------------
+All files    |   98.36 |     97.5 |     100 |   98.24 |
+ solution.js |   98.36 |     97.5 |     100 |   98.24 | 21
+-------------|---------|----------|---------|---------|-------------------
 
+Line number 21 is not covered, if it make sense to you to add test case you can add it.
+For ideal solution we try to get 100% coverage, it should be atleast 90%.
 
-Unit Test case:
-Add test case for 
-`getAverageHoursWorked("e3") ->47`
-Add test case for following requirements:
-- "Ensure that team members are always stored in sorted manner in ascending manner based on id".
-- "Employee name should be number , id should be string and hoursWorked is number."
+---
 
+Estimated skill requirements:
+    Include "Language-specific features"
 
-Incorrect Solution Explanation:
-- Here you should explain the code issues in incorrect solution. You should explain the issues with the `moveTeam` function.
+Model Evaluations -> First Observed Failure Reason: There are grammatical mistake, please fix those.
 
+Unit test:
+    Import statement should be solution with small 's'
+    const { checkDataset, billingAmount, billedMembers } = require('./solution');
+    Please format the code properly.
+    Consider adding test cases for following
+    - house.members is not array
+    - house.adharno is not array
+    - house.members.length !== house.adharno.length
 
 Ideal Response Explanation:
-- Here you should explain why/how ideal solution is better than incorrect.
-- You can compare the incorrect solution and the ideal solution.
-- Mention how ideal solution fixed the issue in incorrect solution.
+    You don't have to explain the complete code, here you have to mention the how it fixed the issues in incorrect solution.
+    It should not be too long or too short, you can make it around 4-6 lines.
 
-Ideal Response:
-- It should follow LLAMA model response tone.
-
-
-Model responses will be evaluated after prompt and test cases are updated.
+Ideal Response: 
+    Follow LLAMA tone for writing ideal response.

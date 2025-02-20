@@ -1,101 +1,114 @@
-class DataFrameComparator {
-  static compareDataFrames(df1, df2) {
-    if (df1.length !== df2.length) {
-      throw new Error("DataFrames must have the same number of columns.");
-    }
-
-    const similarityScores = [];
-
-    for (let i = 0; i < df1.length; i++) {
-      const col1 = df1[i];
-      const col2 = df2[i];
-
-      const score = DataFrameComparator.compareColumns(col1, col2);
-      similarityScores.push(score);
-    }
-
-    return similarityScores;
+function checkDataset(dataset) {
+  if (!Array.isArray(dataset) || dataset.length === 0) {
+    throw new Error("Invalid DataSet");
   }
 
-  static compareColumns(col1, col2) {
-    if (col1.length !== col2.length) {
-      throw new Error("Columns must have the same number of rows.");
+  dataset.forEach((record, index) => {
+    if (typeof record.meterNo !== "number" || !Number.isInteger(record.meterNo)) {
+      throw new Error("Dataset is not valid");
     }
 
-    if (!col1.length || !col2.length) {
-      return 1.0; // Empty columns are considered identical
+    if (!Array.isArray(record.members) || record.members.length === 0) {
+      throw new Error("Dataset is not valid");
     }
 
-    if (typeof col1[0] !== typeof col2[0]) {
-      throw new Error("Columns must have the same data type.");
-    }
-
-    if (typeof col1[0] === "string") {
-      return DataFrameComparator.compareStringColumns(col1, col2);
-    } else if (typeof col1[0] === "number" || typeof col1[0] === "boolean") {
-      return DataFrameComparator.compareNumericBooleanColumns(col1, col2);
-    } else {
-      throw new Error(`Unsupported data type: ${typeof col1[0]}`);
-    }
-  }
-
-  static compareStringColumns(col1, col2) {
-    let differences = 0;
-
-    for (let i = 0; i < col1.length; i++) {
-      if (col1[i] !== col2[i]) {
-        differences++;
+    record.members.forEach((member) => {
+      if (typeof member.memberName !== "string") {
+        throw new Error("Dataset is not valid");
       }
-    }
 
-    return (col1.length - differences) / col1.length;
-  }
-
-  static compareNumericBooleanColumns(col1, col2) {
-    const normalizedCol1 = DataFrameComparator.normalizeColumn(col1);
-    const normalizedCol2 = DataFrameComparator.normalizeColumn(col2);
-
-    let distance = 0;
-
-    for (let i = 0; i < normalizedCol1.length; i++) {
-      distance += Math.pow(normalizedCol1[i] - normalizedCol2[i], 2);
-    }
-
-    distance = Math.sqrt(distance);
-
-    return 1 / (1 + distance);
-  }
-
-  static normalizeColumn(column) {
-    if (!column.length) {
-      throw new Error("Column is empty.");
-    }
-
-    if (column.includes(null)) {
-      throw new Error("Column cannot contain null values.");
-    }
-
-    const normalizedColumn = [];
-
-    if (typeof column[0] === "number") {
-      const min = Math.min(...column);
-      const max = Math.max(...column);
-      const range = max - min;
-
-      for (let i = 0; i < column.length; i++) {
-        const val = column[i];
-        normalizedColumn.push(range > 0 ? (val - min) / range : 0.0);
+      if (typeof member.age !== "number" || !Number.isInteger(member.age)) {
+        throw new Error("Dataset is not valid");
       }
-    } else if (typeof column[0] === "boolean") {
-      for (let i = 0; i < column.length; i++) {
-        normalizedColumn.push(column[i] ? 1.0 : 0.0);
+
+      if (!/^\$\d+k$/.test(member.Salary)) {
+        throw new Error("Dataset is not valid");
       }
-    } else {
-      throw new Error(`Unsupported data type: ${typeof column[0]}`);
+    });
+
+    if (!/^\d+W$/.test(record.meterReading)) {
+      throw new Error("Dataset is not valid");
     }
 
-    return normalizedColumn;
+    if (typeof record.floors !== "number" || !Number.isInteger(record.floors)) {
+      throw new Error("Dataset is not valid");
+    }
+
+    if (!Array.isArray(record.adharno) || record.adharno.length !== record.members.length) {
+      throw new Error("Dataset is not valid");
+    }
+
+    record.adharno.forEach((adhar) => {
+      if (typeof adhar !== "string") {
+        throw new Error("Dataset is not valid");
+      }
+    });
+  });
+
+  // Check for duplicate meter numbers
+  const meterNumbers = dataset.map((record) => record.meterNo);
+  if (new Set(meterNumbers).size !== meterNumbers.length) {
+    throw new Error("Meter number cant be same");
   }
+
+  return dataset;
 }
 
-module.exports = { DataFrameComparator };
+function billingAmount(dataset) {
+  checkDataset(dataset);
+
+  const billingAmounts = dataset.map((record, index) => {
+    const eligibleMembers = record.members.filter((member) => member.age >= 18 && member.age <= 45);
+
+    // Check if all members have an age outside the range of 18 to 45 (inclusive)
+    if (eligibleMembers.length === 0) {
+      console.log(`House ${index + 1}: Not applicable for scheme`);
+    }
+
+    const totalMonthlyIncome = eligibleMembers.reduce((acc, member) => {
+      const salary = parseInt(member.Salary.slice(1, -1), 10) * 1000;
+      return acc + salary;
+    }, 0);
+
+    let billingAmount;
+    if (totalMonthlyIncome < 100000) {
+      billingAmount = parseInt(record.meterReading.slice(0, -1), 10) / 10;
+    } else if (totalMonthlyIncome < 200000) {
+      billingAmount = (parseInt(record.meterReading.slice(0, -1), 10) / 10) * 2;
+    } else {
+      billingAmount = (parseInt(record.meterReading.slice(0, -1), 10) / 10) * 3;
+    }
+
+    const additionCharges = Math.floor(billingAmount / record.floors);
+    billingAmount += additionCharges;
+
+    return billingAmount;
+  });
+
+  return billingAmounts;
+}
+
+function billedMembers(dataset) {
+  checkDataset(dataset);
+
+  const processedMembers = {};
+
+  const billedMembers = dataset.map((record, index) => {
+    const eligibleMembers = record.members.filter((member) => member.age >= 18 && member.age <= 45);
+
+    const membersToConsider = eligibleMembers.filter((member, memberIndex) => {
+      const adhar = record.adharno[memberIndex];
+      if (processedMembers[adhar]) {
+        return false;
+      }
+      processedMembers[adhar] = true;
+      return true;
+    });
+
+    return { [`house${index + 1}`]: membersToConsider.map((member) => member.memberName) };
+  });
+
+  return billedMembers;
+}
+
+module.exports = { checkDataset, billingAmount, billedMembers };

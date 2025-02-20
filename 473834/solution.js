@@ -1,110 +1,111 @@
-class Employee {
-  constructor(name, empId, hoursWorked) {
-      if (typeof name !== 'string') {
-          throw new Error("Name must be a string");
+function checkDataset(dataset) {
+    if (!Array.isArray(dataset) || dataset.length === 0) {
+      throw new Error("Invalid DataSet");
+    }
+  
+    const meterNumbers = new Set();
+  
+    for (const house of dataset) {
+      // Check meter number
+      if (!Number.isInteger(house.meterNo)) {
+        throw new Error("Dataset is not valid");
       }
-      if (typeof empId !== 'string') {
-          throw new Error("Employee ID must be a string");
+      
+      if (meterNumbers.has(house.meterNo)) {
+        throw new Error("Meter number cant be same");
       }
-      if (typeof hoursWorked !== 'number') {
-          throw new Error("Hours worked must be a number");
+      meterNumbers.add(house.meterNo);
+  
+      // Validate members and adharno
+      if (!Array.isArray(house.members) || !Array.isArray(house.adharno) || house.members.length !== house.adharno.length) {
+        throw new Error("Dataset is not valid");
       }
-
-      this.name = name;
-      this.empId = empId;
-      this.hoursWorked = hoursWorked;
-      this.team = [];
+  
+      // Validate each member
+      for (const member of house.members) {
+        if (typeof member.memberName !== 'string' || !Number.isInteger(member.age) || !/^\$\d+[kK]$/.test(member.Salary)) {
+          throw new Error("Dataset is not valid");
+        }
+      }
+  
+      // Validate adharno elements
+      if (house.adharno.some(adhar => typeof adhar !== 'string')) {
+        throw new Error("Dataset is not valid");
+      }
+  
+      // Validate meterReading and floors
+      if (!/^\d+W$/.test(house.meterReading) || !Number.isInteger(house.floors)) {
+        throw new Error("Dataset is not valid");
+      }
+    }
+  
+    return dataset;
   }
-
-  addTeamMember(employee) {
-      if (this.getEmployeeData(employee.empId)) {
-          throw new Error("Same Employee Id");
+  
+  function billingAmount(dataset) {
+    checkDataset(dataset);
+    const processedAdharNumbers = new Set();
+    const billingAmounts = [];
+  
+    for (const house of dataset) {
+      const watts = parseInt(house.meterReading);
+      let totalIncome = 0;
+      let eligibleMembersExist = false;
+  
+      // Calculate total income of eligible members
+      for (let i = 0; i < house.members.length; i++) {
+        const member = house.members[i];
+        const adhar = house.adharno[i];
+  
+        if (member.age >= 18 && member.age <= 45 && !processedAdharNumbers.has(adhar)) {
+          eligibleMembersExist = true;
+          const salary = parseInt(member.Salary.replace(/[\$k]/gi, '')) * 1000;
+          totalIncome += salary;
+          processedAdharNumbers.add(adhar);
+        }
       }
-
-      this.team.push(employee);
-      this.team.sort((a, b) => a.empId.localeCompare(b.empId)); // Maintain sorted order
-  }
-
-  getEmployeeData(empId) {
-      if (this.empId === empId) {
-          return {
-              empId: this.empId,
-              name: this.name,
-              hoursWorked: this.hoursWorked,
-              team: this.team.map(member => member.getEmployeeData(member.empId)),
-          };
+  
+      // Calculate base amount based on the income
+      let baseAmount = Math.floor(watts / 10);
+  
+      if (eligibleMembersExist) {
+        if (totalIncome >= 200000) {
+          baseAmount *= 3;
+        } else if (totalIncome >= 100000) {
+          baseAmount *= 2;
+        }
       }
-
-      for (const member of this.team) {
-          const data = member.getEmployeeData(empId);
-          if (data) {
-              return data;
-          }
+  
+      // Add floor charges (integer division)
+      const floorCharge = Math.floor(baseAmount / house.floors);
+      billingAmounts.push(baseAmount + floorCharge);
+    }
+  
+    return billingAmounts;
+  }
+  
+  function billedMembers(dataset) {
+    const processedAdharNumbers = new Set();
+    const result = [];
+  
+    for (let i = 0; i < dataset.length; i++) {
+      const house = dataset[i];
+      const eligibleMembers = [];
+  
+      for (let j = 0; j < house.members.length; j++) {
+        const member = house.members[j];
+        const adhar = house.adharno[j];
+  
+        if (member.age >= 18 && member.age <= 45 && !processedAdharNumbers.has(adhar)) {
+          eligibleMembers.push(member.memberName);
+          processedAdharNumbers.add(adhar);
+        }
       }
-
-      return null;
+  
+      result.push({ [`house${i + 1}`]: eligibleMembers });
+    }
+  
+    return result;
   }
-
-  getAverageHoursWorked(empId) {
-      const employee = this.getEmployeeData(empId);
-      if (!employee) {
-          throw new Error("Employee does not exist");
-      }
-
-      let totalHours = employee.hoursWorked;
-      let count = 1;
-
-      const calculateTeamHours = (team) => {
-          for (const member of team) {
-              totalHours += member.hoursWorked;
-              count++;
-              if (member.team.length > 0) {
-                  calculateTeamHours(member.team);
-              }
-          }
-      };
-
-      calculateTeamHours(employee.team);
-      return Math.floor(totalHours / count);
-  }
-
-  moveTeam(sourceTeamEmployeeId, destinationTeamEmployeeId) {
-
-      const sourceEmployee = this.getEmployeeData(sourceTeamEmployeeId);
-      const destinationEmployee = this.getEmployeeData(destinationTeamEmployeeId);
-
-      if (!sourceEmployee || !destinationEmployee) {
-          throw new Error("Employee is not present");
-      }
-
-      // Helper function to find the employee object
-      const findEmployee = (currentEmployee, empId) => {
-          if (currentEmployee.empId === empId) {
-              return currentEmployee;
-          }
-          for (const member of currentEmployee.team) {
-              const result = findEmployee(member, empId);
-              if (result) return result;
-          }
-          return null;
-      };
-
-      const sourceObj = findEmployee(this, sourceTeamEmployeeId);
-      const destinationObj = findEmployee(this, destinationTeamEmployeeId);
-
-      // Move team members to destination
-      const teamToMove = sourceObj.team.splice(0); // Get and empty the source's team
-      teamToMove.forEach(member => destinationObj.addTeamMember(member));
-  }
-
-  toJSON() {
-      return {
-          empId: this.empId,
-          name: this.name,
-          hoursWorked: this.hoursWorked,
-          team: this.team.map(member => member.toJSON()),
-      };
-  }
-}
-
-module.exports = { Employee };
+  
+  module.exports = { checkDataset, billingAmount, billedMembers };

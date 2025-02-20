@@ -1,86 +1,130 @@
-class DataFrameComparator {
-    static compareDataFrames(df1, df2) {
-        if (!Array.isArray(df1) || !Array.isArray(df2)) {
-            throw new Error("DataFrames must be arrays");
-        }
-        if (df1.length !== df2.length) {
-            throw new Error("DataFrames must have same number of columns");
-        }
-
-        return df1.map((col1, index) => {
-            const col2 = df2[index];
-            return this.compareColumns(col1, col2);
-        });
+function checkDataset(dataset) {
+    if (!Array.isArray(dataset) || dataset.length === 0) {
+        throw new Error("Invalid DataSet");
     }
 
-    static compareColumns(col1, col2) {
-        if (!Array.isArray(col1) || !Array.isArray(col2)) {
-            throw new Error("Columns must be arrays");
-        }
-        if (col1.length !== col2.length) {
-            throw new Error("Columns must have same number of rows");
+    const meterNumbers = new Set();
+
+    for (const house of dataset) {
+        // Check if all required properties exist
+        if (!house.meterNo || !house.members || !house.meterReading || 
+            !house.floors || !house.adharno) {
+            throw new Error("Dataset is not valid");
         }
 
-        if (!col1.length || !col2.length) {
-            return 1.0;
+        // Check meter number uniqueness and type
+        if (typeof house.meterNo !== 'number' || !Number.isInteger(house.meterNo)) {
+            throw new Error("Dataset is not valid");
+        }
+        if (meterNumbers.has(house.meterNo)) {
+            throw new Error("Meter number cant be same");
+        }
+        meterNumbers.add(house.meterNo);
+
+        // Check members array and its properties
+        if (!Array.isArray(house.members)) {
+            throw new Error("Dataset is not valid");
         }
 
-        if (typeof col1[0] !== typeof col2[0]) {
-            return 0.0;
+        // Check if adharno array length matches members array length
+        if (!Array.isArray(house.adharno) || house.adharno.length !== house.members.length) {
+            throw new Error("Dataset is not valid");
         }
 
-        if (typeof col1[0] === "string") {
-            return this.compareStringColumns(col1, col2);
-        } else if (typeof col1[0] === "number" || typeof col1[0] === "boolean") {
-            return this.compareNumericBooleanColumns(col1, col2);
-        } else {
-            throw new Error(`Unsupported data type: ${typeof col1[0]}`);
+        // Validate each adharno is string
+        if (!house.adharno.every(no => typeof no === 'string')) {
+            throw new Error("Dataset is not valid");
+        }
+
+        for (const member of house.members) {
+            if (typeof member.memberName !== 'string') {
+                throw new Error("Dataset is not valid");
+            }
+            if (typeof member.age !== 'number' || !Number.isInteger(member.age)) {
+                throw new Error("Dataset is not valid");
+            }
+            if (!/^\$\d+k$/i.test(member.Salary)) {
+                throw new Error("Dataset is not valid");
+            }
+        }
+
+        // Check meterReading format
+        if (!/^\d+W$/.test(house.meterReading)) {
+            throw new Error("Dataset is not valid");
+        }
+
+        // Check floors
+        if (typeof house.floors !== 'number' || !Number.isInteger(house.floors)) {
+            throw new Error("Dataset is not valid");
         }
     }
 
-    static compareStringColumns(col1, col2) {
-        const differences = col1.reduce((count, val, index) => 
-            val !== col2[index] ? count + 1 : count, 0);
-        return (col1.length - differences) / col1.length;
-    }
-
-    static compareNumericBooleanColumns(col1, col2) {
-        const normalizedCol1 = this.normalizeColumn(col1);
-        const normalizedCol2 = this.normalizeColumn(col2);
-
-        const distance = Math.sqrt(
-            normalizedCol1.reduce((sum, val, index) => 
-                sum + Math.pow(val - normalizedCol2[index], 2), 0)
-        );
-
-        return 1 / (1 + distance);
-    }
-
-    static normalizeColumn(column) {
-        if (!Array.isArray(column)) {
-            throw new Error("Column must be an array");
-        }
-        if (!column.length) {
-            throw new Error("Column is empty");
-        }
-        if (column.some(val => val === null || val === undefined)) {
-            throw new Error("Column contains null or undefined values");
-        }
-
-        if (typeof column[0] === "boolean") {
-            return column.map(val => val ? 1.0 : 0.0);
-        }
-
-        if (typeof column[0] === "number") {
-            const min = Math.min(...column);
-            const max = Math.max(...column);
-            const range = max - min;
-
-            return column.map(val => range > 0 ? (val - min) / range : 0.0);
-        }
-
-        throw new Error(`Unsupported data type: ${typeof column[0]}`);
-    }
+    return dataset;
 }
 
-module.exports = { DataFrameComparator };
+function billingAmount(dataset) {
+    checkDataset(dataset);
+    const processedAdharNos = new Set();
+    const billingAmounts = [];
+
+    for (const house of dataset) {
+        const watts = parseInt(house.meterReading);
+        let totalIncome = 0;
+        let hasEligibleMember = false;
+
+        // Calculate total income from eligible members
+        for (let i = 0; i < house.members.length; i++) {
+            const member = house.members[i];
+            const adharNo = house.adharno[i];
+
+            if (member.age >= 18 && member.age <= 45 && !processedAdharNos.has(adharNo)) {
+                hasEligibleMember = true;
+                totalIncome += parseInt(member.Salary.replace(/[\$k]/gi, '')) * 1000;
+                processedAdharNos.add(adharNo);
+            }
+        }
+
+        let ratePerTenWatts;
+        if (!hasEligibleMember) {
+            ratePerTenWatts = 1; // Default billing
+        } else if (totalIncome < 100000) {
+            ratePerTenWatts = 1;
+        } else if (totalIncome < 200000) {
+            ratePerTenWatts = 2;
+        } else {
+            ratePerTenWatts = 3;
+        }
+
+        const baseAmount = Math.floor(watts / 10) * ratePerTenWatts;
+        const floorCharge = Math.floor(baseAmount / house.floors);
+        billingAmounts.push(baseAmount + floorCharge);
+    }
+
+    return billingAmounts;
+}
+
+function billedMembers(dataset) {
+    const processedAdharNos = new Set();
+    const result = [];
+
+    for (let i = 0; i < dataset.length; i++) {
+        const house = dataset[i];
+        const eligibleMembers = [];
+
+        for (let j = 0; j < house.members.length; j++) {
+            const member = house.members[j];
+            const adharNo = house.adharno[j];
+
+            if (member.age >= 18 && member.age <= 45 && !processedAdharNos.has(adharNo)) {
+                eligibleMembers.push(member.memberName);
+                processedAdharNos.add(adharNo);
+            }
+        }
+
+        result.push({ [`house${i + 1}`]: eligibleMembers });
+    }
+
+    return result;
+}
+
+module.exports = { checkDataset, billingAmount, billedMembers };
