@@ -1,5 +1,5 @@
 const yup = require("yup");
-const { validate } = require('./alternate_responses/incorrect_solution'); // Adjust path accordingly
+const { validate } = require('./solution'); // Adjust path accordingly
 
 describe("Payment Validation Tests", () => {
   test("Should pass for valid PaymentIncoming data", async () => {

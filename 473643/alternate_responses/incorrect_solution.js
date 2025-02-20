@@ -11,7 +11,7 @@ const PaymentIncomingSchema = yup.object({
   paymentMode: yup.number().required("Payment mode is required"),
   description: yup.string(),
   assetID: yup.string(),
-  paymentType: yup.number().required("Payment type is required").oneOf([0]),
+  paymentType: yup.number().required("Payment type is required").equals([0]),
   category: yup.string(),
   categoryType: yup
     .number()
@@ -45,7 +45,7 @@ const PaymentOutgoingSchema = yup.object({
   paymentMode: yup.number().required("Payment mode is required").oneOf([0, 1]), // 0 is bank transfer, 1 is cash
   description: yup.string(),
   assetID: yup.string(),
-  paymentType: yup.number().required("Payment type is required").oneOf([1]), // 0 is Incoming, 1 is outgoing
+  paymentType: yup.number().required("Payment type is required").equals([1]),
   category: yup.string(),
   categoryType: yup
     .number()
@@ -68,19 +68,12 @@ const PaymentOutgoingSchema = yup.object({
   }),
 });
 
-const PaymentSchema = yup
-  .mixed()
-  .test("is-valid-payment", "Invalid payment type", function (value) {
-    if (value.paymentType === 0) {
-      return PaymentIncomingSchema.validate(value);
-    } else if (value.paymentType === 1) {
-      return PaymentOutgoingSchema.validate(value);
-    }
-    return false;
-  });
-
 const validate = async (payment) => {
-  await PaymentSchema.validate(payment);
+  if (payment.paymentType === 0) {
+    await PaymentIncomingSchema.validate(payment);
+  } else {
+    await PaymentOutgoingSchema.validate(payment);
+  }
 };
 
 module.exports = { validate };
