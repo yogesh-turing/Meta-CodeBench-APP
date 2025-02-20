@@ -1,211 +1,130 @@
-const yup = require("yup");
-const { validate } = require('./alternate_responses/incorrect_solution'); // Adjust path accordingly
+const { ParkingSystem } = require('./solution'); 
 
-describe("Payment Validation Tests", () => {
-  test("Should pass for valid PaymentIncoming data", async () => {
-    const validPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      status: 1,
-      reason: 0,
-      paymentMode: 1,
-      description: "Payment for invoice",
-      assetID: "asset123",
-      paymentType: 0,
-      category: "services",
-      categoryType: 0,
-      invoiceIDs: ["inv001"],
-      clientID: "client123",
-    };
-    await expect(validate(validPayment)).resolves.not.toThrow();
+describe('ParkingSystem', () => {
+  
+  let parkingSystem;
+  
+  beforeEach(() => {
+    parkingSystem = new ParkingSystem();
   });
 
-  test("Should fail if amount is missing", async () => {
-    const invalidPayment = {
-      paymentDate: new Date(),
-      paymentType: 0,
-      paymentMode: 1,
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Amount is required"]),
+  describe('addParkingArea', () => {
+
+    it('should add a new parking area successfully', () => {
+      parkingSystem.addParkingArea('area1', 10);
+      let parkingDetails = parkingSystem.getParkingDetails('area1');
+      expect(parkingDetails.length).toBe(10);
+      expect(parkingDetails[0].slotNumber).toBe(1);
+      expect(parkingDetails[9].slotNumber).toBe(10);
+    });
+
+    it('should throw error for invalid slot count providing negative value for slots', () => {
+      expect(() => parkingSystem.addParkingArea('area1', -5)).toThrow('Invalid parking area or slot count');
+    });
+
+    it('should throw error for invalid areaId if the passed areaId is not a string', () => {
+      expect(() => parkingSystem.addParkingArea(10, 5)).toThrow('Invalid parking area or slot count');
+    });
+
+    it('should throw error for invalid areaId if the passed areaId is empty', () => {
+      expect(() => parkingSystem.addParkingArea('', 10)).toThrow('Invalid parking area or slot count');
+    });
+
+    it('should throw error for invalid slot count', () => {
+      expect(() => parkingSystem.addParkingArea('area1', -10)).toThrow('Invalid parking area or slot count');
+    });
+
+    it('should update slot availability for an existing area', () => {
+      parkingSystem.addParkingArea('area1', 10);
+      parkingSystem.addParkingArea('area1', 5);
+      const parkingDetails = parkingSystem.getParkingDetails('area1');
+      expect(parkingDetails.length).toBe(5);
     });
   });
 
-  test("Should fail if amount is less than 1", async () => {
-    const invalidPayment = {
-      amount: 0,
-      paymentDate: new Date(),
-      paymentType: 0,
-      paymentMode: 1,
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Amount must be greater than 0"]),
+  describe('reserveSlot', () => {
+    it('should reserve a parking slot successfully', () => {
+      parkingSystem.addParkingArea('area1', 10);
+      const reservation = parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
+      expect(reservation.reservationId).toBe('reservation1');
+      expect(reservation.areaId).toBe('area1');
+      expect(reservation.customerName).toBe('John Doe');
+      expect(reservation.slotNumber).toBe(3);
+      expect(reservation.time).toBeTruthy(); // Check if time exists
+    });
+
+    it('should throw error if parking area not found', () => {
+      expect(() => parkingSystem.reserveSlot('reservation1', 'area2', 'John Doe', 3)).toThrow('Parking area not found');
+    });
+
+    it('should throw error if parking area is not of type string ', () => {
+        expect(() => parkingSystem.reserveSlot('reservation1', "random area", 'John Doe', 3)).toThrow('Parking area not found');
+      });
+
+    it('should throw error if Customer Name  is missing for reservation detail ', () => {
+        expect(() => parkingSystem.reserveSlot('reservation1', "random area",  3)).toThrow('Invalid reservation details');
+      });
+
+    it('should throw error if Seat number  is missing for reservation detail ', () => {
+        expect(() => parkingSystem.reserveSlot('reservation1', "random area", 'John Doe')).toThrow('Invalid reservation details');
+      });
+
+    it('should throw error if reservation id is missing for reservation detail ', () => {
+        expect(() => parkingSystem.reserveSlot( "random area",  3)).toThrow('Invalid reservation details');
+      });
+     
+
+    it('should throw error if area is missing for reservation detail ', () => {
+        expect(() => parkingSystem.reserveSlot( "random area",  3)).toThrow('Invalid reservation details');
+      });
+
+    it('should throw error if slot is already reserved', () => {
+      parkingSystem.addParkingArea('area1', 10);
+      parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
+      expect(() => parkingSystem.reserveSlot('reservation2', 'area1', 'Jane Doe', 3)).toThrow('Slot not available');
     });
   });
 
-  test("Should fail if paymentType is missing", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentMode: 1,
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Payment type is required"]),
+  describe('getParkingDetails', () => {
+    it('should return the slot availability for a parking area', () => {
+      parkingSystem.addParkingArea('area1', 10);
+      const parkingDetails = parkingSystem.getParkingDetails('area1');
+      expect(parkingDetails.length).toBe(10);
+      expect(parkingDetails[0].available).toBe(true);
+    });
+
+    it('should throw error if parking area not found', () => {
+      expect(() => parkingSystem.getParkingDetails('area2')).toThrow('Parking area not found');
     });
   });
 
-  test("Should fail if paymentMode is missing", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 1,
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Payment mode is required"]),
+  describe('cancelReservation', () => {
+    it('should cancel a reservation successfully', () => {
+      parkingSystem.addParkingArea('area1', 10);
+      parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
+      parkingSystem.cancelReservation('reservation1');
+      const parkingDetails = parkingSystem.getParkingDetails('area1');
+      expect(parkingDetails[2].available).toBe(true); // Slot 3 should be available after cancellation
+    });
+
+    it('should throw error if reservation not found', () => {
+      expect(() => parkingSystem.cancelReservation('nonexistentReservation')).toThrow('Reservation not found');
     });
   });
 
-  test("Should fail if reason is not 0 or 1", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 0,
-      reason: 2, // Invalid value
-      paymentMode: 0,
-    };
-    await expect(validate(invalidPayment)).rejects.toThrow();
-  });
-
-  test("Should pass for valid PaymentOutgoing data", async () => {
-    const validPayment = {
-      amount: 200,
-      paymentDate: new Date(),
-      status: 1,
-      reason: 1,
-      paymentMode: 1,
-      description: "Vendor payment",
-      assetID: "asset456",
-      paymentType: 1,
-      category: "supplies",
-      categoryType: 1,
-      orderIDs: ["order001"],
-      vendorID: "vendor789",
-    };
-    await expect(validate(validPayment)).resolves.not.toThrow();
-  });
-
-  test("Should fail if orderIDs is required but missing (PaymentOutgoing)", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 1,
-      paymentMode: 1,
-      reason: 0,
-      categoryType: 0,
-      vendorID: "vendor001",
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Order ID is required"]),
+  describe('getReservationDetails', () => {
+    it('should return reservation details for an existing reservation', () => {
+      parkingSystem.addParkingArea('area1', 10);
+      const reservation = parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
+      const reservationDetails = parkingSystem.getReservationDetails('reservation1');
+      expect(reservationDetails.reservationId).toBe('reservation1');
+      expect(reservationDetails.customerName).toBe('John Doe');
+      expect(reservationDetails.slotNumber).toBe(3);
+      expect(reservationDetails.time).toBeTruthy();
     });
-  });
 
-  test("Should fail if orderIDs is empty (PaymentOutgoing)", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 1,
-      paymentMode: 1,
-      reason: 0,
-      categoryType: 0,
-      vendorID: "vendor001",
-      orderIDs: [],
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Order ID must include at least one ID"]),
+    it('should throw error if reservation not found', () => {
+      expect(() => parkingSystem.getReservationDetails('nonexistentReservation')).toThrow('Reservation not found');
     });
-  });
-
-  test("Should fail if vendorID is required but missing (PaymentOutgoing)", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 1,
-      paymentMode: 1,
-      reason: 0,
-      categoryType: 0,
-      orderIDs: ["order001"],
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Vendor ID is required"]),
-    });
-  });
-
-  test("Should fail if invoiceIDs is required but missing (PaymentIncoming)", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 0,
-      paymentMode: 0,
-      reason: 0,
-      categoryType: 0,
-      clientID: "client001",
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Invoice ID is required"]),
-    });
-  });
-
-  test("Should fail if invoiceIDs is empty (PaymentIncoming)", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 0,
-      paymentMode: 0,
-      reason: 0,
-      categoryType: 0,
-      clientID: "client001",
-      invoiceIDs: [],
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining([
-        "Invoice ID must include at least one ID",
-      ]),
-    });
-  });
-
-  test("Should fail if clientID is required but missing (PaymentIncoming)", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 0,
-      paymentMode: 0,
-      reason: 0,
-      categoryType: 0,
-      invoiceIDs: ["inv001"],
-    };
-    await expect(validate(invalidPayment)).rejects.toMatchObject({
-      errors: expect.arrayContaining(["Client ID is required"]),
-    });
-  });
-
-  test("Should fail if categoryType is invalid", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 0,
-      paymentMode: 0,
-      categoryType: 2, // Invalid
-    };
-    await expect(validate(invalidPayment)).rejects.toThrow();
-  });
-
-  test("Should fail if paymentMode is invalid (PaymentOutgoing)", async () => {
-    const invalidPayment = {
-      amount: 100,
-      paymentDate: new Date(),
-      paymentType: 1,
-      paymentMode: 3, // Invalid
-    };
-    await expect(validate(invalidPayment)).rejects.toThrow();
   });
 });

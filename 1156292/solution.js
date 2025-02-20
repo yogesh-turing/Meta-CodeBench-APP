@@ -1,70 +1,76 @@
-const yup = require("yup");
+class ParkingSystem {
+  constructor() {
+    this.parkingSlots = {};  // Format: { areaId: { slotNumber: availability, ... } }
+    this.reservations = {};  // Format: { reservationId: { areaId, customerName, slotNumber, time } }
+  }
 
-const PAYMENT_TYPES = { INCOMING: 0, OUTGOING: 1 };
-const CATEGORY_TYPES = { ENTITY: 0, OTHER: 1 };
-const REASONS = { ADVANCE: 0, ITEM: 1 };
-const PAYMENT_MODES = { BANK_TRANSFER: 0, CASH: 1 };
+  addParkingArea(areaId, slotCount) {
+    if (typeof areaId !== 'string' || areaId.trim() === '' || typeof slotCount !== 'number' || slotCount <= 0) {
+      throw new Error('Invalid parking area or slot count');
+    }
 
-const PaymentSchema = yup.object({
-  amount: yup
-    .number()
-    .required("Amount is required")
-    .min(1, "Amount must be greater than 0"),
-  paymentDate: yup.date().required("Payment date is required"),
-  status: yup.number(),
-  reason: yup.number().nullable().oneOf([REASONS.ADVANCE, REASONS.ITEM]),
-  paymentMode: yup
-    .number()
-    .required("Payment mode is required")
-    .when("paymentType", {
-      is: PAYMENT_TYPES.OUTGOING,
-      then: (schema) => schema.oneOf([PAYMENT_MODES.BANK_TRANSFER, PAYMENT_MODES.CASH]),
-    }),
-  description: yup.string(),
-  assetID: yup.string(),
-  paymentType: yup.number().required("Payment type is required").oneOf([PAYMENT_TYPES.INCOMING, PAYMENT_TYPES.OUTGOING]),
-  category: yup.string(),
-  categoryType: yup
-    .number()
-    .default(CATEGORY_TYPES.ENTITY)
-    .required("Category type is required")
-    .oneOf([CATEGORY_TYPES.ENTITY, CATEGORY_TYPES.OTHER]),
-  invoiceIDs: yup
-    .array(yup.string())
-    .max(5)
-    .when(["paymentType", "categoryType", "reason"], {
-      is: (paymentType, categoryType, reason) =>
-        paymentType === PAYMENT_TYPES.INCOMING && categoryType === CATEGORY_TYPES.ENTITY && reason === REASONS.ADVANCE,
-      then: (schema) =>
-        schema
-          .required("Invoice ID is required")
-          .min(1, "Invoice ID must include at least one ID"),
-    }),
-  orderIDs: yup
-    .array(yup.string())
-    .max(5)
-    .when(["paymentType", "categoryType", "reason"], {
-      is: (paymentType, categoryType, reason) =>
-        paymentType === PAYMENT_TYPES.OUTGOING && categoryType === CATEGORY_TYPES.ENTITY && reason === REASONS.ADVANCE,
-      then: (schema) =>
-        schema
-          .required("Order ID is required")
-          .min(1, "Order ID must include at least one ID"),
-    }),
-  clientID: yup.string().when(["paymentType", "categoryType", "reason"], {
-    is: (paymentType, categoryType, reason) =>
-      paymentType === PAYMENT_TYPES.INCOMING && categoryType === CATEGORY_TYPES.ENTITY && reason === REASONS.ADVANCE,
-    then: (schema) => schema.required("Client ID is required"),
-  }),
-  vendorID: yup.string().when(["paymentType", "categoryType", "reason"], {
-    is: (paymentType, categoryType, reason) =>
-      paymentType === PAYMENT_TYPES.OUTGOING && categoryType === CATEGORY_TYPES.ENTITY && reason === REASONS.ADVANCE,
-    then: (schema) => schema.required("Vendor ID is required"),
-  }),
-});
+    const slots = {};
+    for (let i = 1; i <= slotCount; i++) {
+      slots[i] = true; // Initialize slots as available
+    }
+    this.parkingSlots[areaId] = slots;
+  }
 
-const validate = async (payment) => {
-  await PaymentSchema.validate(payment);
-};
+  reserveSlot(reservationId, areaId, customerName, slotNumber) {
+    if (typeof reservationId !== 'string' || typeof areaId !== 'string' || typeof customerName !== 'string' || typeof slotNumber !== 'number' || slotNumber <= 0) {
+      throw new Error('Invalid reservation details');
+    }
 
-module.exports = { validate };
+    if (!this.parkingSlots[areaId]) {
+      throw new Error('Parking area not found');
+    }
+
+    if (!this.parkingSlots[areaId][slotNumber] || !this.parkingSlots[areaId][slotNumber]) {
+      throw new Error('Slot not available');
+    }
+
+    this.parkingSlots[areaId][slotNumber] = false; // Mark slot as reserved
+    const reservation = {
+      reservationId,
+      areaId,
+      customerName,
+      slotNumber,
+      time: new Date().toISOString(),
+    };
+    this.reservations[reservationId] = reservation;
+    return reservation;
+  }
+
+  getParkingDetails(areaId) {
+    if (!this.parkingSlots[areaId]) {
+      throw new Error('Parking area not found');
+    }
+
+    const slots = this.parkingSlots[areaId];
+    const parkingDetails = Object.keys(slots).map(slotNumber => ({
+      slotNumber: parseInt(slotNumber),
+      available: slots[slotNumber],
+    }));
+    return parkingDetails;
+  }
+
+  cancelReservation(reservationId) {
+    if (!this.reservations[reservationId]) {
+      throw new Error('Reservation not found');
+    }
+
+    const reservation = this.reservations[reservationId];
+    this.parkingSlots[reservation.areaId][reservation.slotNumber] = true; // Mark slot as available
+    delete this.reservations[reservationId];
+  }
+
+  getReservationDetails(reservationId) {
+    if (!this.reservations[reservationId]) {
+      throw new Error('Reservation not found');
+    }
+
+    return this.reservations[reservationId];
+  }
+}
+
+module.exports = { ParkingSystem };
