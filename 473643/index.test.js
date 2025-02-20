@@ -1,159 +1,211 @@
-const { DataFrameComparator } = require('./solution');
+const yup = require("yup");
+const { validate } = require('./alternate_responses/incorrect_solution'); // Adjust path accordingly
 
-describe("DataFrameComparator Test Suite", () => {
-    // Test cases for normalizeColumn
-    describe("normalizeColumn", () => {
-        it("normalizeColumn - Numeric", () => {
-            const column = [1, 2, 5];
-            const expected = [0.0, 0.25, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            actual.forEach((value, index) => {
-                expect(value).toBeCloseTo(expected[index], 6);
-            });
-        });
+describe("Payment Validation Tests", () => {
+  test("Should pass for valid PaymentIncoming data", async () => {
+    const validPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      status: 1,
+      reason: 0,
+      paymentMode: 1,
+      description: "Payment for invoice",
+      assetID: "asset123",
+      paymentType: 0,
+      category: "services",
+      categoryType: 0,
+      invoiceIDs: ["inv001"],
+      clientID: "client123",
+    };
+    await expect(validate(validPayment)).resolves.not.toThrow();
+  });
 
-        it("normalizeColumn - Boolean", () => {
-            const column = [true, false, true];
-            const expected = [1.0, 0.0, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
-
-        it("normalizeColumn - Empty Column", () => {
-            const column = [];
-            expect(() => DataFrameComparator.normalizeColumn(column)).toThrow("Column is empty.");
-        });
-
-        it("normalizeColumn - Negative Values", () => {
-            const column = [-1, -2, 0, 1, 2];
-            const expected = [0.25, 0.0, 0.5, 0.75, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            actual.forEach((value, index) => {
-                expect(value).toBeCloseTo(expected[index], 6);
-            });
-        });
-
-        it("normalizeColumn - All Same Values Edge Case", () => {
-            const column = [42, 42, 42];
-            const expected = [0.0, 0.0, 0.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
-
-        it("normalizeColumn - Single Value Column", () => {
-            const column = [99];
-            const expected = [0.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
-
-        it("normalizeColumn - Floating Point Numbers", () => {
-            const column = [1.1, 2.2, 3.3, 4.4];
-            const expected = [0.0, 0.3333333333333333, 0.6666666666666666, 1.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            actual.forEach((value, index) => {
-                expect(value).toBeCloseTo(expected[index], 6);
-            });
-        });
-
-        it("normalizeColumn - Alternating Booleans", () => {
-            const column = [true, false, true, false];
-            const expected = [1.0, 0.0, 1.0, 0.0];
-            const actual = DataFrameComparator.normalizeColumn(column);
-            expect(actual).toEqual(expected);
-        });
+  test("Should fail if amount is missing", async () => {
+    const invalidPayment = {
+      paymentDate: new Date(),
+      paymentType: 0,
+      paymentMode: 1,
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Amount is required"]),
     });
+  });
 
-    // Test cases for compareDataFrames
-    describe("compareDataFrames", () => {
-        it("compareDataFrames - Missing Column", () => {
-            const df1 = [[1, 2, 3]];
-            const df2 = [[1, 2]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Different Column Sizes", () => {
-            const df1 = [[1, 2, 3]];
-            const df2 = [[1, 2]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Empty Columns", () => {
-            const df1 = [[], []];
-            const df2 = [[], []];
-            const expected = [1.0, 1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Null Values", () => {
-            const df1 = [[1, null, 3]];
-            const df2 = [[1, 2, 3]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Single Value Columns", () => {
-            const df1 = [[1], ["a"], [true]];
-            const df2 = [[1], ["a"], [true]];
-            const expected = [1.0, 1.0, 1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - All Same Values", () => {
-            const df1 = [
-                [1, 1, 1],
-                ["a", "a", "a"],
-            ];
-            const df2 = [
-                [1, 1, 1],
-                ["a", "a", "a"],
-            ];
-            const expected = [1.0, 1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Special Characters", () => {
-            const df1 = [["@#$", "%%%"]];
-            const df2 = [["@#$", "%%%"]];
-            const expected = [1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Empty Strings", () => {
-            const df1 = [["", "test", ""]];
-            const df2 = [["", "test", ""]];
-            const expected = [1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Multiple Null Values", () => {
-            const df1 = [[1, null, 3]];
-            const df2 = [[1, null, 3]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Undefined Values", () => {
-            const df1 = [[1, undefined, 3]];
-            const df2 = [[1, 2, 3]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
-
-        it("compareDataFrames - Zero Length Columns", () => {
-            const df1 = [[]];
-            const df2 = [[]];
-            const expected = [1.0];
-            const actual = DataFrameComparator.compareDataFrames(df1, df2);
-            expect(actual).toEqual(expected);
-        });
-
-        it("compareDataFrames - Mixed Types Array", () => {
-            const df1 = [[1, "a", true]];
-            const df2 = [[1, "a", true]];
-            expect(() => DataFrameComparator.compareDataFrames(df1, df2)).toThrow();
-        });
+  test("Should fail if amount is less than 1", async () => {
+    const invalidPayment = {
+      amount: 0,
+      paymentDate: new Date(),
+      paymentType: 0,
+      paymentMode: 1,
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Amount must be greater than 0"]),
     });
+  });
+
+  test("Should fail if paymentType is missing", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentMode: 1,
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Payment type is required"]),
+    });
+  });
+
+  test("Should fail if paymentMode is missing", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 1,
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Payment mode is required"]),
+    });
+  });
+
+  test("Should fail if reason is not 0 or 1", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 0,
+      reason: 2, // Invalid value
+      paymentMode: 0,
+    };
+    await expect(validate(invalidPayment)).rejects.toThrow();
+  });
+
+  test("Should pass for valid PaymentOutgoing data", async () => {
+    const validPayment = {
+      amount: 200,
+      paymentDate: new Date(),
+      status: 1,
+      reason: 1,
+      paymentMode: 1,
+      description: "Vendor payment",
+      assetID: "asset456",
+      paymentType: 1,
+      category: "supplies",
+      categoryType: 1,
+      orderIDs: ["order001"],
+      vendorID: "vendor789",
+    };
+    await expect(validate(validPayment)).resolves.not.toThrow();
+  });
+
+  test("Should fail if orderIDs is required but missing (PaymentOutgoing)", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 1,
+      paymentMode: 1,
+      reason: 0,
+      categoryType: 0,
+      vendorID: "vendor001",
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Order ID is required"]),
+    });
+  });
+
+  test("Should fail if orderIDs is empty (PaymentOutgoing)", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 1,
+      paymentMode: 1,
+      reason: 0,
+      categoryType: 0,
+      vendorID: "vendor001",
+      orderIDs: [],
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Order ID must include at least one ID"]),
+    });
+  });
+
+  test("Should fail if vendorID is required but missing (PaymentOutgoing)", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 1,
+      paymentMode: 1,
+      reason: 0,
+      categoryType: 0,
+      orderIDs: ["order001"],
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Vendor ID is required"]),
+    });
+  });
+
+  test("Should fail if invoiceIDs is required but missing (PaymentIncoming)", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 0,
+      paymentMode: 0,
+      reason: 0,
+      categoryType: 0,
+      clientID: "client001",
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Invoice ID is required"]),
+    });
+  });
+
+  test("Should fail if invoiceIDs is empty (PaymentIncoming)", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 0,
+      paymentMode: 0,
+      reason: 0,
+      categoryType: 0,
+      clientID: "client001",
+      invoiceIDs: [],
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining([
+        "Invoice ID must include at least one ID",
+      ]),
+    });
+  });
+
+  test("Should fail if clientID is required but missing (PaymentIncoming)", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 0,
+      paymentMode: 0,
+      reason: 0,
+      categoryType: 0,
+      invoiceIDs: ["inv001"],
+    };
+    await expect(validate(invalidPayment)).rejects.toMatchObject({
+      errors: expect.arrayContaining(["Client ID is required"]),
+    });
+  });
+
+  test("Should fail if categoryType is invalid", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 0,
+      paymentMode: 0,
+      categoryType: 2, // Invalid
+    };
+    await expect(validate(invalidPayment)).rejects.toThrow();
+  });
+
+  test("Should fail if paymentMode is invalid (PaymentOutgoing)", async () => {
+    const invalidPayment = {
+      amount: 100,
+      paymentDate: new Date(),
+      paymentType: 1,
+      paymentMode: 3, // Invalid
+    };
+    await expect(validate(invalidPayment)).rejects.toThrow();
+  });
 });

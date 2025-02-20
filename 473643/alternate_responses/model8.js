@@ -1,105 +1,71 @@
-class DataFrameComparator {
-    static compareDataFrames(df1, df2) {
-      if (df1.length !== df2.length) {
-        throw new Error("DataFrames must have the same number of columns");
-      }
-  
-      const similarityScores = [];
-  
-      for (let i = 0; i < df1.length; i++) {
-        const col1 = df1[i];
-        const col2 = df2[i];
-  
-        similarityScores.push(this.compareColumns(col1, col2));
-      }
-  
-      return similarityScores;
-    }
-  
-    static compareColumns(col1, col2) {
-      if (col1.length !== col2.length) {
-        throw new Error("Columns must have the same number of rows");
-      }
-  
-      if (col1.length === 0 || col2.length === 0) {
-        return 1.0;
-      }
-  
-      if (typeof col1[0] !== typeof col2[0]) {
-        return 0.0;
-      }
-  
-      switch (typeof col1[0]) {
-        case "string":
-          return this.compareStringColumns(col1, col2);
-        case "number":
-        case "boolean":
-          return this.compareNumericBooleanColumns(col1, col2);
-        default:
-          throw new Error(`Unsupported data type: ${typeof col1[0]}`);
-      }
-    }
-  
-    static compareStringColumns(col1, col2) {
-      let differences = 0;
-  
-      for (let i = 0; i < col1.length; i++) {
-        if (col1[i] !== col2[i]) {
-          differences++;
-        }
-      }
-  
-      return (1.0 * (col1.length - differences)) / col1.length;
-    }
-  
-    static compareNumericBooleanColumns(col1, col2) {
-      const normalizedCol1 = this.normalizeColumn(col1);
-      const normalizedCol2 = this.normalizeColumn(col2);
-  
-      let distance = 0;
-  
-      for (let i = 0; i < normalizedCol1.length; i++) {
-        distance += Math.pow(normalizedCol1[i] - normalizedCol2[i], 2);
-      }
-  
-      distance = Math.sqrt(distance);
-  
-      return 1 / (1 + distance);
-    }
-  
-    static normalizeColumn(column) {
-      if (column.length === 0) {
-        throw new Error("Column is empty");
-      }
-  
-      if (column.includes(null)) {
-        throw new Error("Column contains null value");
-      }
-  
-      const normalizedColumn = [];
-  
-      switch (typeof column[0]) {
-        case "number":
-          const min = Math.min(...column);
-          const max = Math.max(...column);
-          const range = max - min;
-  
-          for (let i = 0; i < column.length; i++) {
-            const val = column[i];
-            normalizedColumn.push(range > 0 ? (val - min) / range : 0.0);
-          }
-          break;
-        case "boolean":
-          for (let i = 0; i < column.length; i++) {
-            normalizedColumn.push(column[i] ? 1.0 : 0.0);
-          }
-          break;
-        default:
-          throw new Error(`Unsupported data type: ${typeof column[0]}`);
-      }
-  
-      return normalizedColumn;
-    }
-  }
-  
-  module.exports = { DataFrameComparator };
+const yup = require("yup");
+
+const PaymentIncomingSchema = yup.object({
+  amount: yup
+    .number()
+    .required("Amount is required")
+    .min(1, "Amount must be greater than 0"),
+  paymentDate: yup.date().required("Payment date is required"),
+  status: yup.number(),
+  reason: yup.number().nullable().oneOf([0, 1]), // 0 is Advance, 1 is Item
+  paymentMode: yup.number().required("Payment mode is required"),
+  description: yup.string(),
+  assetID: yup.string(),
+  paymentType: yup.number().required("Payment type is requred").oneOf([0]),
+  category: yup.string(),
+  categoryType: yup
+    .number()
+    .default(0)
+    .required("Category type is required")
+    .oneOf([0, 1]), // 0 is Entity, 1 is Other
+  invoiceIDs: yup.array(yup.string()).max(5).when("categoryType", {
+    is: 0,
+    then: yup.array(yup.string()).required("Invoice ID is required").min(1),
+  }),
+  clientID: yup.string().when("categoryType", {
+    is: 0,
+    then: yup.string().required("Client ID is required"),
+  }),
+});
+
+const PaymentOutgoingSchema = yup.object({
+  amount: yup
+    .number()
+    .required("Amount is required")
+    .min(1, "Amount must be greater than 0"),
+  paymentDate: yup.date().required("Payment date is required"),
+  status: yup.number(),
+  reason: yup.number().nullable().oneOf([0, 1]), // 0 is Advance, 1 is Item
+  paymentMode: yup.number().required("Payment mode is required").oneOf([0, 1]), // 0 is bank transfer, 1 is cash
+  description: yup.string(),
+  assetID: yup.string(),
+  paymentType: yup.number().required("Payment type is requred").oneOf([1]),
+  category: yup.string(),
+  categoryType: yup
+    .number()
+    .default(0)
+    .required("Category type is required")
+    .oneOf([0, 1]), // 0 is Entity, 1 is Other
+  orderIDs: yup.array(yup.string()).max(5).when("categoryType", {
+    is: 0,
+    then: yup.array(yup.string()).required("Order ID is required").min(1),
+  }),
+  vendorID: yup.string().when("categoryType", {
+    is: 0,
+    then: yup.string().required("Vendor ID is required"),
+  }),
+});
+
+const PaymentSchema = yup.object({
+  paymentType: yup.number().required("Payment type is required").oneOf([0, 1]),
+}).when("paymentType", {
+  is: 0,
+  then: PaymentIncomingSchema,
+  otherwise: PaymentOutgoingSchema,
+});
+
+const validate = async (payment) => {
+  await PaymentSchema.validate(payment);
+};
+
+module.exports = { validate };
