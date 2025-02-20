@@ -1,100 +1,61 @@
-class ParkingSystem {
-  constructor() {
-      this.parkingSlots = {};  // Format: { areaId: { slotNumber: availability, ... } }
-      this.reservations = {};  // Format: { reservationId: { areaId, customerName, slotNumber, time } }
-  }
+const { Command } = require('commander');
+const { getUsers, filterUsers, searchUsers } = require('./api');
 
-  addParkingArea(areaId, slotCount) {
-      // Check if areaId is a non-empty string and slotCount is a positive integer
-      if (typeof areaId !== 'string' || areaId.trim() === '' || typeof slotCount !== 'number' || slotCount <= 0) {
-          throw new Error('Invalid parking area or slot count');
-      }
+const program = new Command();
 
-      // Initialize parking slots for the area
-      if (!this.parkingSlots[areaId]) {
-          this.parkingSlots[areaId] = {};
-      }
+program
+  .command('users')
+  .description('Get a list of all users')
+  .action(async () => {
+    console.log('Fetching user list...');
+    try {
+      const users = await getUsers();
+      console.log('Users fetched successfully');
+      users.forEach((user, index) => {
+        console.log(`${index + 1}. ${user.firstName} ${user.middleName} ${user.lastName} (${user.age})`);
+      });
+    } catch (error) {
+      console.error('User fetch failed');
+      console.error(error);
+    }
+  });
 
-      // Update slot availability
-      for (let i = 1; i <= slotCount; i++) {
-          this.parkingSlots[areaId][i] = true; // true indicates the slot is available
-      }
-  }
-
-  reserveSlot(reservationId, areaId, customerName, slotNumber) {
-      // Check if reservation details are valid
-      if (typeof reservationId !== 'string' || typeof areaId !== 'string' || typeof customerName !== 'string' || typeof slotNumber !== 'number' || slotNumber <= 0) {
-          throw new Error('Invalid reservation details');
-      }
-
-      // Check if parking area exists
-      if (!this.parkingSlots[areaId]) {
-          throw new Error('Parking area not found');
-      }
-
-      // Check if slot number is valid and available
-      if (!this.parkingSlots[areaId][slotNumber] || !this.parkingSlots[areaId][slotNumber]) {
-          throw new Error('Slot not available');
-      }
-
-      // Mark the slot as reserved
-      this.parkingSlots[areaId][slotNumber] = false;
-
-      // Create a new reservation
-      const reservation = {
-          reservationId,
-          areaId,
-          customerName,
-          slotNumber,
-          time: new Date().toISOString()
-      };
-
-      // Store the reservation
-      this.reservations[reservationId] = reservation;
-
-      return reservation;
-  }
-
-  getParkingDetails(areaId) {
-      // Check if parking area exists
-      if (!this.parkingSlots[areaId]) {
-          throw new Error('Parking area not found');
-      }
-
-      // Get slot availability for the area
-      const slots = Object.keys(this.parkingSlots[areaId]).map(slotNumber => ({
-          slotNumber: parseInt(slotNumber),
-          available: this.parkingSlots[areaId][slotNumber]
+program
+  .command('filter')
+  .description('Filter users based on a query')
+  .option('-q, --query <query>', 'Query to filter users')
+  .option('-t, --term <term>', 'Term to filter users')
+  .action(async (options) => {
+    console.log('Fetching and filtering users...');
+    try {
+      const users = await filterUsers(options.query, options.term);
+      console.log('Users fetched successfully');
+      const table = users.map((user) => ({
+        Name: `${user.firstName} ${user.lastName}`,
+        [options.query.replace('.', ' ').replace(/\b\w/g, (l) => l.toUpperCase())]: user[options.query],
       }));
+      console.table(table);
+    } catch (error) {
+      console.error('User fetch failed');
+      console.error(error);
+    }
+  });
 
-      return slots;
-  }
+program
+  .command('search <query>')
+  .description('Search users based on a query')
+  .action(async (query) => {
+    console.log('Searching users...');
+    try {
+      const users = await searchUsers(query);
+      console.log('Users fetched successfully');
+      users.forEach((user, index) => {
+        console.log(`${index + 1}. ${user.firstName} ${user.middleName} ${user.lastName} (${user.age})`);
+      });
+    } catch (error) {
+      console.error('User fetch failed');
+      console.error(error);
+    }
+  });
 
-  cancelReservation(reservationId) {
-      // Check if reservation exists
-      if (!this.reservations[reservationId]) {
-          throw new Error('Reservation not found');
-      }
-
-      // Get the reservation details
-      const reservation = this.reservations[reservationId];
-
-      // Mark the corresponding slot as available
-      this.parkingSlots[reservation.areaId][reservation.slotNumber] = true;
-
-      // Delete the reservation
-      delete this.reservations[reservationId];
-  }
-
-  getReservationDetails(reservationId) {
-      // Check if reservation exists
-      if (!this.reservations[reservationId]) {
-          throw new Error('Reservation not found');
-      }
-
-      // Return the reservation details
-      return this.reservations[reservationId];
-  }
-}
-
-module.exports = { ParkingSystem };
+module.exports = { program };

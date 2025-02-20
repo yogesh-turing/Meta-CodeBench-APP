@@ -1,130 +1,289 @@
-const { ParkingSystem } = require('./solution'); 
+const { program } = require('./alternate_responses/model1');
 
-describe('ParkingSystem', () => {
-  
-  let parkingSystem;
-  
+global.fetch = jest.fn(() =>
+  Promise.resolve({
+    json: () => mockUsers,
+  })
+);
+
+async function runCLI(args) {
+  const originalLog = console.log;
+  const originalTable = console.table;
+  const originalError = console.error;
+
+  let output = "";
+  let tableOutput = "";
+  let errorOutput = "";
+
+  console.log = (msg) => (output += msg + "\n");
+  console.table = (msg) => (tableOutput += JSON.stringify(msg) + "\n");
+  console.error = (msg) => (errorOutput += msg + "\n");
+
+  try {
+    await program.parseAsync([, , ...args]);
+  } catch (error) {
+    errorOutput += error.message;
+  }
+
+  console.log = originalLog;
+  console.table = originalTable;
+  console.error = originalError;
+
+  return {
+    stdout: output.trim(),
+    table: tableOutput.trim(),
+    stderr: errorOutput.trim(),
+  };
+}
+
+const mockUsers = [
+  {
+    id: 1,
+    firstName: "John",
+    middleName: "Elliot",
+    lastName: "Doe",
+    age: 12,
+    hair: { color: "Black" },
+  },
+  {
+    id: 2,
+    firstName: "Jane",
+    middleName: "Martha",
+    lastName: "Smith",
+    age: 23,
+    hair: { color: "Brown" },
+  },
+  {
+    id: 3,
+    firstName: "Bob",
+    middleName: "Lucky",
+    lastName: "Marley",
+    age: 41,
+    hair: { color: "Brown" },
+  },
+];
+
+describe("CLI Tests (Mocked API)", () => {
   beforeEach(() => {
-    parkingSystem = new ParkingSystem();
+    jest.clearAllMocks();
+    global.fetch.mockImplementation(() =>
+      Promise.resolve({
+        json: () => Promise.resolve(mockUsers),
+      })
+    );
   });
 
-  describe('addParkingArea', () => {
+  test("should fetch all users and display a numbered list", async () => {
+    const { stdout, stderr } = await runCLI(["users"]);
 
-    it('should add a new parking area successfully', () => {
-      parkingSystem.addParkingArea('area1', 10);
-      let parkingDetails = parkingSystem.getParkingDetails('area1');
-      expect(parkingDetails.length).toBe(10);
-      expect(parkingDetails[0].slotNumber).toBe(1);
-      expect(parkingDetails[9].slotNumber).toBe(10);
-    });
+    // expect(stderr).toBe("");
+    expect(stdout).toContain("Fetching user list...");
+    expect(stdout).toContain("Users fetched successfully");
+    expect(stdout).toContain("1. John Elliot Doe (12)");
+    expect(stdout).toContain("2. Jane Martha Smith (23)");
+    expect(stdout).toContain("3. Bob Lucky Marley (41)");
 
-    it('should throw error for invalid slot count providing negative value for slots', () => {
-      expect(() => parkingSystem.addParkingArea('area1', -5)).toThrow('Invalid parking area or slot count');
-    });
-
-    it('should throw error for invalid areaId if the passed areaId is not a string', () => {
-      expect(() => parkingSystem.addParkingArea(10, 5)).toThrow('Invalid parking area or slot count');
-    });
-
-    it('should throw error for invalid areaId if the passed areaId is empty', () => {
-      expect(() => parkingSystem.addParkingArea('', 10)).toThrow('Invalid parking area or slot count');
-    });
-
-    it('should throw error for invalid slot count', () => {
-      expect(() => parkingSystem.addParkingArea('area1', -10)).toThrow('Invalid parking area or slot count');
-    });
-
-    it('should update slot availability for an existing area', () => {
-      parkingSystem.addParkingArea('area1', 10);
-      parkingSystem.addParkingArea('area1', 5);
-      const parkingDetails = parkingSystem.getParkingDetails('area1');
-      expect(parkingDetails.length).toBe(5);
-    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("https://dummyjson.com/users")
+    );
   });
 
-  describe('reserveSlot', () => {
-    it('should reserve a parking slot successfully', () => {
-      parkingSystem.addParkingArea('area1', 10);
-      const reservation = parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
-      expect(reservation.reservationId).toBe('reservation1');
-      expect(reservation.areaId).toBe('area1');
-      expect(reservation.customerName).toBe('John Doe');
-      expect(reservation.slotNumber).toBe(3);
-      expect(reservation.time).toBeTruthy(); // Check if time exists
+  test("should filter users by hair color and return a formatted table", async () => {
+    fetch.mockResolvedValue({
+      json: jest.fn().mockResolvedValue([
+        {
+          id: 2,
+          firstName: "Jane",
+          middleName: "Martha",
+          lastName: "Smith",
+          age: 23,
+          hair: { color: "Brown" },
+        },
+        {
+          id: 3,
+          firstName: "Bob",
+          middleName: "Lucky",
+          lastName: "Marley",
+          age: 41,
+          hair: { color: "Brown" },
+        },
+      ]),
     });
 
-    it('should throw error if parking area not found', () => {
-      expect(() => parkingSystem.reserveSlot('reservation1', 'area2', 'John Doe', 3)).toThrow('Parking area not found');
-    });
+    const { stdout, table, stderr } = await runCLI([
+      "filter",
+      "-q",
+      "hair.color",
+      "-t",
+      "Brown",
+    ]);
 
-    it('should throw error if parking area is not of type string ', () => {
-        expect(() => parkingSystem.reserveSlot('reservation1', "random area", 'John Doe', 3)).toThrow('Parking area not found');
-      });
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Fetching and filtering users...");
+    expect(stdout).toContain("Users fetched successfully");
 
-    it('should throw error if Customer Name  is missing for reservation detail ', () => {
-        expect(() => parkingSystem.reserveSlot('reservation1', "random area",  3)).toThrow('Invalid reservation details');
-      });
+    // Check if console.table contains formatted output
+    expect(table).toContain(
+      JSON.stringify([
+        { Name: "Jane Smith", "Hair Color": "Brown" },
+        { Name: "Bob Marley", "Hair Color": "Brown" },
+      ])
+    );
 
-    it('should throw error if Seat number  is missing for reservation detail ', () => {
-        expect(() => parkingSystem.reserveSlot('reservation1', "random area", 'John Doe')).toThrow('Invalid reservation details');
-      });
-
-    it('should throw error if reservation id is missing for reservation detail ', () => {
-        expect(() => parkingSystem.reserveSlot( "random area",  3)).toThrow('Invalid reservation details');
-      });
-     
-
-    it('should throw error if area is missing for reservation detail ', () => {
-        expect(() => parkingSystem.reserveSlot( "random area",  3)).toThrow('Invalid reservation details');
-      });
-
-    it('should throw error if slot is already reserved', () => {
-      parkingSystem.addParkingArea('area1', 10);
-      parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
-      expect(() => parkingSystem.reserveSlot('reservation2', 'area1', 'Jane Doe', 3)).toThrow('Slot not available');
-    });
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("filter?key=hair.color&value=Brown")
+    );
   });
 
-  describe('getParkingDetails', () => {
-    it('should return the slot availability for a parking area', () => {
-      parkingSystem.addParkingArea('area1', 10);
-      const parkingDetails = parkingSystem.getParkingDetails('area1');
-      expect(parkingDetails.length).toBe(10);
-      expect(parkingDetails[0].available).toBe(true);
+  test("should filter users by eye color and return a formatted table", async () => {
+    fetch.mockResolvedValue({
+      json: jest.fn().mockResolvedValue([
+        {
+          id: 2,
+          firstName: "Jane",
+          middleName: "Martha",
+          lastName: "Smith",
+          age: 23,
+          hair: { color: "Brown" },
+          eyeColor: "blue",
+        },
+        {
+          id: 3,
+          firstName: "Bob",
+          middleName: "Lucky",
+          lastName: "Marley",
+          age: 41,
+          hair: { color: "Black" },
+          eyeColor: "blue",
+        },
+      ]),
     });
 
-    it('should throw error if parking area not found', () => {
-      expect(() => parkingSystem.getParkingDetails('area2')).toThrow('Parking area not found');
-    });
+    const { stdout, table, stderr } = await runCLI([
+      "filter",
+      "-q",
+      "eyeColor",
+      "-t",
+      "blue",
+    ]);
+
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Fetching and filtering users...");
+    expect(stdout).toContain("Users fetched successfully");
+
+    // Check if console.table contains formatted output
+    expect(table).toContain(
+      JSON.stringify([
+        { Name: "Jane Smith", "Eye Color": "Blue" },
+        { Name: "Bob Marley", "Eye Color": "Blue" },
+      ])
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("filter?key=eyeColor&value=blue")
+    );
   });
 
-  describe('cancelReservation', () => {
-    it('should cancel a reservation successfully', () => {
-      parkingSystem.addParkingArea('area1', 10);
-      parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
-      parkingSystem.cancelReservation('reservation1');
-      const parkingDetails = parkingSystem.getParkingDetails('area1');
-      expect(parkingDetails[2].available).toBe(true); // Slot 3 should be available after cancellation
+  test("should filter users by company address state and return a formatted table", async () => {
+    fetch.mockResolvedValue({
+      json: jest.fn().mockResolvedValue([
+        {
+          id: 2,
+          firstName: "Jane",
+          middleName: "Martha",
+          lastName: "Smith",
+          age: 23,
+          company: {
+            name: "Some Company",
+            title: "Example",
+            address: {
+              address: "12 Place",
+              city: "VI",
+              state: "Lagos",
+              country: "Nigeria",
+            },
+          },
+        },
+        {
+          id: 3,
+          firstName: "Bob",
+          middleName: "Lucky",
+          lastName: "Marley",
+          age: 41,
+          hair: { color: "Brown" },
+          company: {
+            name: "Other Company",
+            title: "Example",
+            address: {
+              address: "19 Place",
+              city: "LA",
+              state: "Lagos",
+              country: "Nigeria",
+            },
+          },
+        },
+      ]),
     });
 
-    it('should throw error if reservation not found', () => {
-      expect(() => parkingSystem.cancelReservation('nonexistentReservation')).toThrow('Reservation not found');
-    });
+    const { stdout, table, stderr } = await runCLI([
+      "filter",
+      "-q",
+      "company.address.state",
+      "-t",
+      "Lagos",
+    ]);
+
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Fetching and filtering users...");
+    expect(stdout).toContain("Users fetched successfully");
+
+    // Check if console.table contains formatted output
+    expect(table).toContain(
+      JSON.stringify([
+        { Name: "Jane Smith", "Company Address State": "Lagos" },
+        { Name: "Bob Marley", "Company Address State": "Lagos" },
+      ])
+    );
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("filter?key=company.address.state&value=Lagos")
+    );
   });
 
-  describe('getReservationDetails', () => {
-    it('should return reservation details for an existing reservation', () => {
-      parkingSystem.addParkingArea('area1', 10);
-      const reservation = parkingSystem.reserveSlot('reservation1', 'area1', 'John Doe', 3);
-      const reservationDetails = parkingSystem.getReservationDetails('reservation1');
-      expect(reservationDetails.reservationId).toBe('reservation1');
-      expect(reservationDetails.customerName).toBe('John Doe');
-      expect(reservationDetails.slotNumber).toBe(3);
-      expect(reservationDetails.time).toBeTruthy();
-    });
+  test("should search users and display a filtered numbered list", async () => {
+    fetch.mockResolvedValue({
+      json: jest.fn().mockResolvedValue([
+        {
+          id: 2,
+          firstName: "Jane",
+          middleName: "Martha",
 
-    it('should throw error if reservation not found', () => {
-      expect(() => parkingSystem.getReservationDetails('nonexistentReservation')).toThrow('Reservation not found');
+          lastName: "Smith",
+          age: 23,
+          hair: { color: "Brown" },
+        },
+      ]),
     });
+    const { stdout, stderr } = await runCLI(["search", "Jane"]);
+
+    expect(stderr).toBe("");
+    expect(stdout).toContain("Searching users...");
+    expect(stdout).toContain("Users fetched successfully");
+    expect(stdout).toContain("1. Jane Martha Smith (23)");
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining("search?q=Jane")
+    );
+  });
+
+  test("should handle API fetch errors gracefully", async () => {
+    global.fetch.mockRejectedValue(new Error("API error"));
+
+    const { stdout, stderr } = await runCLI(["users"]);
+
+    expect(stdout).toContain("Fetching user list...");
+    expect(stderr).toContain("User fetch failed");
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });

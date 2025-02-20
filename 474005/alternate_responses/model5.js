@@ -1,83 +1,76 @@
-class ParkingSystem {
-  constructor() {
-      this.parkingSlots = {};  // Format: { areaId: { slotNumber: availability, ... } }
-      this.reservations = {};  // Format: { reservationId: { areaId, customerName, slotNumber, time } }
-  }
+const { Command } = require('commander');
+const { getUsers, filterUsers, searchUsers } = require('./api');
 
-  addParkingArea(areaId, slotCount) {
-      if (!areaId || typeof areaId !== 'string' || !Number.isInteger(slotCount) || slotCount <= 0) {
-          throw new Error("Invalid parking area or slot count");
-      }
-
-      const slots = {};
-      for (let i = 1; i <= slotCount; i++) {
-          slots[i] = true; // true means available
-      }
-      this.parkingSlots[areaId] = slots;
-  }
-
-  reserveSlot(reservationId, areaId, customerName, slotNumber) {
-      if (!reservationId || !areaId || !customerName || !slotNumber) {
-          throw new Error("Invalid reservation details");
-      }
-
-      if (!this.parkingSlots[areaId]) {
-          throw new Error("Parking area not found");
-      }
-
-      if (!this.parkingSlots[areaId][slotNumber]) {
-          throw new Error("Slot not available");
-      }
-
-      if (this.parkingSlots[areaId][slotNumber] !== true) {
-          throw new Error("Slot not available");
-      }
-
-      const reservation = {
-          reservationId,
-          areaId,
-          customerName,
-          slotNumber,
-          time: new Date().toISOString()
-      };
-
-      this.reservations[reservationId] = reservation;
-      this.parkingSlots[areaId][slotNumber] = false; // mark as not available
-
-      return reservation;
-  }
-
-  getParkingDetails(areaId) {
-      if (!this.parkingSlots[areaId]) {
-          throw new Error("Parking area not found");
-      }
-
-      const slots = this.parkingSlots[areaId];
-      return Object.entries(slots).map(([slotNumber, available]) => ({
-          slotNumber: parseInt(slotNumber),
-          available
-      }));
-  }
-
-  cancelReservation(reservationId) {
-      if (!this.reservations[reservationId]) {
-          throw new Error("Reservation not found");
-      }
-
-      const reservation = this.reservations[reservationId];
-      const { areaId, slotNumber } = reservation;
-
-      this.parkingSlots[areaId][slotNumber] = true; // mark as available
-      delete this.reservations[reservationId];
-  }
-
-  getReservationDetails(reservationId) {
-      if (!this.reservations[reservationId]) {
-          throw new Error("Reservation not found");
-      }
-
-      return this.reservations[reservationId];
-  }
+function formatName(user) {
+  const middleName = user.middleName ? ` ${user.middleName} ` : ' ';
+  return `${user.firstName}${middleName}${user.lastName}`;
 }
 
-module.exports = { ParkingSystem };
+function titleCase(str) {
+  return str.split(/[.-]/)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+const program = new Command()
+  .name('user-cli')
+  .description('CLI to manage users');
+
+program
+  .command('users')
+  .description('List all users')
+  .action(async () => {
+    console.log('Fetching user list...');
+    try {
+      const users = await getUsers();
+      console.log('Users fetched successfully');
+      users.forEach((user, index) => {
+        console.log(`${index + 1}. ${formatName(user)} (${user.age})`);
+      });
+    } catch (error) {
+      console.error('User fetch failed:', error.message);
+    }
+  });
+
+program
+  .command('filter')
+  .description('Filter users by property')
+  .requiredOption('-q, --query <query>', 'property to filter by')
+  .requiredOption('-t, --term <term>', 'value to filter for')
+  .action(async (options) => {
+    console.log('Fetching and filtering users...');
+    try {
+      const users = await filterUsers(options.query, options.term);
+      console.log('Users fetched successfully');
+      
+      const tableData = users.map(user => ({
+        'Name': `${user.firstName} ${user.lastName}`,
+        [titleCase(options.query)]: options.query.includes('.')
+          ? options.query.split('.').reduce((obj, key) => obj[key], user)
+          : user[options.query]
+      }));
+
+      console.table(tableData);
+    } catch (error) {
+      console.error('User fetch failed:', error.message);
+    }
+  });
+
+program
+  .command('search')
+  .description('Search users')
+  .argument('<query>', 'search query')
+  .action(async (query) => {
+    console.log('Searching users...');
+    try {
+      const users = await searchUsers(query);
+      console.log('Users fetched successfully');
+      users.forEach((user, index) => {
+        console.log(`${index + 1}. ${formatName(user)} (${user.age})`);
+      });
+    } catch (error) {
+      console.error('User fetch failed:', error.message);
+    }
+  });
+
+module.exports = { program };
