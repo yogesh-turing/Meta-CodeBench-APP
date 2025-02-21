@@ -1,4 +1,4 @@
-const { DocumentEncryptor } = require('./alternate_responses/model5.js');
+const { DocumentEncryptor } = require('./solution');
 
 describe('DocumentEncryptor', () => {
   let documentEncryptor;
