@@ -1,6 +1,6 @@
 function parsePolynomial(polynomial) {
     // Remove outer parentheses and validate basic format
-    const regex = /^\(([-]?\d*\.?\d*)?x\^([-]?\d+)\)\^([-]?\d+)$/;
+    const regex = /^$([-]?\d*\.?\d*)?x\^([-]?\d+)$\^([-]?\d+)$/;
     const match = polynomial.match(regex);
     
     if (!match) {

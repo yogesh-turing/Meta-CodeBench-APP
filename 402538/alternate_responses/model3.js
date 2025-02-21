@@ -1,12 +1,12 @@
 function parsePolynomial(polynomial) {
     // Remove whitespace and validate basic format
     polynomial = polynomial.trim();
-    if (!/^\([^()]+\)\^-?\d+$/.test(polynomial)) {
+    if (!/^$[^()]+$\^-?\d+$/.test(polynomial)) {
         throw new Error("Invalid polynomial format. Expected format: (ax^b)^c");
     }
 
     // Remove outer parentheses
-    const innerPart = polynomial.replace(/^\(|\)$/g, "");
+    const innerPart = polynomial.replace(/^$|$$/g, "");
     
     // Split into coefficient and exponent parts
     const [coefficientPart, exponentPart] = innerPart.split("x^");

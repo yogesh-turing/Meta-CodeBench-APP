@@ -1,5 +1,5 @@
 function parsePolynomial(polynomial) {
-  const regex = /^\((\d+)x\^(\d+)\)\^(\d+)$/;
+  const regex = /^$(\d+)x\^(\d+)$\^(\d+)$/;
   const match = polynomial.match(regex);
   if (!match) {
     throw new Error("Invalid polynomial format. Expected (ax^b)^c");

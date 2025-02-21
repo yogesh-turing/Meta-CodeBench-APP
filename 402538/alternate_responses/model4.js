@@ -3,13 +3,13 @@ function parsePolynomial(polynomial) {
     polynomial = polynomial.trim();
     
     // Check basic format
-    const format = /^\([-]?\d*\.?\d*x\^\d+\)\^[-]?\d+$/;
+    const format = /^$[-]?\d*\.?\d*x\^\d+$\^[-]?\d+$/;
     if (!format.test(polynomial)) {
         throw new Error("Invalid polynomial format. Expected format: (ax^b)^c");
     }
 
     // Remove outer parentheses
-    polynomial = polynomial.replace(/^\(|\)$/g, "");
+    polynomial = polynomial.replace(/^$|$$/g, "");
     
     // Split into parts
     const parts = polynomial.split("x^");

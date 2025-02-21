@@ -1,6 +1,6 @@
 function parsePolynomial(polynomial) {
     // Remove outer parentheses if they exist
-    const cleanedPoly = polynomial.replace(/^\(|\)$/g, "");
+    const cleanedPoly = polynomial.replace(/^$|$$/g, "");
     
     // Split into coefficient and exponent parts
     const parts = cleanedPoly.split("x^");

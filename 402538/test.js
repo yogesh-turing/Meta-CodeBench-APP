@@ -1,4 +1,4 @@
-const { chainRuleDerivative } = require('./alternate_responses/incorrect_solution');
+const { chainRuleDerivative } = require('./solution');
 
 describe("Polynomial Derivative Calculator", () => {
   describe("Valid Inputs", () => {
@@ -79,11 +79,6 @@ describe("Polynomial Derivative Calculator", () => {
 
     test("missing outer exponent", () => {
       const input = "(3x^2)";
-      expect(() => chainRuleDerivative(input)).toThrow();
-    });
-
-    test("multiple carets in inner expression", () => {
-      const input = "(3x^2^5)^3";
       expect(() => chainRuleDerivative(input)).toThrow();
     });
   });

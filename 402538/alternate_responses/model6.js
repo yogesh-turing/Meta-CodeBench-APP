@@ -1,6 +1,6 @@
 function parsePolynomial(polynomial) {
   // Remove the parentheses at the start and end of the string
-  const trimmedPolynomial = polynomial.replace(/^\(|\)$/g, "");
+  const trimmedPolynomial = polynomial.replace(/^$|$$/g, "");
 
   // Split the string into two parts: the inner polynomial and the outer exponent
   const [innerPolynomial, outerExponent] = trimmedPolynomial.split(")^");

@@ -1,5 +1,5 @@
 function parsePolynomial(polynomial) {
-  const b = polynomial.replace(/^\(|\)$/g, "");
+  const b = polynomial.replace(/^$|$$/g, "");
   const c = b.split("x^");
   const d = 1;
   c[0] && c[0] !== "" && (d = parseFloat(c[0]));

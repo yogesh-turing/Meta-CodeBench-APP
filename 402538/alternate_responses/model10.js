@@ -1,5 +1,5 @@
 function parsePolynomial(polynomial) {
-    var regex = /\(([-+]?\d*)x\^([-+]?\d+)\)\^([-+]?\d+)/;
+    var regex = /$([-+]?\d*)x\^([-+]?\d+)$\^([-+]?\d+)/;
     var match = polynomial.match(regex);
     if (!match) {
         throw new Error("Invalid polynomial format");

@@ -3,7 +3,7 @@ function parsePolynomial(polynomial) {
     polynomial = polynomial.trim();
     
     // Check if the input matches the expected format using regex
-    const polynomialRegex = /^\((-?\d*\.?\d*)x\^(-?\d+)\)\^(-?\d+)$/;
+    const polynomialRegex = /^$(-?\d*\.?\d*)x\^(-?\d+)$\^(-?\d+)$/;
     const matches = polynomial.match(polynomialRegex);
     
     if (!matches) {
