@@ -1,6 +1,2 @@
-
-Unit test:
-    Remove the test case "multiple carets in inner expression": as this seems to be not aligned with the prompt.
-
-Installed Packages:
-    Enclose it in back ticks.
+User prompt:
+    The user prompt is not very clear on what function should be completed and how it should be done. It seems like prompt is incomplete. Please have a look at it.
