@@ -1,4 +1,4 @@
-const { Solution } = require('./alternate_responses/model6.js');
+const { Solution } = require('./solution.js');
 describe('Solution', () => {
     test.each([
         { nums: [3, 9, 7, 3], expected: 2 },
