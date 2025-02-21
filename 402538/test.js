@@ -1,108 +1,90 @@
-const { DocumentEncryptor } = require('./solution.js');
+const { chainRuleDerivative } = require('./alternate_responses/incorrect_solution');
 
-describe('DocumentEncryptor', () => {
-  let documentEncryptor;
+describe("Polynomial Derivative Calculator", () => {
+  describe("Valid Inputs", () => {
+    test("standard integer input", () => {
+      const input = "(3x^2)^5";
+      const expected = "The derivative of the polynomial using chain rule is: 5(3x^2)^4 (6x^1)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
 
-  beforeEach(() => {
-    documentEncryptor = new DocumentEncryptor();
+    test("omitted coefficient (default 1)", () => {
+      const input = "(x^3)^2";
+      const expected = "The derivative of the polynomial using chain rule is: 2(1x^3)^1 (3x^2)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
+
+    test("negative exponents and coefficients", () => {
+      const input = "(-2x^-3)^4";
+      const expected = "The derivative of the polynomial using chain rule is: 4(-2x^-3)^3 (6x^-4)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
+
+    test("decimal values", () => {
+      const input = "(2.5x^3.5)^2";
+      const expected = "The derivative of the polynomial using chain rule is: 2(2.5x^3.5)^1 (8.75x^2.5)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
+
+    test("inner exponent results in zero exponent", () => {
+      const input = "(5x^1)^3";
+      const expected = "The derivative of the polynomial using chain rule is: 3(5x^1)^2 (5x)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
+
+    test("decimal coefficient without leading zero", () => {
+      const input = "(.5x^2)^3";
+      const expected = "The derivative of the polynomial using chain rule is: 3(0.5x^2)^2 (1x^1)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
+
+    test("outer exponent of 1", () => {
+      const input = "(2x^3)^1";
+      const expected = "The derivative of the polynomial using chain rule is: 1(2x^3)^0 (6x^2)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
+
+    test("zero outer exponent", () => {
+      const input = "(2x^3)^0";
+      const expected = "The derivative of the polynomial using chain rule is: 0(2x^3)^-1 (6x^2)";
+      expect(chainRuleDerivative(input)).toBe(expected);
+    });
   });
 
-  test('encrypts numbers with valid actions', () => {
-    const numbers = '123456';
-    const actions = 'RLTDRRTRS2S1';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('244156');
-  });
+  describe("Invalid Inputs", () => {
+    test("missing closing parenthesis", () => {
+      const input = "(3x^2^5";
+      expect(() => chainRuleDerivative(input)).toThrow();
+    });
 
-  test('handles nine with increment operations', () => {
-    const numbers = '9';
-    const actions = 'T';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('9');
-  });
+    test("missing x component", () => {
+      const input = "(3^2)^5";
+      expect(() => chainRuleDerivative(input)).toThrow();
+    });
 
-  test('handles zero with decrement operations', () => {
-    const numbers = '0';
-    const actions = 'D';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('0');
-  });
+    test("non-numeric exponent", () => {
+      const input = "(3x^a)^5";
+      expect(() => chainRuleDerivative(input)).toThrow();
+    });
 
-  test('treats negative numbers as zero before actions', () => {
-    const numbers = '-123-45678-9';
-    const actions = 'RLTTDRRTDD';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('122056780');
-  });
+    test("empty input string", () => {
+      const input = "";
+      expect(() => chainRuleDerivative(input)).toThrow();
+    });
 
-  test('performs increment and decrement operations', () => {
-    const numbers = '987654';
-    const actions = 'TDT';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('987654');
-  });
+    test("missing caret in exponent", () => {
+      const input = "(3x2)^5";
+      expect(() => chainRuleDerivative(input)).toThrow();
+    });
 
-  test('performs swap operations', () => {
-    const numbers = '123456';
-    const actions = 'S3S4';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('421356');
-  });
+    test("missing outer exponent", () => {
+      const input = "(3x^2)";
+      expect(() => chainRuleDerivative(input)).toThrow();
+    });
 
-  test('handles left and right operations', () => {
-    const numbers = '123456';
-    const actions = 'RLR';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('123456');
-  });
-
-  test('ignores invalid action characters', () => {
-    const numbers = '123456';
-    const actions = 'RLTAX';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('223456');
-  });
-
-  test('returns the same string when no actions are given', () => {
-    const numbers = '123456';
-    const actions = '';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('123456');
-  });
-
-  test('returns the same string when no numbers are given', () => {
-    const numbers = '';
-    const actions = 'RRLTTD';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('');
-  });
-
-  test('processes long action strings', () => {
-    const numbers = '123456';
-    const actions = 'RLTDRRTRS2S1RLTDRR';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('244156');
-  });
-
-  test('returns the same string when actions are null', () => {
-    const numbers = '123456';
-    const actions = null;
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBe('123456');
-  });
-
-  test('returns null when numbers are null', () => {
-    const numbers = null;
-    const actions = 'RLTD';
-    const result = documentEncryptor.encryptNumbers(numbers, actions);
-    expect(result).toBeNull();
-  });
-
-  test('throws error for invalid numbers', () => {
-    const numbers = '@Test-Invalid-123';
-    const actions = 'RLTD';
-    expect(() => {
-      documentEncryptor.encryptNumbers(numbers, actions);
-    }).toThrow('Input string must contain only numeric characters');
+    test("multiple carets in inner expression", () => {
+      const input = "(3x^2^5)^3";
+      expect(() => chainRuleDerivative(input)).toThrow();
+    });
   });
 });

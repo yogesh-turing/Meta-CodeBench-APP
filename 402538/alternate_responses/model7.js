@@ -1,52 +1,42 @@
-class DocumentEncryptor {
-    encryptNumbers(numbers, actions) {
-        // Check if input string contains numeric data
-        if (!/^\d+$/.test(numbers)) {
-            throw new Error('Input string should contain only numeric data');
-        }
+function parsePolynomial(polynomial) {
+  // Remove the outer parentheses
+  const trimmedPolynomial = polynomial.replace(/^\(|\)$/g, "");
 
-        // Initialize the result array with the input numbers
-        let result = numbers.split('').map(Number);
+  // Split the polynomial into two parts at the ')^' delimiter
+  const [innerPolynomial, outerExponent] = trimmedPolynomial.split(")^");
 
-        // Initialize the current position
-        let position = 0;
+  // Extract the inner coefficient and exponent
+  const [innerCoefficient, innerExponent] = innerPolynomial.split("x^");
 
-        // Iterate over each action in the actions string
-        for (let i = 0; i < actions.length; i++) {
-            // Get the current action
-            let action = actions[i];
+  // Parse the inner coefficient, inner exponent, and outer exponent into numbers
+  const a = parseFloat(innerCoefficient);
+  const b = parseFloat(innerExponent);
+  const c = parseFloat(outerExponent);
 
-            // Perform the action
-            switch (action) {
-                case 'R':
-                    // Move to the next character
-                    position = Math.min(position + 1, result.length - 1);
-                    break;
-                case 'L':
-                    // Move to the previous character
-                    position = Math.max(position - 1, 0);
-                    break;
-                case 'T':
-                    // Increment the digit by one
-                    result[position] = Math.min(result[position] + 1, 9);
-                    break;
-                case 'D':
-                    // Decrement the digit by one
-                    result[position] = Math.max(result[position] - 1, 0);
-                    break;
-                case 'S':
-                    // Swap the current position with the number in the nth position
-                    let n = parseInt(actions[++i]);
-                    let temp = result[position];
-                    result[position] = result[n - 1];
-                    result[n - 1] = temp;
-                    break;
-            }
-        }
+  // Check if the input format is invalid
+  if (isNaN(a) || isNaN(b) || isNaN(c)) {
+    throw new Error("Invalid polynomial");
+  }
 
-        // Return the transformed numbers as a string
-        return result.join('');
-    }
+  // Return an array containing the inner coefficient, inner exponent, and outer exponent
+  return [a, b, c];
 }
 
-module.exports = {DocumentEncryptor};
+function chainRuleDerivative(polynomial) {
+  try {
+    // Parse the polynomial using the parsePolynomial function
+    const [a, b, c] = parsePolynomial(polynomial);
+
+    // Calculate the derivative using the chain rule
+    const derivative = `${a * b * c}x^${b - 1}(${a}x^${b})^${c - 1}`;
+
+    // Return the derivative as a string
+    return `The derivative of the polynomial using chain rule is: ${derivative}`;
+  } catch (error) {
+    // If the input format is invalid, return an error message
+    return error.message;
+  }
+}
+
+// Export the chainRuleDerivative function
+module.exports = { chainRuleDerivative };

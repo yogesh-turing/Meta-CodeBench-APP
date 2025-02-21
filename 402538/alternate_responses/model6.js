@@ -1,27 +1,41 @@
-class DocumentEncryptor {
-    encryptNumbers(numbers, actions) {
-        let position = 0;
-        let numbersArray = numbers.split('').map(Number);
+function parsePolynomial(polynomial) {
+  // Remove the parentheses at the start and end of the string
+  const trimmedPolynomial = polynomial.replace(/^\(|\)$/g, "");
 
-        for (let action of actions) {
-            if (action === 'R' && position < numbersArray.length - 1) {
-                position++;
-            } else if (action === 'L' && position > 0) {
-                position--;
-            } else if (action === 'T' && numbersArray[position] < 9) {
-                numbersArray[position]++;
-            } else if (action === 'D' && numbersArray[position] > 0) {
-                numbersArray[position]--;
-            } else if (action.startsWith('S')) {
-                let swapPosition = parseInt(action.substring(1)) - 1;
-                if (swapPosition >= 0 && swapPosition < numbersArray.length) {
-                    [numbersArray[position], numbersArray[swapPosition]] = [numbersArray[swapPosition], numbersArray[position]];
-                }
-            }
-        }
+  // Split the string into two parts: the inner polynomial and the outer exponent
+  const [innerPolynomial, outerExponent] = trimmedPolynomial.split(")^");
 
-        return numbersArray.join('');
-    }
+  // Split the inner polynomial into the coefficient and the inner exponent
+  const [coefficient, innerExponent] = innerPolynomial.split("x^");
+
+  // Parse the coefficient, inner exponent, and outer exponent into numbers
+  const a = coefficient !== "" ? parseFloat(coefficient) : 1;
+  const b = parseFloat(innerExponent);
+  const c = parseFloat(outerExponent);
+
+  // Check if any of the numbers are NaN (not a number)
+  if (isNaN(a) || isNaN(b) || isNaN(c)) {
+    throw new Error("Invalid polynomial format");
+  }
+
+  // Return the parsed numbers as an array
+  return [a, b, c];
 }
 
-module.exports = {DocumentEncryptor};
+function chainRuleDerivative(polynomial) {
+  try {
+    // Parse the polynomial into its components
+    const [a, b, c] = parsePolynomial(polynomial);
+
+    // Calculate the derivative using the chain rule
+    const derivative = `${c * a * b}x^${b - 1}(${a}x^${b})^${c - 1}`;
+
+    // Return the derivative as a string
+    return `The derivative of the polynomial using the chain rule is: ${derivative}`;
+  } catch (error) {
+    // If there's an error parsing the polynomial, return an error message
+    return error.message;
+  }
+}
+
+module.exports = { chainRuleDerivative };

@@ -1,85 +1,54 @@
-class DocumentEncryptor {
-    encryptNumbers(numbers, actions) {
-        // Input validation
-        if (!numbers || !this.isNumeric(numbers)) {
-            throw new IllegalArgumentException("Invalid input: Input must contain numeric data");
-        }
-        
-        if (!actions) return numbers;
-        
-        // Convert input string to array for easier manipulation
-        let nums = numbers.split('').map(num => {
-            // Convert negative numbers to 0
-            return parseInt(num) < 0 ? '0' : num;
-        });
-        
-        let currentPos = 0;
-        let i = 0;
-        
-        while (i < actions.length) {
-            // Ensure current position is within bounds
-            if (currentPos < 0) currentPos = 0;
-            if (currentPos >= nums.length) currentPos = nums.length - 1;
-            
-            const action = actions[i];
-            
-            switch (action) {
-                case 'R':
-                    currentPos = Math.min(currentPos + 1, nums.length - 1);
-                    i++;
-                    break;
-                    
-                case 'L':
-                    currentPos = Math.max(currentPos - 1, 0);
-                    i++;
-                    break;
-                    
-                case 'T':
-                    nums[currentPos] = nums[currentPos] === '9' ? 
-                        '9' : String(parseInt(nums[currentPos]) + 1);
-                    i++;
-                    break;
-                    
-                case 'D':
-                    nums[currentPos] = nums[currentPos] === '0' ? 
-                        '0' : String(parseInt(nums[currentPos]) - 1);
-                    i++;
-                    break;
-                    
-                case 'S':
-                    // Check if there's a number after 'S'
-                    if (i + 1 < actions.length && !isNaN(actions[i + 1])) {
-                        const swapPos = parseInt(actions[i + 1]) - 1;
-                        // Validate swap position
-                        if (swapPos >= 0 && swapPos < nums.length) {
-                            // Perform swap
-                            [nums[currentPos], nums[swapPos]] = 
-                                [nums[swapPos], nums[currentPos]];
-                        }
-                        i += 2; // Skip the number after 'S'
-                    } else {
-                        i++; // Skip invalid swap action
-                    }
-                    break;
-                    
-                default:
-                    i++; // Skip invalid action
-            }
-        }
-        
-        return nums.join('');
-    }
+function parsePolynomial(polynomial) {
+    // Remove outer parentheses and validate basic format
+    const regex = /^\(([-]?\d*\.?\d*)?x\^([-]?\d+)\)\^([-]?\d+)$/;
+    const match = polynomial.match(regex);
     
-    isNumeric(str) {
-        return /^-?\d+$/.test(str);
+    if (!match) {
+        throw new Error("Invalid polynomial format. Expected format: (ax^b)^c");
+    }
+
+    // Extract coefficients and exponents
+    let innerCoefficient = match[1];
+    const innerExponent = parseFloat(match[2]);
+    const outerExponent = parseFloat(match[3]);
+
+    // Handle default coefficient (when no number is before x)
+    innerCoefficient = innerCoefficient === '' ? 1 : 
+                      innerCoefficient === '-' ? -1 : 
+                      parseFloat(innerCoefficient);
+
+    // Validate numbers
+    if (isNaN(innerCoefficient) || isNaN(innerExponent) || isNaN(outerExponent)) {
+        throw new Error("Invalid numbers in polynomial");
+    }
+
+    return [innerCoefficient, innerExponent, outerExponent];
+}
+
+function chainRuleDerivative(polynomial) {
+    try {
+        // Parse the polynomial
+        const [innerCoefficient, innerExponent, outerExponent] = parsePolynomial(polynomial);
+
+        // Calculate derivative components
+        const newOuterExponent = outerExponent - 1;
+        const newInnerCoefficient = innerCoefficient * innerExponent;
+        const newInnerExponent = innerExponent - 1;
+
+        // Construct the derivative string
+        let derivative = `${outerExponent}(${innerCoefficient}x^${innerExponent})^${newOuterExponent} `;
+        derivative += `(${newInnerCoefficient}`;
+        
+        if (newInnerExponent !== 0) {
+            derivative += `x^${newInnerExponent}`;
+        }
+        
+        derivative += ')';
+
+        return "The derivative of the polynomial using chain rule is: " + derivative;
+    } catch (error) {
+        return error.message;
     }
 }
 
-class IllegalArgumentException extends Error {
-    constructor(message) {
-        super(message);
-        this.name = 'IllegalArgumentException';
-    }
-}
-
-module.exports = { DocumentEncryptor };
+module.exports = { chainRuleDerivative, parsePolynomial };

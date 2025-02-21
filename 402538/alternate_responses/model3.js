@@ -1,78 +1,60 @@
-class DocumentEncryptor {
-    encryptNumbers(numbers, actions) {
-        // Input validation
-        if (!numbers || !numbers.trim()) {
-            throw new IllegalArgumentException("Input string cannot be empty");
-        }
-        
-        if (!/^-?\d+$/.test(numbers)) {
-            throw new IllegalArgumentException("Input must contain only numbers");
-        }
-        
-        if (!actions) {
-            return numbers;
-        }
+function parsePolynomial(polynomial) {
+    // Remove whitespace and validate basic format
+    polynomial = polynomial.trim();
+    if (!/^\([^()]+\)\^-?\d+$/.test(polynomial)) {
+        throw new Error("Invalid polynomial format. Expected format: (ax^b)^c");
+    }
 
-        // Convert negative numbers to 0
-        let numArray = numbers.split('').map(char => 
-            char === '-' ? '0' : char
-        );
+    // Remove outer parentheses
+    const innerPart = polynomial.replace(/^\(|\)$/g, "");
+    
+    // Split into coefficient and exponent parts
+    const [coefficientPart, exponentPart] = innerPart.split("x^");
+    
+    // Extract inner coefficient (a)
+    const innerCoefficient = coefficientPart === "" ? 1 : 
+                            coefficientPart === "-" ? -1 : 
+                            parseFloat(coefficientPart);
+    
+    // Split the exponent parts to get inner (b) and outer (c) exponents
+    const [innerExponent, outerExponent] = exponentPart.split(")^");
+    
+    // Parse the exponents
+    const innerExp = parseFloat(innerExponent);
+    const outerExp = parseFloat(outerExponent);
+    
+    // Validate all numbers
+    if (isNaN(innerCoefficient) || isNaN(innerExp) || isNaN(outerExp)) {
+        throw new Error("Invalid numbers in polynomial");
+    }
+    
+    return [innerCoefficient, innerExp, outerExp];
+}
+
+function chainRuleDerivative(polynomial) {
+    try {
+        // Parse the polynomial
+        const [a, b, c] = parsePolynomial(polynomial);
         
-        let currentPos = 0;
-        let i = 0;
+        // Calculate derivative components
+        const outerPower = c - 1;
+        const innerCoefficient = a * b;
+        const innerPower = b - 1;
         
-        while (i < actions.length) {
-            const action = actions[i];
-            
-            switch(action) {
-                case 'R':
-                    currentPos = Math.min(currentPos + 1, numArray.length - 1);
-                    i++;
-                    break;
-                    
-                case 'L':
-                    currentPos = Math.max(currentPos - 1, 0);
-                    i++;
-                    break;
-                    
-                case 'T':
-                    if (numArray[currentPos] !== '9') {
-                        numArray[currentPos] = String(parseInt(numArray[currentPos]) + 1);
-                    }
-                    i++;
-                    break;
-                    
-                case 'D':
-                    if (numArray[currentPos] !== '0') {
-                        numArray[currentPos] = String(parseInt(numArray[currentPos]) - 1);
-                    }
-                    i++;
-                    break;
-                    
-                case 'S':
-                    if (i + 1 < actions.length) {
-                        const swapPos = parseInt(actions[i + 1]);
-                        if (!isNaN(swapPos) && swapPos <= numArray.length) {
-                            // Perform swap
-                            const temp = numArray[currentPos];
-                            numArray[currentPos] = numArray[swapPos - 1];
-                            numArray[swapPos - 1] = temp;
-                            i += 2;
-                        } else {
-                            i++;
-                        }
-                    } else {
-                        i++;
-                    }
-                    break;
-                    
-                default:
-                    i++;
-            }
+        // Build the derivative string
+        let derivative = `${c}(${a}x^${b})^${outerPower} (${innerCoefficient}`;
+        
+        // Add x term if inner power isn't 0
+        if (innerPower !== 0) {
+            derivative += `x^${innerPower}`;
         }
         
-        return numArray.join('');
+        derivative += ")";
+        
+        return `The derivative of the polynomial using chain rule is: ${derivative}`;
+    } catch (error) {
+        return `Error: ${error.message}`;
     }
 }
 
-module.exports = { DocumentEncryptor };
+module.exports = { parsePolynomial, chainRuleDerivative };

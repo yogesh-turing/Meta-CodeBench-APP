@@ -1,82 +1,59 @@
-class DocumentEncryptor {
-    encryptNumbers(numbers, actions) {
-        // Input validation
-        if (!numbers || numbers.trim() === '') {
-            throw new IllegalArgumentException("Input string cannot be empty");
-        }
-        
-        // Check if input contains only numbers (and possibly negative signs)
-        if (!/^-?\d+$/.test(numbers)) {
-            throw new IllegalArgumentException("Input must contain only numbers");
-        }
-        
-        // If actions is empty, return original string
-        if (!actions || actions.length === 0) {
-            return numbers;
-        }
+function parsePolynomial(polynomial) {
+    // Remove outer parentheses if they exist
+    const cleanedPoly = polynomial.replace(/^\(|\)$/g, "");
+    
+    // Split into coefficient and exponent parts
+    const parts = cleanedPoly.split("x^");
+    
+    // Get inner coefficient (a)
+    let innerCoeff = 1;  // default value if no coefficient is specified
+    if (parts[0] && parts[0] !== "") {
+        innerCoeff = parseFloat(parts[0]);
+    }
+    
+    if (!parts[1]) {
+        throw new Error("Invalid polynomial format. Expected format: (ax^b)^c");
+    }
+    
+    // Split to get inner and outer exponents
+    const exponents = parts[1].split(")^");
+    if (exponents.length !== 2) {
+        throw new Error("Invalid polynomial format. Expected format: (ax^b)^c");
+    }
+    
+    const innerExp = parseFloat(exponents[0]);  // b
+    const outerExp = parseFloat(exponents[1]);  // c
+    
+    if (isNaN(innerCoeff) || isNaN(innerExp) || isNaN(outerExp)) {
+        throw new Error("Invalid polynomial: coefficients and exponents must be numbers");
+    }
+    
+    return [innerCoeff, innerExp, outerExp];
+}
 
-        // Convert string to array and handle negative numbers
-        let nums = numbers.split('').map(char => {
-            if (char === '-') return '0';
-            return char;
-        });
+function chainRuleDerivative(polynomial) {
+    try {
+        // Parse the polynomial
+        const [innerCoeff, innerExp, outerExp] = parsePolynomial(polynomial);
         
-        let currentPos = 0;
-        let i = 0;
+        // Calculate derivative components
+        const newOuterExp = outerExp - 1;
+        const newInnerCoeff = innerCoeff * innerExp;
+        const newInnerExp = innerExp - 1;
         
-        while (i < actions.length) {
-            const action = actions[i];
-            
-            switch (action) {
-                case 'R':
-                    currentPos = Math.min(currentPos + 1, nums.length - 1);
-                    i++;
-                    break;
-                    
-                case 'L':
-                    currentPos = Math.max(currentPos - 1, 0);
-                    i++;
-                    break;
-                    
-                case 'T':
-                    if (nums[currentPos] !== '9') {
-                        nums[currentPos] = String(parseInt(nums[currentPos]) + 1);
-                    }
-                    i++;
-                    break;
-                    
-                case 'D':
-                    if (nums[currentPos] !== '0') {
-                        nums[currentPos] = String(parseInt(nums[currentPos]) - 1);
-                    }
-                    i++;
-                    break;
-                    
-                case 'S':
-                    if (i + 1 < actions.length) {
-                        const swapPos = parseInt(actions[i + 1]);
-                        if (!isNaN(swapPos) && swapPos <= nums.length) {
-                            // Perform swap
-                            const temp = nums[currentPos];
-                            nums[currentPos] = nums[swapPos - 1];
-                            nums[swapPos - 1] = temp;
-                            i += 2;
-                        } else {
-                            i++;
-                        }
-                    } else {
-                        i++;
-                    }
-                    break;
-                    
-                default:
-                    i++;
-                    break;
-            }
+        // Build the derivative string
+        let derivative = `${outerExp}(${innerCoeff}x^${innerExp})^${newOuterExp} (${newInnerCoeff}`;
+        
+        // Add x term with exponent if needed
+        if (newInnerExp !== 0) {
+            derivative += `x^${newInnerExp}`;
         }
+        derivative += ")";
         
-        return nums.join('');
+        return "The derivative of the polynomial using chain rule is: " + derivative;
+    } catch (error) {
+        return error.message;
     }
 }
 
-module.exports = { DocumentEncryptor };
+module.exports = { chainRuleDerivative, parsePolynomial };

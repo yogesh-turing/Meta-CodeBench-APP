@@ -1,57 +1,30 @@
-class DocumentEncryptor {
-    encryptNumbers(numbers, actions) {
-        // Check if the input string contains non-numeric data
-        if (!/^\d+$/.test(numbers)) {
-            throw new Error("Input string contains non-numeric data");
-        }
-
-        // Initialize the current position to the first character
-        let currentPosition = 0;
-
-        // Convert the input string to an array for easier manipulation
-        let numbersArray = numbers.split("");
-
-        // Iterate over each action in the actions string
-        for (let action of actions) {
-            // Check if the action is a swap action
-            if (action.startsWith("S")) {
-                // Extract the position to swap with
-                let swapPosition = parseInt(action.slice(1)) - 1;
-
-                // Swap the current position with the swap position
-                [numbersArray[currentPosition], numbersArray[swapPosition]] = [numbersArray[swapPosition], numbersArray[currentPosition]];
-            } else {
-                // Handle other actions (R, L, T, D)
-                switch (action) {
-                    case "R":
-                        // Move to the next character
-                        currentPosition = Math.min(currentPosition + 1, numbersArray.length - 1);
-                        break;
-                    case "L":
-                        // Move to the previous character
-                        currentPosition = Math.max(currentPosition - 1, 0);
-                        break;
-                    case "T":
-                        // Increment the digit by one
-                        numbersArray[currentPosition] = (parseInt(numbersArray[currentPosition]) + 1).toString();
-                        if (numbersArray[currentPosition] === "10") {
-                            numbersArray[currentPosition] = "9";
-                        }
-                        break;
-                    case "D":
-                        // Decrement the digit by one
-                        numbersArray[currentPosition] = (parseInt(numbersArray[currentPosition]) - 1).toString();
-                        if (numbersArray[currentPosition] === "-1") {
-                            numbersArray[currentPosition] = "0";
-                        }
-                        break;
-                }
-            }
-        }
-
-        // Return the transformed numbers as a string
-        return numbersArray.join("");
-    }
+function parsePolynomial(polynomial) {
+  const b = polynomial.replace(/^\(|\)$/g, "");
+  const c = b.split("x^");
+  const d = 1;
+  c[0] && c[0] !== "" && (d = parseFloat(c[0]));
+  const e = c[1].split(")^");
+  const f = parseFloat(e[0]);
+  const g = parseFloat(e[1]);
+  if (isNaN(d) || isNaN(f) || isNaN(g)) {
+    throw new Error("Invalid polynomial");
+  }
+  return [d, f, g];
 }
 
-module.exports = { DocumentEncryptor };
+function chainRuleDerivative(polynomial) {
+  try {
+    const [d, f, g] = parsePolynomial(polynomial);
+    const h = g - 1;
+    const i = d * f;
+    const j = f - 1;
+    let k = g + "(" + d + "x^" + f + ")^" + h + " (" + i + "x";
+    j !== 0 && (k += "^" + j);
+    k += ")";
+    return "The derivative of the polynomial using chain rule is: " + k;
+  } catch (error) {
+    return error.message;
+  }
+}
+
+module.exports = { chainRuleDerivative, parsePolynomial };
