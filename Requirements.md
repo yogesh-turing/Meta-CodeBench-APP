@@ -1,48 +1,110 @@
 Base Code:
 ```javascript
-class DocumentEncryptor {
-    encryptNumbers(numbers, actions) {
-        // insert code here
+class FinanceManager {
+    constructor() {
+        this.expenses = {};  // Format: { expenseId: { amount, category, date, description } }
+        this.categoryBudgets = {};  // Format: { category: budgetAmount }
+        this.validCategories = ['Food', 'Entertainment', 'Transport'];  // Predefined categories
+    }
+
+    addExpense(expenseId, amount, category, date, description) {
+        // TODO: Implement addExpense logic here
+    }
+
+    setCategoryBudget(category, budgetAmount) {
+        // TODO: Implement setCategoryBudget logic here
+    }
+
+    getExpenseHistory(startDate, endDate) {
+        // TODO: Implement getExpenseHistory logic here
+    }
+
+    generateMonthlyReport(year, month) {
+        // TODO: Implement generateMonthlyReport logic here
+    }
+
+    updateExpense(expenseId, updatedDetails) {
+        // TODO: Implement updateExpense logic here
+    }
+
+    generateCategoryReport(category) {
+        // TODO: Implement generateCategoryReport logic here
     }
 }
 
-module.exports = {DocumentEncryptor};
+module.exports = { FinanceManager };
 ```
 
 Prompt:
-In high-security organizations handling numerous confidential documents, it's essential to encrypt specific numbers within these documents. The `encryptNumbers` method in the `DocumentEncryptor` class should be implemented to identify integer numbers and encrypt them based on the following actions, each denoted by a specific character:
 
-| Action        | Denoted By | Remarks                                                                 |
-|---------------|------------|-------------------------------------------------------------------------|
-| Right Arrow   | R          | Move to the next character                                              |
-| Left Arrow    | L          | Move to the previous character                                          |
-| Up Arrow      | T          | Increment the digit by one (if the digit is 9, it remains 9)            |
-| Down Arrow    | D          | Decrement the digit by one (if the digit is 0, it remains 0)            |
-| Swap          | Sn         | Swap the current position with the number in the nth position           |
+Please help me to complete the functionality of the `FinanceManager` class by completing the following methods in it:
 
-These actions are governed by the following rules:
+-`addExpense`:
+    - should accept `expenseId` (string), `amount` (positive float), `category` (string), `date` (string in 'YYYY-MM-DD' format), and `description` (string)
+    -  If the `amount`, `category`, or `date` is invalid, throw an error: `"Invalid expense details"`.
+    - Store the expense details, including the `expenseId`, `amount`, `category`, `date`, and `description`.
+    - Ensure the category is a valid pre-defined category (e.g., "Food", "Entertainment", "Transport") , if not exist then raise the error `"Invalid category"`.
+    -  If the expense already exists (same `expenseId`), update the expense with the new details.
 
-- **Initial Position**: The starting position is at the first character of the string comprising the numbers.
-- **Incrementing a Digit**: If the digit is 9, it remains 9; otherwise, it increases by 1.
-- **Decrementing a Digit**: If the digit is 0, it remains 0; otherwise, it decreases by 1.
-- **Negative Numbers**: If the input number string contains negative numbers, they should be considered as 0 before performing any operations.
-- **Non-Numeric Input**: If the string does not contain numeric data, an `IllegalArgumentException` should be thrown.
-- **Empty Actions String**: If the actions string is empty, the input string should be returned as it is.
-- **Unprocessed Input**: Once all actions from the action string are consumed, if any part of the input string remains unprocessed, those characters should be left unchanged.
+-`setCategoryBudget`:
+   - should accept `category` (string) and `budgetAmount` (positive float)
+   -  Ensure the category is valid (pre-defined categories).
+   - Store the expense details, including the `expenseId`, `amount`, `category`, `date`, and `description`.
+   - If the `budgetAmount` is invalid (non-positive number), throw an error: `"Invalid budget amount"`.
+   - Store the budget for the specified category.
 
-**Constraints**: 0 < n <= l, where n is the number of actions and l is the length of the input number string.
 
-**Input**:
-- First line: A string comprising numbers.
-- Second line: A string of actions denoted by the values mentioned in the table above.
+-`getExpenseHistory`:
+   - should accept `startDate` (string in 'YYYY-MM-DD' format) and `endDate` (string in 'YYYY-MM-DD' format).
+   -  Return an array of objects representing each expense in the range. Each object should contain: `expenseId` (string), `amount` (float), `category` (string), `date` (string) and `description` (string).
+   - If there are no expenses in the given range, return an empty array.
 
-**Output**:
-- A single string comprising the transformed numbers.
+-`generateMonthlyReport`:
+   - should accept `year` (valid 'YYYY' integer, e.g., 2025) and `month` (integer, 1 through 12) and if accepted arguments are invalid raise the error "Invalid year or month".
+    - Return a JSON object containing the total expenses for each category within the given month sorted by `category`.
+    - The object should have category names as keys and total amounts as values. Example: `{ "Entertainment": 50.25, "Food": 250.5, "Transport": 100.75}`
+   - If there are no expenses in the given month, return: `"No expenses for this month"`.
 
-**Example**:
-*Input*:
-123456
-RLTDRRTRS2S1
+-`updateExpense`:
+   - should accept `expenseId` (string) and `updatedDetails` (an object containing updated `amount`, `category`, `date`, and/or `description`)
+   -  If the `expenseId` does not exist, throw an error: `"Expense not found"`.
+   - Update the existing expense details with the new ones.
+   - Ensure the new values are valid (e.g., `amount` must be positive, `category` must be valid, and `date` must be in the correct format).
 
-*Output*:
-244156
+-`generateCategoryReport`:
+   - should accept `category` (string) .
+   -  Return an object containing the following:
+       - `totalAmount`: total expense for the category
+       -  `averageAmount`: average expense per entry in that category.
+       -  `expenseCount`: number of expenses in that category.
+   -  Ensure the category is valid (pre-defined categories).
+
+
+Error Handling:
+- Throw an error `"Invalid expense details"` if any expense details are invalid.
+- Throw an error `"Invalid budget amount"` if the budget amount is invalid.
+- Throw an error `"Expense not found"` if an expense does not exist.
+- Throw an error `"No expenses for this month"` if no expenses are found in the specified month.
+- Throw an error `"No expenses in this category"` if there are no expenses for the given category.
+- Throw an error `"Invalid category"` if there is no predefined category.
+
+
+Example:
+```javascript
+const financeManager = new FinanceManager(); // Add an expense 
+financeManager.addExpense('expense1', 50.75, 'Food', '2025-02-19', 'Lunch at a restaurant'); 
+console.log(financeManager.expenses); 
+// Output: { 
+// expense1: 
+{ 
+// amount: 50.75, 
+// category: 'Food', 
+// date: '2025-02-19', 
+// description: 'Lunch at a restaurant' 
+// } 
+// } 
+// Set a budget for a category financeManager.
+setCategoryBudget('Food', 200); 
+console.log(financeManager.categoryBudgets); 
+// Output: { Food: 200 }
+```
