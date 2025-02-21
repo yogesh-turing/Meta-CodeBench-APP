@@ -1,3 +1,9 @@
+The checkDataset function verifies whether the meter number assigned to a house is a valid integer. If the meter number is not an integer, the function should raise the error: "Dataset is not valid." Additionally, if the same meter number is assigned to multiple houses, it should raise the error: "Meter number can't be the same."
+
+
+
+
+
 Completion task
 
 Prompt is good
@@ -21,22 +27,22 @@ For ideal solution we try to get 100% coverage, it should be atleast 90%.
 ---
 
 Estimated skill requirements:
-    Include "Language-specific features"
+Include "Language-specific features"
 
-Model Evaluations -> First Observed Failure Reason: There are grammatical mistake, please fix those.
+Model Evaluations -> First Observed Failure Reason: There are grammatical mistakes, please fix those.
 
 Unit test:
-    Import statement should be solution with small 's'
-    const { checkDataset, billingAmount, billedMembers } = require('./solution');
-    Please format the code properly.
-    Consider adding test cases for following
-    - house.members is not array
-    - house.adharno is not array
-    - house.members.length !== house.adharno.length
+Import statement should be a solution with small 's'
+const { checkDataset, billing amount, billedMembers } = require('./solution');
+Please format the code properly.
+Consider adding test cases for the following
+- `house.members` is not array
+- `house.adharno` is not array
+- `house.members.length !== house.adharno.length`
 
 Ideal Response Explanation:
-    You don't have to explain the complete code, here you have to mention the how it fixed the issues in incorrect solution.
-    It should not be too long or too short, you can make it around 4-6 lines.
+You don't have to explain the complete code, here you have to mention how it fixed the issues in incorrect solution.
+It should not be too long or too short, you can make it around 4-6 lines.
 
-Ideal Response: 
-    Follow LLAMA tone for writing ideal response.
+Ideal Response:
+Follow LLAMA's tone for writing an ideal response

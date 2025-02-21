@@ -1,111 +1,121 @@
 function checkDataset(dataset) {
-    if (!Array.isArray(dataset) || dataset.length === 0) {
-      throw new Error("Invalid DataSet");
-    }
+  if (!Array.isArray(dataset) || dataset.length === 0) {
+      throw new Error("Dataset is not valid");
+  }
+
+  const meterNumbers = new Set();
   
-    const meterNumbers = new Set();
-  
-    for (const house of dataset) {
-      // Check meter number
-      if (!Number.isInteger(house.meterNo)) {
-        throw new Error("Dataset is not valid");
+  dataset.forEach(house => {
+      // Check if all required properties exist
+      if (!house.meterNo || !house.members || !house.adharno || 
+          !house.meterReading || !house.floors || typeof house.meterNo !== 'number' ) {
+          throw new Error("Dataset is not valid");
       }
-      
+
+      // Check meter number uniqueness and type
       if (meterNumbers.has(house.meterNo)) {
-        throw new Error("Meter number cant be same");
+          throw new Error("Meter number cant be same");
       }
       meterNumbers.add(house.meterNo);
-  
-      // Validate members and adharno
-      if (!Array.isArray(house.members) || !Array.isArray(house.adharno) || house.members.length !== house.adharno.length) {
-        throw new Error("Dataset is not valid");
-      }
-  
-      // Validate each member
-      for (const member of house.members) {
-        if (typeof member.memberName !== 'string' || !Number.isInteger(member.age) || !/^\$\d+[kK]$/.test(member.Salary)) {
+
+      // Check members array
+      if (!Array.isArray(house.members) || house.members.length === 0) {
           throw new Error("Dataset is not valid");
-        }
       }
-  
+
+      // Check adharno array
+      if (!Array.isArray(house.adharno) || 
+          house.adharno.length !== house.members.length) {
+          throw new Error("Dataset is not valid");
+      }
+
+      // Validate members data
+      house.members.forEach(member => {
+          if (typeof member.memberName !== 'string' ||
+              typeof member.age !== 'number' ||
+              !/^\$\d+k$/i.test(member.Salary)) {
+              throw new Error("Dataset is not valid");
+          }
+      });
+
       // Validate adharno elements
-      if (house.adharno.some(adhar => typeof adhar !== 'string')) {
-        throw new Error("Dataset is not valid");
+      if (!house.adharno.every(no => typeof no === 'string')) {
+          throw new Error("Dataset is not valid");
       }
-  
-      // Validate meterReading and floors
-      if (!/^\d+W$/.test(house.meterReading) || !Number.isInteger(house.floors)) {
-        throw new Error("Dataset is not valid");
+
+      // Validate meterReading format
+      if (!/^\d+W$/.test(house.meterReading)) {
+          throw new Error("Dataset is not valid");
       }
-    }
-  
-    return dataset;
-  }
-  
-  function billingAmount(dataset) {
-    checkDataset(dataset);
-    const processedAdharNumbers = new Set();
-    const billingAmounts = [];
-  
-    for (const house of dataset) {
-      const watts = parseInt(house.meterReading);
+
+      // Validate floors
+      if (typeof house.floors !== 'number') {
+          throw new Error("Dataset is not valid");
+      }
+  });
+
+  return dataset;
+}
+
+function billingAmount(dataset) {
+  const validatedDataset = checkDataset(dataset);
+  const processedAdharNos = new Set();
+  const billingAmounts = [];
+
+  for (const house of validatedDataset) {
       let totalIncome = 0;
-      let eligibleMembersExist = false;
-  
-      // Calculate total income of eligible members
-      for (let i = 0; i < house.members.length; i++) {
-        const member = house.members[i];
-        const adhar = house.adharno[i];
-  
-        if (member.age >= 18 && member.age <= 45 && !processedAdharNumbers.has(adhar)) {
-          eligibleMembersExist = true;
-          const salary = parseInt(member.Salary.replace(/[\$k]/gi, '')) * 1000;
-          totalIncome += salary;
-          processedAdharNumbers.add(adhar);
-        }
+      const watts = parseInt(house.meterReading);
+      
+      // Calculate total income considering eligible members
+      house.members.forEach((member, index) => {
+          if (member.age >= 18 && member.age <= 45 && 
+              !processedAdharNos.has(house.adharno[index])) {
+              totalIncome += parseInt(member.Salary.slice(1, -1));
+              processedAdharNos.add(house.adharno[index]);
+          }
+      });
+
+      // Calculate base billing amount
+      let ratePerTenWatts;
+      if (totalIncome === 0) {
+          ratePerTenWatts = 1; // Default billing
+      } else if (totalIncome < 100) {
+          ratePerTenWatts = 1;
+      } else if (totalIncome < 200) {
+          ratePerTenWatts = 2;
+      } else {
+          ratePerTenWatts = 3;
       }
-  
-      // Calculate base amount based on the income
-      let baseAmount = Math.floor(watts / 10);
-  
-      if (eligibleMembersExist) {
-        if (totalIncome >= 200000) {
-          baseAmount *= 3;
-        } else if (totalIncome >= 100000) {
-          baseAmount *= 2;
-        }
-      }
-  
-      // Add floor charges (integer division)
-      const floorCharge = Math.floor(baseAmount / house.floors);
-      billingAmounts.push(baseAmount + floorCharge);
-    }
-  
-    return billingAmounts;
+
+      const baseBilling = Math.floor(watts / 10) * ratePerTenWatts;
+      const floorCharge = Math.floor(baseBilling / house.floors);
+      
+      billingAmounts.push(baseBilling + floorCharge);
   }
-  
-  function billedMembers(dataset) {
-    const processedAdharNumbers = new Set();
-    const result = [];
-  
-    for (let i = 0; i < dataset.length; i++) {
-      const house = dataset[i];
+
+  return billingAmounts;
+}
+
+function billedMembers(dataset) {
+  const validatedDataset = checkDataset(dataset);
+  const processedAdharNos = new Set();
+  const result = [];
+
+  validatedDataset.forEach((house, index) => {
       const eligibleMembers = [];
-  
-      for (let j = 0; j < house.members.length; j++) {
-        const member = house.members[j];
-        const adhar = house.adharno[j];
-  
-        if (member.age >= 18 && member.age <= 45 && !processedAdharNumbers.has(adhar)) {
-          eligibleMembers.push(member.memberName);
-          processedAdharNumbers.add(adhar);
-        }
-      }
-  
-      result.push({ [`house${i + 1}`]: eligibleMembers });
-    }
-  
-    return result;
-  }
-  
-  module.exports = { checkDataset, billingAmount, billedMembers };
+      
+      house.members.forEach((member, memberIndex) => {
+          if (member.age >= 18 && member.age <= 45 && 
+              !processedAdharNos.has(house.adharno[memberIndex])) {
+              eligibleMembers.push(member.memberName);
+              processedAdharNos.add(house.adharno[memberIndex]);
+          }
+      });
+
+      result.push({ [`house${index + 1}`]: eligibleMembers });
+  });
+
+  return result;
+}
+
+module.exports = { checkDataset, billingAmount, billedMembers };
