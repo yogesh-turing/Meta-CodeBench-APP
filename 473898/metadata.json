@@ -1,0 +1,8 @@
+{
+    "time_to_develop_prompt": "20 - 30",
+    "programming_language": "JavaScript",
+    "task_type": "Enhancement",
+    "difficulty": "3",
+    "estimated_skill_requirements": "Data Structure and Algorithms,Language-Specific Features,Knowledge of a Specialized Software Area",
+    "user_prompt": "Base Code:\n```javascript\nfunction multiplyLargeNumbers(num1, num2) {\n    return num1 * num2;\n}\n\nmodule.exports={multiplyLargeNumbers};\n```\nPrompt:\n\nIn a financial system, large transactions often involve multiplying long integers, such as calculating the interest on an investment or the total revenue of a business over several years. Write a JavaScript function to multiply two large numbers efficiently, even if they exceed the maximum safe integer value.\nThe above code has used simple multiplication which is not efficient in larger numbers and takes time to compute, instead, enhance the code to use `Divide and conquer` to write the code in an efficient time complexity of `O(log n)`. Take input numbers in `multiplyLargeNumbers` as number data type. Don't use any other way to solve the problem other than Divide and conquer.\n\n# For input like:\n\n- num1 = 123\n- num2 = 00456\n- For the above, this should be the output after multiplication = 56088\n\nThe code must take the Number data type as input and return the output of the Number type.\nKeep the function name the same. No need to import any libraries since JavaScript doesn't use imports for its native functionality."
+}
