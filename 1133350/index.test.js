@@ -1,4 +1,4 @@
-const { getChangedFields } = require('./alternate_responses/incorrect_solution');
+const { getChangedFields } = require('./alternate_responses/model2.js');
 
 // Unit test
 const mongoose = require("mongoose");
