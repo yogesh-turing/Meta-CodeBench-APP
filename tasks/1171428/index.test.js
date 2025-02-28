@@ -1,4 +1,4 @@
-const { AccountManagement } = require(process.env.TARGET_FILE);
+const { AccountManagement } = require('./model_a');
 
 describe("AccountManagement", () => {
   let accountManagement;

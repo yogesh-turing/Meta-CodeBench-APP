@@ -6,7 +6,9 @@ Estimated skill requirements:
     Please remove 'Data Structure and Algorithms' and add 'Software engineering best practices'.
 
 Model Evaluatons:
-    
+    Model A: All test cases passed, please recheck this.
+    Model G: All test cases passed, please recheck this.
+
   base       : 20/25 tests passed [FAILED]
   correct    : 25/25 tests passed [PASSED]
   incorrect  : 23/25 tests passed [FAILED]
