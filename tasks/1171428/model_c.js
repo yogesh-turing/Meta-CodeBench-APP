@@ -1,136 +1,169 @@
-const TRAVEL_COST_PER_KM = 10;
-const TRAVEL_TIME_PER_KM_IN_MINUTES = 15;
-class Location {
-    constructor(id, name, latitude, longitude) {
-        this.id = id;
-        this.name = name;
-        this.latitude = latitude;
-        this.longitude = longitude;
+class AccountManagement {
+    constructor() {
+      this.expenses = {};
+      this.categoryBudgets = {};
+      this.validCategories = ["Food", "Entertainment", "Transport"];
     }
-}
-
-class Agent {
-    #assignedTickets = [];
-        constructor(id, name, location, hourlyRate) {
-        this.id = id;
-        this.name = name;
-        this.location = location;
-        this.#assignedTickets = [];
-        this.hourlyRate = hourlyRate;
+  
+    addExpense(expenseId, amount, category, date, description) {
+      if (!expenseId || typeof expenseId !== 'string') {
+        throw new Error("Invalid expense details");
+      }
+  
+      if (!amount || amount <= 0) {
+        throw new Error("Invalid expense details");
+      }
+  
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      if (!date || !this.isValidDate(date)) {
+        throw new Error("Invalid expense details");
+      }
+  
+      if (!description || typeof description !== 'string') {
+        throw new Error("Invalid expense details");
+      }
+  
+      this.expenses[expenseId] = {
+        expenseId,
+        amount,
+        category,
+        date,
+        description
+      };
     }
-
-    getDistanceAndTravelCost(location) {
-        const toRadians = (degree) => degree * (Math.PI / 180);
-        const earthRadiusKm = 6371;
-
-        const dLat = toRadians(location.latitude - this.location.latitude);
-        const dLon = toRadians(location.longitude - this.location.longitude);
-
-        const lat1 = toRadians(this.location.latitude);
-        const lat2 = toRadians(location.latitude);
-
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2); 
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-        const distanceKm = earthRadiusKm * c;
-        const distanceMeters = distanceKm * 1000;
-        const travelCost = distanceKm * TRAVEL_COST_PER_KM;
-
-        return { distance: distanceMeters, cost: travelCost };
+  
+    setCategoryBudget(category, budgetAmount) {
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      if (!budgetAmount || budgetAmount <= 0) {
+        throw new Error("Invalid budget amount");
+      }
+  
+      this.categoryBudgets[category] = budgetAmount;
     }
-
-    setAssignedTickets(tickets) {
-        this.#assignedTickets = tickets;
+  
+    getExpenseHistory(startDate, endDate) {
+      if (!this.isValidDate(startDate) || !this.isValidDate(endDate)) {
+        throw new Error("Invalid date range");
+      }
+  
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      
+      return Object.values(this.expenses).filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate >= start && expenseDate <= end;
+      });
     }
-
-    getAssignedTickets() {
-        return this.#assignedTickets;
+  
+    generateMonthlyReport(year, month) {
+      if (!Number.isInteger(year) || !Number.isInteger(month) || 
+          month < 1 || month > 12 || year < 1000 || year > 9999) {
+        throw new Error("Invalid year or month");
+      }
+  
+      const filteredExpenses = Object.values(this.expenses).filter(expense => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate.getFullYear() === year && 
+               expenseDate.getMonth() + 1 === month;
+      });
+  
+      if (filteredExpenses.length === 0) {
+        return "No expenses for this month";
+      }
+  
+      const report = {};
+      this.validCategories.forEach(category => {
+        report[category] = 0;
+      });
+  
+      filteredExpenses.forEach(expense => {
+        report[expense.category] += expense.amount;
+      });
+  
+      return Object.fromEntries(
+        Object.entries(report)
+          .filter(([_, amount]) => amount > 0)
+          .sort(([a], [b]) => a.localeCompare(b))
+      );
     }
-}
-
-class Ticket {
-    constructor(id, location, estimatedTimeToComplete, dueAt) {
-        this.id = id;
-        this.location = location;
-        this.estimatedTimeToComplete = estimatedTimeToComplete;
-        this.dueAt = dueAt;
-    }
-
-
-    assignTo(agent) {
-        this.agent = agent;
-    }
-}
-
-function assignTicketToAgent(agents, ticket) {
-    // Input validation
-    if (!Array.isArray(agents) || agents.some(agent => !(agent instanceof Agent))) {
-        throw new Error("Invalid agents array");
-    }
-    if (!(ticket instanceof Ticket)) {
-        throw new Error("Invalid ticket");
-    }
-    if (ticket.agent) {
-        throw new Error("Ticket is already assigned");
-    }
-
-    let eligibleAgents = [];
-
-    for (const agent of agents) {
-        const assignedTickets = agent.getAssignedTickets();
-        let startLocation = agent.location;
-        let availableStartTime = new Date();
-
-        // Calculate total time needed for assigned tickets
-        for (const assignedTicket of assignedTickets) {
-            const { distance } = agent.getDistanceAndTravelCost(assignedTicket.location);
-            const travelTimeMinutes = (distance / 1000) * TRAVEL_TIME_PER_KM_IN_MINUTES;
-            availableStartTime = new Date(availableStartTime.getTime() + 
-                (travelTimeMinutes + assignedTicket.estimatedTimeToComplete) * 60000);
-            startLocation = assignedTicket.location;
+  
+    updateExpense(expenseId, updatedDetails) {
+      if (!this.expenses[expenseId]) {
+        throw new Error("Expense not found");
+      }
+  
+      const currentExpense = this.expenses[expenseId];
+      const newExpense = { ...currentExpense };
+  
+      if (updatedDetails.amount !== undefined) {
+        if (updatedDetails.amount <= 0) {
+          throw new Error("Invalid expense details");
         }
-
-        // Calculate time needed for new ticket
-        const { distance, cost: travelCost } = agent.getDistanceAndTravelCost.call(
-            { location: startLocation },
-            ticket.location
-        );
-        const travelTimeMinutes = (distance / 1000) * TRAVEL_TIME_PER_KM_IN_MINUTES;
-        const totalTimeNeeded = travelTimeMinutes + ticket.estimatedTimeToComplete;
-        
-        // Calculate completion time
-        const completionTime = new Date(availableStartTime.getTime() + totalTimeNeeded * 60000);
-        
-        // Check if ticket can be completed before due date
-        if (completionTime <= new Date(ticket.dueAt)) {
-            // Calculate total cost
-            const laborCost = (totalTimeNeeded / 60) * agent.hourlyRate; // Convert minutes to hours
-            const travelLaborCost = (travelTimeMinutes / 60) * agent.hourlyRate;
-            const totalCost = travelCost + laborCost + travelLaborCost;
-
-            eligibleAgents.push({
-                agent,
-                totalCost,
-                completionTime
-            });
+        newExpense.amount = updatedDetails.amount;
+      }
+  
+      if (updatedDetails.category !== undefined) {
+        if (!this.validCategories.includes(updatedDetails.category)) {
+          throw new Error("Invalid category");
         }
+        newExpense.category = updatedDetails.category;
+      }
+  
+      if (updatedDetails.date !== undefined) {
+        if (!this.isValidDate(updatedDetails.date)) {
+          throw new Error("Invalid expense details");
+        }
+        newExpense.date = updatedDetails.date;
+      }
+  
+      if (updatedDetails.description !== undefined) {
+        if (typeof updatedDetails.description !== 'string') {
+          throw new Error("Invalid expense details");
+        }
+        newExpense.description = updatedDetails.description;
+      }
+  
+      this.expenses[expenseId] = newExpense;
     }
-
-    if (eligibleAgents.length === 0) {
-        throw new Error("No agent can complete the ticket before its due date");
+  
+    generateCategoryReport(category) {
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      const categoryExpenses = Object.values(this.expenses)
+        .filter(expense => expense.category === category);
+  
+      if (categoryExpenses.length === 0) {
+        throw new Error("No expenses in this category");
+      }
+  
+      const totalAmount = categoryExpenses.reduce((sum, expense) => 
+        sum + expense.amount, 0);
+      
+      return {
+        totalAmount,
+        averageAmount: totalAmount / categoryExpenses.length,
+        expenseCount: categoryExpenses.length
+      };
     }
-
-    // Find agent with lowest total cost
-    const selectedAgent = eligibleAgents.reduce((prev, current) => 
-        prev.totalCost < current.totalCost ? prev : current
-    );
-
-    // Assign ticket to selected agent
-    ticket.assignTo(selectedAgent.agent);
-    const updatedTickets = [...selectedAgent.agent.getAssignedTickets(), ticket];
-    selectedAgent.agent.setAssignedTickets(updatedTickets);
-
-    return selectedAgent.agent;
-}
-
-module.exports = { Agent, Ticket, Location, assignTicketToAgent };
+  
+    isValidDate(dateString) {
+      if (!dateString || typeof dateString !== 'string') return false;
+      
+      const regex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!regex.test(dateString)) return false;
+  
+      const date = new Date(dateString);
+      return date instanceof Date && !isNaN(date) && 
+             date.toISOString().slice(0, 10) === dateString;
+    }
+  }
+  
+  module.exports = { AccountManagement };

@@ -1,114 +1,143 @@
-const TRAVEL_COST_PER_KM = 10;
-const TRAVEL_TIME_PER_KM_IN_MINUTES = 15;
-
-class Location {
-    constructor(id, name, latitude, longitude) {
-        this.id = id;
-        this.name = name;
-        this.latitude = latitude;
-        this.longitude = longitude;
+class AccountManagement {
+    constructor() {
+      this.expenses = {}; // Format: { expenseId: { amount, category, date, description } }
+      this.categoryBudgets = {}; // Format: { category: budgetAmount }
+      this.validCategories = ["Food", "Entertainment", "Transport"];
     }
-}
-
-class Agent {
-    #assignedTickets = [];
-    
-    constructor(id, name, location, hourlyRate) {
-        this.id = id;
-        this.name = name;
-        this.location = location;
-        this.#assignedTickets = [];
-        this.hourlyRate = hourlyRate;
+  
+    // Helper method to validate date format
+    validateDate(dateStr) {
+      const regex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!regex.test(dateStr)) return false;
+      const date = new Date(dateStr);
+      return date instanceof Date && !isNaN(date);
     }
-
-    getDistanceAndTravelCost(location) {
-        const toRadians = (degree) => degree * (Math.PI / 180);
-        const earthRadiusKm = 6371;
-
-        const dLat = toRadians(location.latitude - this.location.latitude);
-        const dLon = toRadians(location.longitude - this.location.longitude);
-
-        const lat1 = toRadians(this.location.latitude);
-        const lat2 = toRadians(location.latitude);
-
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                  Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2); 
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-        const distanceKm = earthRadiusKm * c;
-        const distanceMeters = distanceKm * 1000;
-        const travelCost = distanceKm * TRAVEL_COST_PER_KM;
-
-        return { distance: distanceMeters, cost: travelCost };
+  
+    addExpense(expenseId, amount, category, date, description) {
+      if (!amount || amount <= 0 || !this.validateDate(date)) {
+        throw new Error("Invalid expense details");
+      }
+  
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      this.expenses[expenseId] = {
+        amount,
+        category,
+        date,
+        description,
+      };
     }
-
-    setAssignedTickets(tickets) {
-        this.#assignedTickets = tickets;
+  
+    setCategoryBudget(category, budgetAmount) {
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      if (!budgetAmount || budgetAmount <= 0) {
+        throw new Error("Invalid budget amount");
+      }
+  
+      this.categoryBudgets[category] = budgetAmount;
     }
-
-    getAssignedTickets() {
-        return this.#assignedTickets;
+  
+    getExpenseHistory(startDate, endDate) {
+      if (!this.validateDate(startDate) || !this.validateDate(endDate)) {
+        throw new Error("Invalid expense details");
+      }
+  
+      return Object.entries(this.expenses)
+        .filter(([_, expense]) => {
+          return expense.date >= startDate && expense.date <= endDate;
+        })
+        .map(([expenseId, expense]) => ({
+          expenseId,
+          ...expense,
+        }));
     }
-}
-
-class Ticket {
-    constructor(id, location, estimatedTimeToComplete, dueAt) {
-        this.id = id;
-        this.location = location;
-        this.estimatedTimeToComplete = estimatedTimeToComplete;
-        this.dueAt = dueAt;
-    }
-
-    assignTo(agent) {
-        this.agent = agent;
-    }
-}
-
-function assignTicketToAgent(agents, ticket) {
-    if (!Array.isArray(agents) || agents.some(agent => !(agent instanceof Agent))) {
-        throw new Error("Invalid agents array");
-    }
-    if (!(ticket instanceof Ticket)) {
-        throw new Error("Invalid ticket");
-    }
-    if (ticket.agent) {
-        throw new Error("Ticket is already assigned");
-    }
-
-    let bestAgent = null;
-    let lowestCost = Infinity;
-
-    for (const agent of agents) {
-        let lastLocation = agent.location;
-        let totalTravelTime = 0;
-
-        for (const assignedTicket of agent.getAssignedTickets()) {
-            const { distance } = agent.getDistanceAndTravelCost(assignedTicket.location);
-            totalTravelTime += (distance / 1000) * TRAVEL_TIME_PER_KM_IN_MINUTES + assignedTicket.estimatedTimeToComplete;
-            lastLocation = assignedTicket.location;
+  
+    generateMonthlyReport(year, month) {
+      if (
+        !Number.isInteger(year) ||
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12
+      ) {
+        throw new Error("Invalid year or month");
+      }
+  
+      const monthStr = month.toString().padStart(2, "0");
+      const monthStart = `${year}-${monthStr}`;
+  
+      const expenses = Object.values(this.expenses).filter((expense) =>
+        expense.date.startsWith(monthStart)
+      );
+  
+      if (expenses.length === 0) {
+        return "No expenses for this month";
+      }
+  
+      const report = {};
+      this.validCategories.forEach((category) => {
+        const total = expenses
+          .filter((expense) => expense.category === category)
+          .reduce((sum, expense) => sum + expense.amount, 0);
+        if (total > 0) {
+          report[category] = total;
         }
-
-        const { distance, cost: travelCost } = agent.getDistanceAndTravelCost(ticket.location);
-        const travelTime = (distance / 1000) * TRAVEL_TIME_PER_KM_IN_MINUTES;
-        const totalTime = totalTravelTime + travelTime + ticket.estimatedTimeToComplete;
-
-        if (new Date(Date.now() + totalTime * 60000) > new Date(ticket.dueAt)) {
-            continue;
-        }
-
-        const totalCost = (agent.hourlyRate * (totalTime / 60)) + travelCost;
-
-        if (totalCost < lowestCost) {
-            lowestCost = totalCost;
-            bestAgent = agent;
-        }
+      });
+  
+      return report;
     }
-
-    if (!bestAgent) {
-        throw new Error("No agent available to complete the ticket before due date");
+  
+    updateExpense(expenseId, updatedDetails) {
+      if (!this.expenses[expenseId]) {
+        throw new Error("Expense not found");
+      }
+  
+      const currentExpense = this.expenses[expenseId];
+      const newExpense = { ...currentExpense, ...updatedDetails };
+  
+      if (
+        (updatedDetails.amount && updatedDetails.amount <= 0) ||
+        (updatedDetails.date && !this.validateDate(updatedDetails.date)) ||
+        (updatedDetails.category &&
+          !this.validCategories.includes(updatedDetails.category))
+      ) {
+        throw new Error("Invalid expense details");
+      }
+  
+      this.expenses[expenseId] = newExpense;
     }
-
-    ticket.assignTo(bestAgent);
-    bestAgent.setAssignedTickets([...bestAgent.getAssignedTickets(), ticket]);
-}
-
-module.exports = { Agent, Ticket, Location, assignTicketToAgent };
+  
+    generateCategoryReport(category) {
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      const categoryExpenses = Object.values(this.expenses).filter(
+        (expense) => expense.category === category
+      );
+  
+      if (categoryExpenses.length === 0) {
+        throw new Error("No expenses in this category");
+      }
+  
+      const totalAmount = categoryExpenses.reduce(
+        (sum, expense) => sum + expense.amount,
+        0
+      );
+      const expenseCount = categoryExpenses.length;
+      const averageAmount = totalAmount / expenseCount;
+  
+      return {
+        totalAmount,
+        averageAmount,
+        expenseCount,
+      };
+    }
+  }
+  
+  module.exports = { AccountManagement };
+  

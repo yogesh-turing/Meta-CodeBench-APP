@@ -1,57 +1,185 @@
-/**
- * Returns an array of next recurrences based on the provided start date and frequency.
- * 
- * @param {Date} startDate The start date for calculating recurrences.
- * @param {number} frequency The frequency of recurrences in days.
- * @param {number} count The number of recurrences to generate.
- * @param {boolean} [onlyWeekDays=false] If true, only include weekdays (Monday to Friday) in the recurrences.
- * @returns {Date[]} An array of dates representing the next recurrences.
- * @throws {Error} If startDate is not a valid date, or if frequency or count is negative.
- */
-function getNextRecurrences(startDate, frequency, count, onlyWeekDays = false) {
-    // Check for invalid input values and throw errors accordingly
-    if (!(startDate instanceof Date) || isNaN(startDate.getTime())) {
-        throw new Error('Invalid start date');
-    }
-    if (frequency < 0) {
-        throw new Error('Frequency cannot be negative');
-    }
-    if (count < 0) {
-        throw new Error('Count cannot be negative');
+class AccountManagement {
+    constructor() {
+      // Format: { expenseId: { amount, category, date, description } }
+      this.expenses = {};
+      // Format: { category: budgetAmount }
+      this.categoryBudgets = {};
+      // Predefined valid categories
+      this.validCategories = ["Food", "Entertainment", "Transport"];
     }
   
-    const recurrences = [];
-    let currentDate = new Date(startDate);
+    addExpense(expenseId, amount, category, date, description) {
+      // Validate the presence of required fields
+      if (!expenseId || typeof expenseId !== "string") {
+        throw new Error("Invalid expense details");
+      }
   
-    for (let i = 0; i < count; i++) {
-        // If onlyWeekDays is true, skip weekends
-        if (onlyWeekDays && (currentDate.getDay() === 0 || currentDate.getDay() === 6)) {
-            // Adjust the current date to the next weekday
-            currentDate.setDate(currentDate.getDate() + (currentDate.getDay() === 0 ? 1 : 2));
+      // Validate amount
+      if (!amount || amount <= 0 || isNaN(amount)) {
+        throw new Error("Invalid expense details");
+      }
+  
+      // Check for valid category or throw "Invalid category"
+      if (!category || typeof category !== "string") {
+        throw new Error("Invalid expense details");
+      }
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      // Validate date
+      if (!date || !this.isValidDate(date)) {
+        throw new Error("Invalid expense details");
+      }
+  
+      // description can be optional or any string; 
+      // if you want to enforce it, similarly check here:
+      // if (!description || typeof description !== "string") {
+      //   throw new Error("Invalid expense details");
+      // }
+  
+      // If the expenseId already exists, update instead
+      if (this.expenses[expenseId]) {
+        this.updateExpense(expenseId, { amount, category, date, description });
+      } else {
+        this.expenses[expenseId] = { amount, category, date, description };
+      }
+    }
+  
+    setCategoryBudget(category, budgetAmount) {
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      if (!budgetAmount || budgetAmount <= 0) {
+        throw new Error("Invalid budget amount");
+      }
+  
+      this.categoryBudgets[category] = budgetAmount;
+    }
+  
+    getExpenseHistory(startDate, endDate) {
+      if (!this.isValidDate(startDate) || !this.isValidDate(endDate)) {
+        throw new Error("Invalid date range");
+      }
+  
+      // Include expenseId in the returned objects
+      const allExpenses = Object.entries(this.expenses).map(([id, data]) => ({
+        expenseId: id,
+        ...data,
+      }));
+  
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+  
+      const filteredExpenses = allExpenses.filter((expense) => {
+        const expenseDate = new Date(expense.date);
+        return expenseDate >= start && expenseDate <= end;
+      });
+  
+      return filteredExpenses;
+    }
+  
+    generateMonthlyReport(year, month) {
+      // Check that year and month are valid integers
+      if (
+        !Number.isInteger(year) ||
+        year < 1 ||
+        !Number.isInteger(month) ||
+        month < 1 ||
+        month > 12
+      ) {
+        throw new Error("Invalid year or month");
+      }
+  
+      // Gather all expenses and filter by the provided year/month
+      const allExpenses = Object.entries(this.expenses).map(([id, data]) => ({
+        expenseId: id,
+        ...data,
+      }));
+  
+      const filteredExpenses = allExpenses.filter((expense) => {
+        const expenseDate = new Date(expense.date);
+        return (
+          expenseDate.getFullYear() === year &&
+          expenseDate.getMonth() + 1 === month
+        );
+      });
+  
+      if (filteredExpenses.length === 0) {
+        // Return message instead of throwing
+        return "No expenses for this month";
+      }
+  
+      // Calculate total per category
+      const report = {};
+      filteredExpenses.forEach((expense) => {
+        if (!report[expense.category]) {
+          report[expense.category] = 0;
         }
+        report[expense.category] += expense.amount;
+      });
   
-        recurrences.push(new Date(currentDate));
-  
-        // Increment the current date by the frequency
-        currentDate.setDate(currentDate.getDate() + frequency);
+      // Return an object: { "Food": 100, "Transport": 20, ... }
+      return report;
     }
   
-    return recurrences;
+    updateExpense(expenseId, updatedDetails) {
+      if (!this.expenses[expenseId]) {
+        throw new Error("Expense not found");
+      }
+  
+      // Validate any updated fields
+      if (updatedDetails.amount !== undefined) {
+        if (!updatedDetails.amount || updatedDetails.amount <= 0) {
+          throw new Error("Invalid expense details");
+        }
+      }
+  
+      if (updatedDetails.category !== undefined) {
+        if (!this.validCategories.includes(updatedDetails.category)) {
+          throw new Error("Invalid category");
+        }
+      }
+  
+      if (updatedDetails.date !== undefined) {
+        if (!this.isValidDate(updatedDetails.date)) {
+          throw new Error("Invalid expense details");
+        }
+      }
+  
+      // Merge changes
+      Object.assign(this.expenses[expenseId], updatedDetails);
+    }
+  
+    generateCategoryReport(category) {
+      if (!this.validCategories.includes(category)) {
+        throw new Error("Invalid category");
+      }
+  
+      // Include expenseId if needed, or just values
+      const expensesInCategory = Object.values(this.expenses).filter(
+        (expense) => expense.category === category
+      );
+  
+      if (expensesInCategory.length === 0) {
+        throw new Error("No expenses in this category");
+      }
+  
+      const totalAmount = expensesInCategory.reduce(
+        (acc, expense) => acc + expense.amount,
+        0
+      );
+      const averageAmount = totalAmount / expensesInCategory.length;
+      const expenseCount = expensesInCategory.length;
+  
+      return { totalAmount, averageAmount, expenseCount };
+    }
+  
+    isValidDate(date) {
+      const regex = /^\d{4}-\d{2}-\d{2}$/;
+      return regex.test(date);
+    }
   }
   
-  // // Example usage:
-  // const startDate = new Date('2024-03-04'); // Monday
-  // const frequency = 3; // Every 3 days
-  // const count = 5;
-  
-  // // Get recurrences without considering weekdays
-  // const recurrences = getNextRecurrences(startDate, frequency, count);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-10, 2024-03-13, 2024-03-16]
-  
-  // // Get recurrences considering only weekdays
-  // const weekdayRecurrences = getNextRecurrences(startDate, frequency, count, true);
-  // // Output: [2024-03-04, 2024-03-07, 2024-03-11, 2024-03-14, 2024-03-18]
-  
-  module.exports = {
-    getNextRecurrences
-  };
+  module.exports = { AccountManagement };
