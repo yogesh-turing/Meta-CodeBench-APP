@@ -1,24 +1,17 @@
-Use Case / Scenario:
-    It should be technical use case which we want model to debug, In this case it looks like more related to object creation.
-    You can update it accordingly.
-
-Estimated skill requirements:
-    Please remove 'Data Structure and Algorithms' and add 'Software engineering best practices'.
-
 Model Evaluatons:
-    Model A: All test cases passed, please recheck this.
-    Model G: All test cases passed, please recheck this.
+    Model J: Test suite failed when I executed it on my local, please recheck this.
 
-  base       : 20/25 tests passed [FAILED]
-  correct    : 25/25 tests passed [PASSED]
-  incorrect  : 23/25 tests passed [FAILED]
-  model_a    : 25/25 tests passed [PASSED]
-  model_b    : 25/25 tests passed [PASSED]
-  model_c    : 24/25 tests passed [FAILED]
-  model_d    : 25/25 tests passed [PASSED]
-  model_e    : 24/25 tests passed [FAILED]
-  model_f    : 25/25 tests passed [PASSED]
-  model_g    : 25/25 tests passed [PASSED]
-  model_h    : 24/25 tests passed [FAILED]
-  model_i    : 24/25 tests passed [FAILED]
-  model_j    : 24/25 tests passed [FAILED]
+1171431:
+  base       : 2/12 tests passed [FAILED]
+  correct    : 0/12 tests passed [FAILED]
+  incorrect  : 0/12 tests passed [FAILED]
+  model_a    : 10/12 tests passed [FAILED]
+  model_b    : 12/12 tests passed [PASSED]
+  model_c    : 12/12 tests passed [PASSED]
+  model_d    : 10/12 tests passed [FAILED]
+  model_e    : 10/12 tests passed [FAILED]
+  model_f    : 12/12 tests passed [PASSED]
+  model_g    : 10/12 tests passed [FAILED]
+  model_h    : 10/12 tests passed [FAILED]
+  model_i    : 10/12 tests passed [FAILED]
+  model_j    : 12/12 tests passed [PASSED]

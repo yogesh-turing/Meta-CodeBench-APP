@@ -1,157 +1,29 @@
-class AccountManagement {
-    constructor() {
-      this.expenses = {};
-      this.categoryBudgets = {};
-      this.validCategories = ["Food", "Entertainment", "Transport"];
-    }
-  
-    addExpense(expenseId, amount, category, date, description) {
-      if (!expenseId || !amount || !category || !date || !description) {
-        throw new Error("Invalid expense details");
-      }
-  
-      if (!this.validCategories.includes(category)) {
-        throw new Error("Invalid category");
-      }
-  
-      if (amount <= 0 || !this.isValidDate(date)) {
-        throw new Error("Invalid expense details");
-      }
-  
-      this.expenses[expenseId] = {
-        expenseId,
-        amount,
-        category,
-        date,
-        description
-      };
-    }
-  
-    setCategoryBudget(category, budgetAmount) {
-      if (!this.validCategories.includes(category)) {
-        throw new Error("Invalid category");
-      }
-  
-      if (typeof budgetAmount !== 'number' || budgetAmount <= 0) {
-        throw new Error("Invalid budget amount");
-      }
-  
-      this.categoryBudgets[category] = budgetAmount;
-    }
-  
-    getExpenseHistory(startDate, endDate) {
-      if (!this.isValidDate(startDate) || !this.isValidDate(endDate)) {
-        throw new Error("Invalid date range");
-      }
-  
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      
-      return Object.values(this.expenses)
-        .filter(expense => {
-          const expenseDate = new Date(expense.date);
-          return expenseDate >= start && expenseDate <= end;
-        });
-    }
-  
-    generateMonthlyReport(year, month) {
-      if (!Number.isInteger(year) || !Number.isInteger(month) ||
-          month < 1 || month > 12 || year < 1000 || year > 9999) {
-        throw new Error("Invalid year or month");
-      }
-  
-      const expenses = Object.values(this.expenses)
-        .filter(expense => {
-          const expenseDate = new Date(expense.date);
-          return expenseDate.getFullYear() === year &&
-                 expenseDate.getMonth() + 1 === month;
-        });
-  
-      if (expenses.length === 0) {
-        return "No expenses for this month";
-      }
-  
-      return expenses.reduce((report, expense) => {
-        if (!report[expense.category]) {
-          report[expense.category] = 0;
-        }
-        report[expense.category] += expense.amount;
-        return report;
-      }, {});
-    }
-  
-    updateExpense(expenseId, updatedDetails) {
-      if (!this.expenses[expenseId]) {
-        throw new Error("Expense not found");
-      }
-  
-      const currentExpense = this.expenses[expenseId];
-      const newDetails = { ...currentExpense };
-  
-      if (updatedDetails.amount !== undefined) {
-        if (typeof updatedDetails.amount !== 'number' || updatedDetails.amount <= 0) {
-          throw new Error("Invalid expense details");
-        }
-        newDetails.amount = updatedDetails.amount;
-      }
-  
-      if (updatedDetails.category !== undefined) {
-        if (!this.validCategories.includes(updatedDetails.category)) {
-          throw new Error("Invalid category");
-        }
-        newDetails.category = updatedDetails.category;
-      }
-  
-      if (updatedDetails.date !== undefined) {
-        if (!this.isValidDate(updatedDetails.date)) {
-          throw new Error("Invalid expense details");
-        }
-        newDetails.date = updatedDetails.date;
-      }
-  
-      if (updatedDetails.description !== undefined) {
-        newDetails.description = updatedDetails.description;
-      }
-  
-      this.expenses[expenseId] = newDetails;
-    }
-  
-    generateCategoryReport(category) {
-      if (!this.validCategories.includes(category)) {
-        throw new Error("Invalid category");
-      }
-  
-      const categoryExpenses = Object.values(this.expenses)
-        .filter(expense => expense.category === category);
-  
-      if (categoryExpenses.length === 0) {
-        throw new Error("No expenses in this category");
-      }
-  
-      const totalAmount = categoryExpenses.reduce((sum, expense) => sum + expense.amount, 0);
-      const expenseCount = categoryExpenses.length;
-      const averageAmount = totalAmount / expenseCount;
-  
-      return {
-        totalAmount,
-        averageAmount,
-        expenseCount
-      };
-    }
-  
-    isValidDate(date) {
-      if (!date || typeof date !== 'string') return false;
-      
-      const regex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!regex.test(date)) return false;
-  
-      const [year, month, day] = date.split('-').map(Number);
-      const dateObj = new Date(year, month - 1, day);
-      
-      return dateObj.getFullYear() === year &&
-             dateObj.getMonth() === month - 1 &&
-             dateObj.getDate() === day;
-    }
-  }
-  
-  module.exports = { AccountManagement };
+function macrotasksVsMicrotasks() {
+  return new Promise((resolve) => {
+      const executionOrder = new Set();
+
+      // Synchronous code executes first
+      executionOrder.add("Synchronous Code 1");
+      executionOrder.add("Synchronous Code 2");
+
+      // Microtasks (Promises) execute second
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 1"));
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 2"));
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 3"));
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 4"));
+
+      // Macrotasks (setTimeout) execute last
+      setTimeout(() => {
+          executionOrder.add("Macrotask: setTimeout 1");
+          setTimeout(() => {
+              executionOrder.add("Macrotask: setTimeout 3");
+              resolve(Array.from(executionOrder));
+          }, 20);
+      }, 0);
+
+      setTimeout(() => executionOrder.add("Macrotask: setTimeout 2"), 5);
+      setTimeout(() => executionOrder.add("Macrotask: setTimeout 4"), 10);
+  });
+}
+
+module.exports = { macrotasksVsMicrotasks };

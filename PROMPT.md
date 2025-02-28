@@ -1,359 +1,226 @@
 Base Code:
-```javascript
-class AccountManagement {
-  constructor() {
-    this.expenses = {}; // Format: { expenseId: { amount, category, date, description } }
-    this.categoryBudgets = {}; // Format: { category: budgetAmount }
-    this.validCategories = ["Food", "Entertainment", "Transport"]; // Predefined categories
-  }
+'''javascript
+function macrotasksVsMicrotasks() {
+  return new Promise((resolve, reject) => {
+      const executionOrder = new Set();
 
-  addExpense(expenseId, amount, category, date, description) {
-    if (
-      amount <= 0 ||
-      !this.validCategories.includes(category) ||
-      !this.isValidDate(date)
-    ) {
-      throw new Error("Invalid expense details");
-    }
+      executionOrder.add("Synchronous Code 3");
+      executionOrder.add("Synchronous Code 1");
+      executionOrder.add("Synchronous Code 4");
+      
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 3"));
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 1"));
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 4"));
+      Promise.resolve().then(() => executionOrder.add("Microtask: Promise 3"));
 
-    if (this.expenses[expenseId]) {
-      this.updateExpense(expenseId, { amount, category, date, description });
-    } else {
-      this.expenses[expenseId] = { amount, category, date, description };
-    }
-  }
 
-  setCategoryBudget(category, budgetAmount) {
-    if (!this.validCategories.includes(category)) {
-      throw new Error("Invalid category");
-    }
+      setTimeout(() => {
+          executionOrder.add("Macrotask: setTimeout 1");
+          setTimeout(() => {
+              executionOrder.add("Macrotask: setTimeout 3");
+              resolve(Array.from(executionOrder));
+          }, 20);
+      }, 0);
+      setTimeout(() => executionOrder.add("Macrotask: setTimeout 2"), 5);
+      setTimeout(() => executionOrder.add("Macrotask: setTimeout 4"), Math.random() * 50);
 
-    if (budgetAmount <= 0) {
-      throw new Error("Invalid budget amount");
-    }
 
-    this.categoryBudgets[category] = budgetAmount;
-  }
+      setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
 
-  getExpenseHistory(startDate, endDate) {
-    if (!this.isValidDate(startDate) || !this.isValidDate(endDate)) {
-      throw new Error("Invalid date range");
-    }
-
-    const expenses = Object.values(this.expenses);
-    const filteredExpenses = expenses.filter((expense) => {
-      const expenseDate = new Date(expense.date);
-      const start = new Date(startDate);
-      const end = new Date(endDate);
-      return expenseDate >= start && expenseDate <= end;
-    });
-
-    return filteredExpenses;
-  }
-
-  generateMonthlyReport(year, month) {
-    if (month < 1 || month > 12 || year < 1) {
-      throw new Error("Invalid year or month");
-    }
-
-    const expenses = Object.values(this.expenses);
-    const filteredExpenses = expenses.filter((expense) => {
-      const expenseDate = new Date(expense.date);
-      return (
-        expenseDate.getFullYear() === year &&
-        expenseDate.getMonth() + 1 === month
-      );
-    });
-
-    if (filteredExpenses.length === 0) {
-      throw new Error("No expenses for this month");
-    }
-
-    const report = {};
-    filteredExpenses.forEach((expense) => {
-      if (!report[expense.category]) {
-        report[expense.category] = 0;
-      }
-      report[expense.category] += expense.amount;
-    });
-
-    return report;
-  }
-
-  updateExpense(expenseId, updatedDetails) {
-    if (!this.expenses[expenseId]) {
-      throw new Error("Expense not found");
-    }
-
-    if (updatedDetails.amount && updatedDetails.amount <= 0) {
-      throw new Error("Invalid expense details");
-    }
-
-    if (
-      updatedDetails.category &&
-      !this.validCategories.includes(updatedDetails.category)
-    ) {
-      throw new Error("Invalid category");
-    }
-
-    if (updatedDetails.date && !this.isValidDate(updatedDetails.date)) {
-      throw new Error("Invalid expense details");
-    }
-
-    Object.assign(this.expenses[expenseId], updatedDetails);
-  }
-
-  generateCategoryReport(category) {
-    if (!this.validCategories.includes(category)) {
-      throw new Error("Invalid category");
-    }
-
-    const expenses = Object.values(this.expenses);
-    const filteredExpenses = expenses.filter(
-      (expense) => expense.category === category
-    );
-
-    if (filteredExpenses.length === 0) {
-      throw new Error("No expenses in this category");
-    }
-
-    const totalAmount = filteredExpenses.reduce(
-      (acc, expense) => acc + expense.amount,
-      0
-    );
-    const averageAmount = totalAmount / filteredExpenses.length;
-    const expenseCount = filteredExpenses.length;
-
-    return { totalAmount, averageAmount, expenseCount };
-  }
-
-  isValidDate(date) {
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    return regex.test(date);
-  }
+      setTimeout(() => reject(new Error("Artificial failure")), 30);
+  });
 }
 
-module.exports = { AccountManagement };
+module.exports = { macrotasksVsMicrotasks };
+
 ```
 
 Stack Trace:
 ```javascript
-AccountManagement
-    addExpense
-      ✕ should add a new expense successfully (2 ms)
-      ✓ should throw error for invalid expense details (4 ms)
-      ✕ should throw error for invalid category (10 ms)
-      ✓ should throw error for missing required expense details (1 ms)
-      ✓ should throw error for invalid date in addExpense
-      ✕ Update the expense details if it already exist (1 ms)
-    setCategoryBudget
-      ✓ should set a budget for a category successfully
-      ✓ should throw error for invalid budget amount
-      ✓ should throw error for invalid category (3 ms)
-    getExpenseHistory
-      ✓ should return expenses within a given date range
-      ✓ should return empty array if no expenses in the date range
-      ✓ should throw error when start date is not valid  (1 ms)
-      ✓ should throw error when end date is not valid 
-    generateMonthlyReport
-      ✓ should generate a report for a specific month (2 ms)
-      ✕ should throw error when passed month is not in not valid integer number (2 ms)
-      ✓ should throw error when passed month is not in valid months range that is 1<=month=<=12
-      ✕ should return a message if no expenses for the given month
-      ✓ should throw error when passed year is not in YYYY integer format (1 ms)
-    updateExpense
-      ✓ should update an existing expense successfully
-      ✓ should throw error if expense not found
-      ✓ should throw error for invalid expense details that is amount
-      ✓ should throw error for invalid expense details that is date
-    generateCategoryReport
-      ✓ should generate a category report successfully
-      ✓ should return a message if no expenses for the category
-      ✓ should return a message if no expenses for the category (1 ms)
+ FAIL  tasks/codeBench/index.test.js                                                                                                        
+  √ Microtasks should execute before macrotasks (30 ms)
+  × Synchronous code executes first (44 ms)                                                                                                 
+  × All expected synchronous tasks are present (44 ms)                                                                                      
+  × All expected microtasks are present (33 ms)                                                                                             
+  × All expected macrotasks are present (41 ms)                                                                                             
+  × Promise 1 executes before setTimeout 1 (45 ms)                                                                                          
+  × Promise 3 executes before setTimeout 3 (45 ms)                                                                                          
+  × setTimeout 1 executes before setTimeout 3 (30 ms)                                                                                       
+  × setTimeout 2 executes before setTimeout 4 (30 ms)                                                                                       
+  × Promise 2 executes before Promise 4 (31 ms)                                                                                             
+  × Execution contains exactly the expected number of elements (30 ms)                                                                      
+  × Promise 4 executes before any macrotask (30 ms)
+                                                                                                                                            
+  ● Synchronous code executes first                                                                                                         
+                                                                                                                                            
+    Artificial failure
 
-  ● AccountManagement › addExpense › should add a new expense successfully
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
 
-    expect(received).toBe(expected) // Object.is equality
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
 
-    Expected: "expense1"
-    Received: undefined
+  ● All expected synchronous tasks are present
 
-      22 |       );
-      23 |       expect(expenseHistory.length).toBe(1);
-    > 24 |       expect(expenseHistory[0].expenseId).toBe("expense1");
-         |                                           ^
-      25 |       expect(expenseHistory[0].amount).toBe(100.5);
-      26 |       expect(expenseHistory[0].category).toBe("Food");
-      27 |       expect(expenseHistory[0].description).toBe("Lunch");
+    Artificial failure
 
-      at Object.toBe (WordCloud.test.js:24:43)
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
 
-  ● AccountManagement › addExpense › should throw error for invalid category
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
 
-    expect(received).toThrow(expected)
+  ● All expected microtasks are present
 
-    Expected substring: "Invalid category"
-    Received message:   "Invalid expense details"
+    expect(received).toEqual(expected) // deep equality
 
-          12 |       !this.isValidDate(date)
-          13 |     ) {
-        > 14 |       throw new Error("Invalid expense details");
-             |             ^
-          15 |     }
-          16 |
-          17 |     if (this.expenses[expenseId]) {
+    Expected: ArrayContaining ["Microtask: Promise 1", "Microtask: Promise 2", "Microtask: Promise 3", "Microtask: Promise 4"]
+    Received: ["Synchronous Code 3", "Synchronous Code 1", "Synchronous Code 4", "Microtask: Promise 3", "Microtask: Promise 1", "Microtask: Promise 4", "Macrotask: setTimeout 1", "Macrotask: Unexpected Extra Task", "Macrotask: setTimeout 2", "Macrotask: setTimeout 4", …]        
 
-          at AccountManagement.addExpense (Solution.js:14:13)
-          at addExpense (WordCloud.test.js:44:27)
-          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
-          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
-          at Object.toThrow (WordCloud.test.js:51:9)
+      25 | test("All expected microtasks are present", async () => {
+      26 |   const executionOrder = await macrotasksVsMicrotasks();
+    > 27 |   expect(executionOrder).toEqual(expect.arrayContaining([
+         |                          ^
+      28 |       "Microtask: Promise 1",
+      29 |       "Microtask: Promise 2",
+      30 |       "Microtask: Promise 3",
 
-      49 |           "Dinner"
-      50 |         )
-    > 51 |       ).toThrow("Invalid category");
-         |         ^
-      52 |     });
-      53 |
-      54 |     it("should throw error for missing required expense details", () => {
+      at Object.toEqual (tasks/codeBench/index.test.js:27:26)
 
-      at Object.toThrow (WordCloud.test.js:51:9)
+  ● All expected macrotasks are present
 
-  ● AccountManagement › addExpense › Update the expense details if it already exist
+    expect(received).toEqual(expected) // deep equality
 
-    expect(received).toBe(expected) // Object.is equality
+    Expected: ArrayContaining ["Macrotask: setTimeout 1", "Macrotask: setTimeout 2", "Macrotask: setTimeout 3", "Macrotask: setTimeout 4"]  
+    Received: ["Synchronous Code 3", "Synchronous Code 1", "Synchronous Code 4", "Microtask: Promise 3", "Microtask: Promise 1", "Microtask: Promise 4", "Macrotask: setTimeout 1", "Macrotask: Unexpected Extra Task", "Macrotask: setTimeout 2", "Macrotask: setTimeout 3"]
 
-    Expected: "expense1"
-    Received: undefined
+      35 | test("All expected macrotasks are present", async () => {
+      36 |   const executionOrder = await macrotasksVsMicrotasks();
+    > 37 |   expect(executionOrder).toEqual(expect.arrayContaining([
+         |                          ^
+      38 |       "Macrotask: setTimeout 1",
+      39 |       "Macrotask: setTimeout 2",
+      40 |       "Macrotask: setTimeout 3",
 
-      77 |       );
-      78 |       expect(expenseHistory.length).toBe(1);
-    > 79 |       expect(expenseHistory[0].expenseId).toBe("expense1");
-         |                                           ^
-      80 |       expect(expenseHistory[0].amount).toBe(200);
-      81 |       expect(expenseHistory[0].category).toBe("Entertainment");
-      82 |       expect(expenseHistory[0].description).toBe("Movie");
+      at Object.toEqual (tasks/codeBench/index.test.js:37:26)
 
-      at Object.toBe (WordCloud.test.js:79:43)
+  ● Promise 1 executes before setTimeout 1
 
-  ● AccountManagement › generateMonthlyReport › should throw error when passed month is not in not valid integer number
+    Artificial failure
 
-    expect(received).toThrow(expected)
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
 
-    Expected substring: "Invalid year or month"
-    Received message:   "No expenses for this month"
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
 
-          65 |
-          66 |     if (filteredExpenses.length === 0) {
-        > 67 |       throw new Error("No expenses for this month");
-             |             ^
-          68 |     }
-          69 |
-          70 |     const report = {};
+  ● Promise 3 executes before setTimeout 3
 
-          at AccountManagement.generateMonthlyReport (Solution.js:67:13)
-          at generateMonthlyReport (WordCloud.test.js:181:38)
-          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
-          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
-          at Object.toThrow (WordCloud.test.js:181:72)
+    Artificial failure
 
-      179 |
-      180 |     it("should throw error when passed month is not in not valid integer number", () => {
-    > 181 |       expect(() => accountManagement.generateMonthlyReport(2025, "s")).toThrow(
-          |                                                                        ^
-      182 |         "Invalid year or month"
-      183 |       );
-      184 |     });
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
 
-      at Object.toThrow (WordCloud.test.js:181:72)
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
 
-  ● AccountManagement › generateMonthlyReport › should return a message if no expenses for the given month
+  ● setTimeout 1 executes before setTimeout 3
 
-    No expenses for this month
+    Artificial failure
 
-      65 |
-      66 |     if (filteredExpenses.length === 0) {
-    > 67 |       throw new Error("No expenses for this month");
-         |             ^
-      68 |     }
-      69 |
-      70 |     const report = {};
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
 
-      at AccountManagement.generateMonthlyReport (Solution.js:67:13)
-      at Object.generateMonthlyReport (WordCloud.test.js:193:40)
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
+
+  ● setTimeout 2 executes before setTimeout 4
+
+    Artificial failure
+
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
+
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
+
+  ● Promise 2 executes before Promise 4
+
+    Artificial failure
+
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
+
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
+
+  ● Execution contains exactly the expected number of elements
+
+    Artificial failure
+
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
+
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
+
+  ● Promise 4 executes before any macrotask
+
+    Artificial failure
+
+      26 |       setTimeout(() => executionOrder.add("Macrotask: Unexpected Extra Task"), 1);
+      27 |
+    > 28 |       setTimeout(() => reject(new Error("Artificial failure")), 30);
+         |                               ^
+      29 |   });
+      30 | }
+      31 |
+
+      at Timeout._onTimeout (tasks/codeBench/incorrect.js:28:31)
+
+----------|---------|----------|---------|---------|-------------------                                                                     
+File      | % Stmts | % Branch | % Funcs | % Lines | Uncovered Line #s                                                                      
+----------|---------|----------|---------|---------|-------------------
+All files |       0 |        0 |       0 |       0 |                  
+----------|---------|----------|---------|---------|-------------------
+Test Suites: 1 failed, 1 total
+Tests:       11 failed, 1 passed, 12 total
+Snapshots:   0 total
+Time:        0.915 s, estimated 1 s
+Ran all test suites.
 ```
-
 Prompt:
-Please fix the bugs in the code and ensure it works as per the details below:
-
- `addExpense`:
--   Should accept:
-    -   `expenseId` (string)
-    -   `amount` (positive float)
-    -   `category` (string)
-    -   `date` (string in 'YYYY-MM-DD' format)
-    -   `description` (string)
--   If the `amount`, `category`, or `date` is invalid, throw an error: "Invalid expense details".
--   Store the expense details, including the `expenseId`, `amount`, `category`, `date`, and `description`.
--   Ensure the category is a valid pre-defined category (e.g., "Food", "Entertainment", "Transport"). If not, raise the error "Invalid category".
--   If the expense already exists (same `expenseId`), update the expense with the new details.
-
-`setCategoryBudget`:
--   Should accept:
-    -   `category` (string)
-    -   `budgetAmount` (positive float)
--   Ensure the category is valid (pre-defined categories).
--   Store the expense details, including the `expenseId`, `amount`, `category`, `date`, and `description`.
--   If the `budgetAmount` is invalid (non-positive number), throw an error: "Invalid budget amount".
--   Store the budget for the specified category.
-
- `getExpenseHistory`:
-
--   Should accept:
-    -   `startDate` (string in 'YYYY-MM-DD' format) and  `endDate` (string in 'YYYY-MM-DD' format).
--   Return an array of objects representing each expense in the range. Each object should contain:
-    -   `expenseId` (string)
-    -   `amount` (float)
-    -   `category` (string)
-    -   `date` (string)
-    -   `description` (string)
--   If there are no expenses in the given range, return an empty array.
-
- `generateMonthlyReport`:
-
--   Should accept:
-    -   `year` (valid 'YYYY' integer, e.g., 2025)
-    -   `month` (integer, 1 through 12)
--   If accepted arguments are invalid, raise the error "Invalid year or month".
--   Return a JSON object containing the total expenses for each category within the given month sorted by `category`.
--   The object should have category names as keys and total amounts as values.
-    -   Example: `{ "Entertainment": 50.25, "Food": 250.5, "Transport": 100.75 }`
--   If there are no expenses in the given month, return: "No expenses for this month".
-
-`updateExpense`:
-
--   Should accept:
-    -   `expenseId` (string)
-    -   `updatedDetails` (an object containing updated `amount`, `category`, `date`, and/or `description`)
--   If the `expenseId` does not exist, throw an error: "Expense not found".
--   Update the existing expense details with the new ones.
--   Ensure the new values are valid (e.g., `amount` must be positive, `category` must be valid, and `date` must be in the correct format).
-
-`generateCategoryReport`:
-
--   Should accept:
-    -   `category` (string)
--   Return an object containing the following:
-    -   `totalAmount`: total expense for the category
-    -   `averageAmount`: average expense per entry in that category
-    -   `expenseCount`: number of expenses in that category
--   Ensure the category is valid (pre-defined categories).
-
-Error Handling:
-
--   Throw an 'Invalid expense details' error if any expense details are missing or invalid.
--   Throw an error "Invalid budget amount" if the budget amount is invalid.
--   Throw an error "Expense not found" if an expense does not exist.
--   Throw an error "No expenses for this month" if no expenses are found in the specified month.
--   Throw an error "No expenses in this category" if there are no expenses for the given category.
--   Throw an error "Invalid category" if there is no predefined category.
+*"Explain and demonstrate the difference between `macrotasks` and microtasks in JavaScript using `setTimeout` and `Promises`. For example, a test case could check that synchronous code executes first, followed by microtasks like resolved Promises, and finally macrotasks like `setTimeout` calls, ensuring the correct order is maintained in an execution queue."*
