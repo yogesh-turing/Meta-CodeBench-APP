@@ -22,3 +22,6 @@ Model Evaluatons:
   model_h    : 24/25 tests passed [FAILED]
   model_i    : 24/25 tests passed [FAILED]
   model_j    : 24/25 tests passed [FAILED]
+
+
+  The `addExpense` method does not ensure that all expense details are provided and none are missing. The function should return the string "Invalid expense details", instead it returned string "Invalid category".
