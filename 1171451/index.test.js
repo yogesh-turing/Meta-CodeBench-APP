@@ -1,98 +1,113 @@
-const StockMarketModule = require('./base_code');
-const axios = require('axios').default;
+const { Builder, By, until } = require("selenium-webdriver");
+const { submitForm } = require("./solution");
 
-jest.mock('axios');
+const validHtmlForm = `<html>
+    <body>
+        <h2>User Form</h2>
+        <form id="mockForm">
+            <label for="name">Name:</label>
+            <input type="text" id="name" name="name" required>
+            <br><br>
+            
+            <label for="email">Email:</label>
+            <input type="email" id="email" name="email" required>
+            <br><br>
 
-describe('StockMarketModule', () => {
-    let stockMarketModule;
-    const apiUrl = 'http://api.example.com';
-    const apiKey = 'test-api-key';
+            <label for="role">Role:</label>
+            <select id="role" name="role">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+            </select>
+            <br><br>
 
-    beforeEach(() => {
-        stockMarketModule = new StockMarketModule(apiUrl, apiKey);
+            <label>Choose your favorite programming language:</label><br>
+            <input type="radio" id="javascript" name="fav_language" value="JavaScript">
+            <label for="javascript">JavaScript</label><br>
+            <input type="radio" id="python" name="fav_language" value="Python">
+            <label for="python">Python</label><br>
+            <input type="radio" id="csharp" name="fav_language" value="C#">
+            <label for="csharp">C#</label><br><br>
+
+            <label>Select your interests:</label><br>
+            <input type="checkbox" id="coding" name="interest" value="Coding">
+            <label for="coding">Coding</label><br>
+            <input type="checkbox" id="testing" name="interest" value="Testing">
+            <label for="testing">Testing</label><br>
+            <input type="checkbox" id="automation" name="interest" value="Automation">
+            <label for="automation">Automation</label><br><br>
+
+            <button type="submit">Submit</button>
+        </form>
+        <p id="status"></p>
+        
+        <script>
+            document.getElementById("mockForm").addEventListener("submit", async function(event) {
+                event.preventDefault();
+                let name = document.getElementById("name").value;
+                let email = document.getElementById("email").value;
+                let role = document.getElementById("role").value;
+                let fav_language = document.querySelector('input[name="fav_language"]:checked')?.value || '';
+                let interests = Array.from(document.querySelectorAll('input[name="interest"]:checked')).map(cb => cb.value);
+
+                try {
+                    let response = await fetch("https://jsonplaceholder.typicode.com/posts", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ name, email, role, fav_language, interests })
+                    });
+                    let result = await response.json();
+                    document.getElementById("status").innerText = "API Response: " + JSON.stringify(result);
+                } catch (error) {
+                    document.getElementById("status").innerText = "API Error: " + error.message;
+                }
+            });
+        </script>
+    </body>
+</html>`;
+
+describe("submitForm", () => {
+    let driver;
+
+    beforeAll(async () => {
+        driver = await new Builder().forBrowser("chrome").build();
     });
 
-    test('fetchStockData should fetch data and emit dataFetched event', async () => {
-        const symbol = 'AAPL';
-        const mockData = { history: [{ close: 150 }, { close: 155 }] };
-        axios.get.mockResolvedValue({ status: 200, data: mockData });
-
-        const dataFetchedListener = jest.fn();
-        stockMarketModule.on('dataFetched', dataFetchedListener);
-
-        const data = await stockMarketModule.fetchStockData(symbol);
-
-        expect(data).toEqual(mockData);
-        expect(stockMarketModule.dataCache.get(symbol)).toEqual(mockData);
-        expect(dataFetchedListener).toHaveBeenCalledWith({ symbol, data: mockData });
+    afterAll(async () => {
+        if (driver) {
+            await driver.quit();
+        }
     });
 
-    test('fetchStockData should emit error event on failure', async () => {
-        const symbol = 'AAPL';
-        const mockError = new Error('Network Error');
-        axios.get.mockRejectedValue(mockError);
+    test("should submit the form and return the API response", async () => {
+        const formValues = {
+            name: "John Doe",
+            email: "john.doe@example.com",
+            role: "admin",
+            fav_language: "Python",
+            interests: ["Coding", "Automation"]
+        };
 
-        const errorListener = jest.fn();
-        stockMarketModule.on('error', errorListener);
-
-        await stockMarketModule.fetchStockData(symbol);
-
-        expect(errorListener).toHaveBeenCalledWith(mockError);
+        const response = await submitForm(driver, validHtmlForm, formValues);
+        expect(response.name).toBe(formValues.name);
+        expect(response.email).toBe(formValues.email);
+        expect(response.role).toBe(formValues.role);
+        expect(response.fav_language).toBe(formValues.fav_language);
+        expect(response.interests).toEqual(formValues.interests);
     });
 
-    test('processStockData should return processed data', () => {
-        const symbol = 'AAPL';
-        const mockData = { history: [{ close: 150 }, { close: 155 }, { close: 160 }, { close: 165 }, { close: 170 }] };
-        stockMarketModule.dataCache.set(symbol, mockData);
+    // invalid inputs
+    test("should throw an error if the inputs are invalid", async () => {
 
-        const processedData = stockMarketModule.processStockData(symbol);
+        const formValues = {
+            name: "John Doe",
+            email: "test@example.com",
+            role: "admin",
+            fav_language: "Python",
+            interests: ["Coding", "Automation"]
+        };
 
-        expect(processedData).toEqual({ latestPrice: 170, sma: 160 });
+        await expect(submitForm(driver, validHtmlForm, formValues)).rejects.toThrow("API Error: Bad Request");
     });
+       
 
-    test('analyzeStock should emit buySignal or sellSignal based on analysis', () => {
-        const symbol = 'AAPL';
-        const mockData = { history: [{ close: 150 }, { close: 155 }, { close: 160 }, { close: 165 }, { close: 170 }] };
-        stockMarketModule.dataCache.set(symbol, mockData);
-
-        const buySignalListener = jest.fn();
-        const sellSignalListener = jest.fn();
-        stockMarketModule.on('buySignal', buySignalListener);
-        stockMarketModule.on('sellSignal', sellSignalListener);
-
-        stockMarketModule.analyzeStock(symbol);
-
-        expect(buySignalListener).toHaveBeenCalledWith({ symbol, latestPrice: 170, sma: 160 });
-        expect(sellSignalListener).not.toHaveBeenCalled();
-    });
-
-    test('trade should execute trade and emit tradeExecuted event', async () => {
-        const symbol = 'AAPL';
-        const type = 'buy';
-        const quantity = 10;
-        const mockResponse = { status: 200, data: { success: true } };
-        axios.post.mockResolvedValue(mockResponse);
-
-        const tradeExecutedListener = jest.fn();
-        stockMarketModule.on('tradeExecuted', tradeExecutedListener);
-
-        await stockMarketModule.trade(symbol, type, quantity);
-
-        expect(tradeExecutedListener).toHaveBeenCalledWith({ symbol, type, quantity, status: mockResponse.data });
-    });
-
-    test('trade should emit error event on failure', async () => {
-        const symbol = 'AAPL';
-        const type = 'buy';
-        const quantity = 10;
-        const mockError = new Error('Trade Error');
-        axios.post.mockRejectedValue(mockError);
-
-        const errorListener = jest.fn();
-        stockMarketModule.on('error', errorListener);
-
-        await stockMarketModule.trade(symbol, type, quantity);
-
-        expect(errorListener).toHaveBeenCalledWith(mockError);
-    });
 });
