@@ -1,154 +1,128 @@
-class AccountManagement {
+class Logger {
   constructor() {
-    this.expenses = {};
-    this.categoryBudgets = {};
-    this.validCategories = ["Food", "Entertainment", "Transport"];
+    this.logs = [];
+    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+    this.currentLevel = 'DEBUG';
   }
 
-  addExpense(expenseId, amount, category, date, description) {
-    if (!expenseId || !amount || !category || !date || !description) {
-      throw new Error("Invalid expense details");
-    }
-
-    if (!this.validCategories.includes(category)) {
-      throw new Error("Invalid category");
-    }
-
-    if (amount <= 0 || !this.isValidDate(date)) {
-      throw new Error("Invalid expense details");
-    }
-
-    this.expenses[expenseId] = { 
-      expenseId,
-      amount, 
-      category, 
-      date, 
-      description 
-    };
+  getTimestamp() {
+    return new Date().toISOString();
   }
 
-  setCategoryBudget(category, budgetAmount) {
-    if (!this.validCategories.includes(category)) {
-      throw new Error("Invalid category");
-    }
-
-    if (typeof budgetAmount !== 'number' || budgetAmount <= 0) {
-      throw new Error("Invalid budget amount");
-    }
-
-    this.categoryBudgets[category] = budgetAmount;
+  levelPriority(level) {
+    const index = this.levels.indexOf(level);
+    return index === -1 ? 0 : index;
   }
 
-  getExpenseHistory(startDate, endDate) {
-    if (!this.isValidDate(startDate) || !this.isValidDate(endDate)) {
-      throw new Error("Invalid date range");
+  setLogLevel(level) {
+    if (!this.levels.includes(level)) {
+      throw new Error('Invalid log level');
     }
-
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-    
-    return Object.values(this.expenses).filter(expense => {
-      const expenseDate = new Date(expense.date);
-      return expenseDate >= start && expenseDate <= end;
-    });
+    this.currentLevel = level;
   }
 
-  generateMonthlyReport(year, month) {
-    if (!Number.isInteger(year) || !Number.isInteger(month) || 
-        month < 1 || month > 12 || year < 1000 || year > 9999) {
-      throw new Error("Invalid year or month");
-    }
-
-    const expenses = Object.values(this.expenses).filter(expense => {
-      const expenseDate = new Date(expense.date);
-      return expenseDate.getFullYear() === year && 
-             expenseDate.getMonth() + 1 === month;
-    });
-
-    if (expenses.length === 0) {
-      return "No expenses for this month";
-    }
-
-    const report = {};
-    this.validCategories.forEach(category => {
-      report[category] = 0;
-    });
-
-    expenses.forEach(expense => {
-      report[expense.category] += expense.amount;
-    });
-
-    return report;
+  _shouldLog(level) {
+    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
   }
 
-  updateExpense(expenseId, updatedDetails) {
-    if (!this.expenses[expenseId]) {
-      throw new Error("Expense not found");
+  debug(message) {
+    if (this._shouldLog('DEBUG')) {
+      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
+      console.debug(output);
+      this.logs.push(output);
+      return output;
     }
+    return '';
+  }
 
-    const currentExpense = this.expenses[expenseId];
-    const newDetails = { ...currentExpense };
+  log(message) {
+    if (this._shouldLog('DEBUG')) {
+      const output = this.serialize(message);
+      console.log(output);
+      this.logs.push(output);
+      return output;
+    }
+    return '';
+  }
 
-    if (updatedDetails.amount !== undefined) {
-      if (updatedDetails.amount <= 0) {
-        throw new Error("Invalid expense details");
+  info(message) {
+    if (this._shouldLog('INFO')) {
+      const output = `INFO [${this.getTimestamp()}]: ${message}`;
+      console.info(output);
+      this.logs.push(output);
+      return output;
+    }
+    return '';
+  }
+
+  warn(message) {
+    if (this._shouldLog('WARN')) {
+      const output = `WARN [${this.getTimestamp()}]: ${message}`;
+      console.warn(output);
+      this.logs.push(output);
+      return output;
+    }
+    return '';
+  }
+
+  error(message) {
+    if (this._shouldLog('ERROR')) {
+      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
+      console.error(output);
+      this.logs.push(output);
+      return output;
+    }
+    return '';
+  }
+
+  serialize(message) {
+    if (message === null) return 'null';
+    if (message === undefined) return 'undefined';
+    if (typeof message === 'object') {
+      try {
+        return JSON.stringify(message);
+      } catch (error) {
+        return 'null';
       }
-      newDetails.amount = updatedDetails.amount;
     }
-
-    if (updatedDetails.category !== undefined) {
-      if (!this.validCategories.includes(updatedDetails.category)) {
-        throw new Error("Invalid category");
-      }
-      newDetails.category = updatedDetails.category;
-    }
-
-    if (updatedDetails.date !== undefined) {
-      if (!this.isValidDate(updatedDetails.date)) {
-        throw new Error("Invalid expense details");
-      }
-      newDetails.date = updatedDetails.date;
-    }
-
-    if (updatedDetails.description !== undefined) {
-      newDetails.description = updatedDetails.description;
-    }
-
-    this.expenses[expenseId] = newDetails;
+    return String(message);
   }
 
-  generateCategoryReport(category) {
-    if (!this.validCategories.includes(category)) {
-      throw new Error("Invalid category");
-    }
-
-    const categoryExpenses = Object.values(this.expenses)
-      .filter(expense => expense.category === category);
-
-    if (categoryExpenses.length === 0) {
-      throw new Error("No expenses in this category");
-    }
-
-    const totalAmount = categoryExpenses.reduce((sum, expense) => 
-      sum + expense.amount, 0);
-    
-    return {
-      totalAmount,
-      averageAmount: totalAmount / categoryExpenses.length,
-      expenseCount: categoryExpenses.length
-    };
+  clear() {
+    this.logs = [];
   }
 
-  isValidDate(dateString) {
-    if (!dateString || typeof dateString !== 'string') return false;
-    
-    const regex = /^\d{4}-\d{2}-\d{2}$/;
-    if (!regex.test(dateString)) return false;
+  getLogs() {
+    return this.logs;
+  }
 
-    const date = new Date(dateString);
-    return date instanceof Date && !isNaN(date) && 
-           date.toISOString().slice(0, 10) === dateString;
+  isCircular(obj) {
+    try {
+      JSON.stringify(obj);
+      return false;
+    } catch (error) {
+      return error.message.includes('circular');
+    }
+  }
+
+  async logAsync(message) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          if (this.isCircular(message)) {
+            reject(new Error('Circular structure'));
+            return;
+          }
+          const output = this.serialize(message);
+          this.logs.push(output);
+          resolve(output);
+        } catch (error) {
+          reject(error);
+        }
+      }, 0);
+    });
   }
 }
 
-module.exports = { AccountManagement };
+const logger = new Logger();
+module.exports = { logger };

@@ -1,133 +1,128 @@
-class AccountManagement {
-    constructor() {
-      this.expenses = {}; // Format: { expenseId: { amount, category, date, description } }
-      this.categoryBudgets = {}; // Format: { category: budgetAmount }
-      this.validCategories = ["Food", "Entertainment", "Transport"]; // Predefined categories
+class Logger {
+  constructor() {
+    this.logs = [];
+    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
+    this.currentLevel = 'DEBUG';
+  }
+
+  getTimestamp() {
+    return new Date().toISOString();
+  }
+
+  levelPriority(level) {
+    const index = this.levels.indexOf(level);
+    return index === -1 ? 0 : index;
+  }
+
+  setLogLevel(level) {
+    if (!this.levels.includes(level)) {
+      throw new Error('Invalid log level');
     }
-  
-    // Helper function to validate date format
-    validateDate(dateStr) {
-      const regex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!regex.test(dateStr)) return false;
-      const date = new Date(dateStr);
-      return date instanceof Date && !isNaN(date);
+    this.currentLevel = level;
+  }
+
+  _shouldLog(level) {
+    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
+  }
+
+  debug(message) {
+    if (this._shouldLog('DEBUG')) {
+      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
+      console.debug(output);
+      this.logs.push(output);
+      return output;
     }
-  
-    addExpense(expenseId, amount, category, date, description) {
-      if (!amount || amount <= 0 || !this.validateDate(date)) {
-        throw new Error("Invalid expense details");
-      }
-      if (!this.validCategories.includes(category)) {
-        throw new Error("Invalid category");
-      }
-  
-      this.expenses[expenseId] = {
-        amount,
-        category,
-        date,
-        description,
-      };
+    return '';
+  }
+
+  log(message) {
+    if (this._shouldLog('DEBUG')) {
+      const output = `DEBUG [${this.getTimestamp()}]: ${this.serialize(message)}`;
+      console.log(output);
+      this.logs.push(output);
+      return output;
     }
-  
-    setCategoryBudget(category, budgetAmount) {
-      if (!budgetAmount || budgetAmount <= 0) {
-        throw new Error("Invalid budget amount");
-      }
-  
-      this.categoryBudgets[category] = budgetAmount;
+    return '';
+  }
+
+  info(message) {
+    if (this._shouldLog('INFO')) {
+      const output = `INFO [${this.getTimestamp()}]: ${message}`;
+      console.info(output);
+      this.logs.push(output);
+      return output;
     }
-  
-    getExpenseHistory(startDate, endDate) {
-      if (!this.validateDate(startDate) || !this.validateDate(endDate)) {
-        throw new Error("Invalid expense details");
-      }
-  
-      return Object.entries(this.expenses)
-        .filter(([_, expense]) => {
-          return expense.date >= startDate && expense.date <= endDate;
-        })
-        .map(([expenseId, expense]) => ({
-          expenseId,
-          ...expense,
-        }));
+    return '';
+  }
+
+  warn(message) {
+    if (this._shouldLog('WARN')) {
+      const output = `WARN [${this.getTimestamp()}]: ${message}`;
+      console.warn(output);
+      this.logs.push(output);
+      return output;
     }
-  
-    generateMonthlyReport(year, month) {
-      if (!Number.isInteger(year) || month < 1 || month > 12) {
-        throw new Error("Invalid year or month");
-      }
-  
-      const monthStr = month.toString().padStart(2, "0");
-      const monthStart = `${year}-${monthStr}`;
-  
-      const expenses = Object.values(this.expenses).filter((expense) =>
-        expense.date.startsWith(monthStart)
-      );
-  
-      if (expenses.length === 0) {
-        return "No expenses for this month";
-      }
-  
-      const report = {};
-      this.validCategories.forEach((category) => {
-        const total = expenses
-          .filter((expense) => expense.category === category)
-          .reduce((sum, expense) => sum + expense.amount, 0);
-        if (total > 0) {
-          report[category] = total;
-        }
-      });
-  
-      return report;
+    return '';
+  }
+
+  error(message) {
+    if (this._shouldLog('ERROR')) {
+      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
+      console.error(output);
+      this.logs.push(output);
+      return output;
     }
-  
-    updateExpense(expenseId, updatedDetails) {
-      if (!this.expenses[expenseId]) {
-        throw new Error("Expense not found");
+    return '';
+  }
+
+  serialize(message) {
+    if (message === null) return 'null';
+    if (message === undefined) return 'undefined';
+    if (typeof message === 'object') {
+      try {
+        return JSON.stringify(message);
+      } catch (error) {
+        return 'Circular structure detected';
       }
-  
-      const currentExpense = this.expenses[expenseId];
-      const newExpense = { ...currentExpense, ...updatedDetails };
-  
-      if (
-        (updatedDetails.amount && updatedDetails.amount <= 0) ||
-        (updatedDetails.date && !this.validateDate(updatedDetails.date)) ||
-        (updatedDetails.category &&
-          !this.validCategories.includes(updatedDetails.category))
-      ) {
-        throw new Error("Invalid expense details");
-      }
-  
-      this.expenses[expenseId] = newExpense;
     }
-  
-    generateCategoryReport(category) {
-      if (!this.validCategories.includes(category)) {
-        throw new Error("Invalid category");
-      }
-  
-      const categoryExpenses = Object.values(this.expenses).filter(
-        (expense) => expense.category === category
-      );
-  
-      if (categoryExpenses.length === 0) {
-        throw new Error("No expenses in this category");
-      }
-  
-      const totalAmount = categoryExpenses.reduce(
-        (sum, expense) => sum + expense.amount,
-        0
-      );
-      const expenseCount = categoryExpenses.length;
-      const averageAmount = totalAmount / expenseCount;
-  
-      return {
-        totalAmount,
-        averageAmount,
-        expenseCount,
-      };
+    return String(message);
+  }
+
+  clear() {
+    this.logs = [];
+  }
+
+  getLogs() {
+    return [...this.logs];
+  }
+
+  isCircular(obj) {
+    try {
+      JSON.stringify(obj);
+      return false;
+    } catch (error) {
+      return error.message.includes('circular');
     }
   }
-  
-  module.exports = { AccountManagement };
-  
+
+  async logAsync(message) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          if (this.isCircular(message)) {
+            reject(new Error('Circular structure'));
+            return;
+          }
+          const output = this.serialize(message);
+          this.logs.push(output);
+          resolve(output);
+        } catch (error) {
+          reject(error);
+        }
+      }, 0);
+    });
+  }
+}
+
+const logger = new Logger();
+module.exports = { logger };

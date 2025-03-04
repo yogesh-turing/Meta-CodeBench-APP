@@ -1,24 +1,28 @@
-Use Case / Scenario:
-    It should be technical use case which we want model to debug, In this case it looks like more related to object creation.
-    You can update it accordingly.
+User Prompt and Unit Test:
+- The regex was used in some of the test cases, and hardcoded string in some of the test cases.
+- In the prompt, you can mention not to change the output string formats and use hard-coded strings.
+- In the prompt, you can mention a few example output strings, each one for logging level to make the prompt clearer.
 
-Estimated skill requirements:
-    Please remove 'Data Structure and Algorithms' and add 'Software engineering best practices'.
+Model Evaluations:
+    Please check each model's "Full Stack Trace", When I executed test cases locally I got different results.
+    Model A, E:
+        - When I tried to run the test cases for Model A I got results as "5 failed, 19 passed, 24 total", please check this again.
+    Model B, C, D:
+        - When I tried to run the test cases for Model A I got results as "9 failed, 15 passed, 24 total", please check this again.
+    Model F, G, H:
+        -  When I tried to run the test cases for Model A I got results as "3 failed, 21 passed, 24 total", please check this again.
+    Model I, J:
+        -  When I tried to run the test cases for Model A I got results as "4 failed, 20 passed, 24 total", please check this again.
 
-Model Evaluatons:
-    Model A: All test cases passed, please recheck this.
-    Model G: All test cases passed, please recheck this.
+Incorrect Solution Stack Trace:
+    - Same as model evaluations, please check this again.
 
-  base       : 20/25 tests passed [FAILED]
-  correct    : 25/25 tests passed [PASSED]
-  incorrect  : 23/25 tests passed [FAILED]
-  model_a    : 25/25 tests passed [PASSED]
-  model_b    : 25/25 tests passed [PASSED]
-  model_c    : 24/25 tests passed [FAILED]
-  model_d    : 25/25 tests passed [PASSED]
-  model_e    : 24/25 tests passed [FAILED]
-  model_f    : 25/25 tests passed [PASSED]
-  model_g    : 25/25 tests passed [PASSED]
-  model_h    : 24/25 tests passed [FAILED]
-  model_i    : 24/25 tests passed [FAILED]
-  model_j    : 24/25 tests passed [FAILED]
+Incorrect Solution Explanation:
+    - Adjust the explanation after "Incorrect Solution Stack Trace" is updated.
+
+Ideal Response Explanation:
+    - It should explain, how an ideal solution is better than the incorrect solution and how it fixes the issues which are there in incorrect solution.
+    - Here you can compare the incorrect solution and the ideal solution.
+
+Note:
+    In explanations use backtick for function names, variable names, and keywords.
