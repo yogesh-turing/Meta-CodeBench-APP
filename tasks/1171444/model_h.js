@@ -1,141 +1,115 @@
-class Logger {
-  constructor() {
-    this.logs = [];
-    // Lower numeric index means lower priority. 
-    // The tests seem to want 'DEBUG' < 'INFO' < 'WARN' < 'ERROR'. 
-    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    this.currentLevel = 'DEBUG';
-  }
+function createDatasetManager(dataset) {
+  // Keep the original dataset intact; we'll copy it when executing.
+  const originalData = Array.isArray(dataset) ? [...dataset] : [];
 
-  // 4) If your test expects the exact date "2023-01-01T00:00:00.000Z", hard-code it:
-  //    Otherwise, mock Date in the test. For now, we'll match the test exactly:
-  getTimestamp() {
-    return '2023-01-01T00:00:00.000Z';
-  }
+  // We'll store each operation in a "pipeline" so we can apply them in the order they were called.
+  const operations = [];
 
-  // Return 1 for DEBUG, 2 for INFO, 3 for WARN, 4 for ERROR
-  levelPriority(level) {
-    return this.levels.indexOf(level) + 1;
-  }
+  return {
+    filterBy(predicate) {
+      // Instead of keeping just one filter, push all filters into the pipeline
+      operations.push({ type: 'filter', predicate });
+      return this;
+    },
 
-  setLogLevel(level) {
-    if (!this.levels.includes(level)) {
-      throw new Error('Invalid log level');
-    }
-    this.currentLevel = level;
-  }
+    sortBy(key, order = 'asc') {
+      operations.push({ type: 'sort', key, order });
+      return this;
+    },
 
-  // 1) Fix logic: You only log if the message's priority is >= your current level's priority
-  //    e.g. If currentLevel is WARN=3, only messages with priority 3 or 4 should be logged.
-  _shouldLog(level) {
-    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
-  }
+    groupBy(key) {
+      operations.push({ type: 'group', key });
+      return this;
+    },
 
-  // Add a missing debug() method
-  debug(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      console.debug(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    limit(n) {
+      operations.push({ type: 'limit', count: n });
+      return this;
+    },
 
-  log(message) {
-    // Based on test behavior, log() is effectively "debug" in many frameworks.
-    // We'll keep the original logic to call this.serialize(message),
-    // but we'll check if we shouldLog('DEBUG') 
-    if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
-      console.log(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    execute() {
+      // Start with a fresh copy of the data so we don’t mutate the original.
+      let finalData = [...originalData];
 
-  info(message) {
-    if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
-      console.info(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+      // Apply each operation in the order it was called.
+      for (const op of operations) {
+        switch (op.type) {
+          case 'filter':
+            // If we've not yet grouped (i.e., finalData is an array), filter that array.
+            // If we've already grouped (i.e., finalData is an object), filter each group separately.
+            if (Array.isArray(finalData)) {
+              finalData = finalData.filter(op.predicate);
+            } else {
+              // finalData is an object of grouped arrays
+              for (const key of Object.keys(finalData)) {
+                finalData[key] = finalData[key].filter(op.predicate);
+              }
+            }
+            break;
 
-  warn(message) {
-    if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
-      console.warn(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+          case 'sort':
+            // Similarly, if finalData is an array, sort it. If already grouped, sort each group array.
+            if (Array.isArray(finalData)) {
+              finalData.sort((a, b) => {
+                if (a[op.key] < b[op.key]) return op.order === 'asc' ? -1 : 1;
+                if (a[op.key] > b[op.key]) return op.order === 'asc' ? 1 : -1;
+                return 0;
+              });
+            } else {
+              for (const groupName of Object.keys(finalData)) {
+                finalData[groupName].sort((a, b) => {
+                  if (a[op.key] < b[op.key]) return op.order === 'asc' ? -1 : 1;
+                  if (a[op.key] > b[op.key]) return op.order === 'asc' ? 1 : -1;
+                  return 0;
+                });
+              }
+            }
+            break;
 
-  error(message) {
-    if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
-      console.error(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+          case 'limit':
+            // If still an array, limit the entire dataset. If grouped, limit each group.
+            if (Array.isArray(finalData)) {
+              finalData = finalData.slice(0, op.count);
+            } else {
+              for (const groupName of Object.keys(finalData)) {
+                finalData[groupName] = finalData[groupName].slice(0, op.count);
+              }
+            }
+            break;
 
-  serialize(value) {
-    if (value === null) return 'null';
-    if (value === undefined) return 'undefined';
-
-    if (typeof value === 'object') {
-      return JSON.stringify(value);
-    }
-    return String(value);
-  }
-
-  clear() {
-    this.logs = [];
-  }
-
-  getLogs() {
-    return this.logs;
-  }
-
-  // Asynchronous logging
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
+          case 'group':
+            // Convert the array (or sub-arrays if we've already grouped) into an object of arrays keyed by op.key.
+            if (Array.isArray(finalData)) {
+              const grouped = {};
+              for (const item of finalData) {
+                const groupValue = item[op.key];
+                if (!grouped[groupValue]) {
+                  grouped[groupValue] = [];
+                }
+                grouped[groupValue].push(item);
+              }
+              finalData = grouped;
+            } else {
+              // If already grouped, regroup each subgroup by op.key (less common, but we’ll handle it).
+              const newGrouped = {};
+              for (const groupName of Object.keys(finalData)) {
+                for (const item of finalData[groupName]) {
+                  const groupValue = item[op.key];
+                  if (!newGrouped[groupValue]) {
+                    newGrouped[groupValue] = [];
+                  }
+                  newGrouped[groupValue].push(item);
+                }
+              }
+              finalData = newGrouped;
+            }
+            break;
         }
-      }, 0);
-    });
-  }
-
-  // 3) Correct isCircular() so it actually detects cycles instead of always returning true
-  isCircular(obj) {
-    const seen = new WeakSet();
-
-    function detect(value) {
-      if (value && typeof value === 'object') {
-        if (seen.has(value)) return true;
-        seen.add(value);
-        // Recursively check each property
-        return Object.values(value).some(detect);
       }
-      return false;
-    }
 
-    return detect(obj);
-  }
+      return finalData;
+    }
+  };
 }
 
-// Export the logger instance
-const logger = new Logger();
-module.exports = { logger };
+module.exports = { createDatasetManager };

@@ -1,13 +1,5 @@
-Unit Test:
+Incorrect Solution Explanation:
+    Please add some more details to "Incorrect solution Explanation". As there is only one issue you with incorrect solution, you can add more details about the issue, if you want you can make references to code and provided detailed explanation about the issue.
 
-Does the code review point that there is redundant storing data in localStorage twice (once in the useInefficientLocalStorage hook and once in the News component) ?(0/2)
-
-Does the code review point out (storedPosts || posts.map()) is syntactically incorrect and will cause rendering issues?(0/2)
-
-Does the code review identify the lack of error handling in API calls and adding a loading state for fetching data in the News component?(0/2)
-
-Does the code review highlight the deprecation of useHistory and switch in React Router v6 ?(0/2)
-
-Does the code review point out that response from the API is not parsed correctly? (0/2)
-
-Does the code review point out that export statement is missing for the App component? (0/2)
+ 
+    In incorrect solution, the operations are applied to provided dataset. But the output of the operation is not used in next opertation instead it used completed dataset.

@@ -1,142 +1,92 @@
-class Logger {
-  constructor() {
-    this.logs = [];
-    // Ordered from lowest priority to highest:
-    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    // Default to the lowest-priority level so that everything is logged unless changed:
-    this.currentLevel = 'DEBUG';
+function createDatasetManager(dataset) {
+  const filters = [];
+  let sortConfig = null;
+  let groupConfig = null;
+  let limitConfig = null;
+  const originalData = [...dataset];
+
+  function applyFilters(data) {
+    return filters.reduce((filtered, predicate) => 
+      filtered.filter(predicate), [...data]);
   }
 
-  getTimestamp() {
-    return new Date().toISOString();
-  }
-
-  levelPriority(level) {
-    // Returns 1-based priority (DEBUG = 1, INFO = 2, WARN = 3, ERROR = 4).
-    return this.levels.indexOf(level) + 1;
-  }
-
-  setLogLevel(level) {
-    if (!this.levels.includes(level)) {
-      throw new Error('Invalid log level');
-    }
-    this.currentLevel = level;
-  }
-
-  // The key fix here: if the incoming level's priority is >= currentLevel,
-  // then _shouldLog returns true. Previously, it was reversed (<=).
-  _shouldLog(level) {
-    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
-  }
-
-  // Add the missing debug() method to pass the tests that call logger.debug().
-  debug(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      console.debug(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  // The generic log() uses console.log() but is effectively debug-level.
-  log(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
-      console.log(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  info(message) {
-    if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
-      console.info(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  warn(message) {
-    if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
-      console.warn(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  error(message) {
-    if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
-      console.error(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  // serialize() should handle objects (including arrays), null, undefined, etc.
-  serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      return JSON.stringify(message);
-    }
-    return String(message);
-  }
-
-  clear() {
-    this.logs = [];
-  }
-
-  getLogs() {
-    return this.logs;
-  }
-
-  // Asynchronous logger returning a Promise
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
-        }
-      }, 0);
+  function applySorting(data) {
+    if (!sortConfig) return data;
+    
+    return [...data].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      
+      if (sortConfig.order === 'asc') {
+        return aVal < bVal ? -1 : aVal > bVal ? 1 : 0;
+      }
+      return aVal > bVal ? -1 : aVal < bVal ? 1 : 0;
     });
   }
 
-  // Correctly detect circular references by tracking visited objects in a WeakSet
-  isCircular(value) {
-    const seen = new WeakSet();
+  function applyGrouping(data) {
+    if (!groupConfig) return data;
 
-    function detect(obj) {
-      if (obj && typeof obj === 'object') {
-        if (seen.has(obj)) return true;
-        seen.add(obj);
-
-        // Recursively check all children
-        for (const val of Object.values(obj)) {
-          if (detect(val)) {
-            return true;
-          }
-        }
+    return data.reduce((grouped, item) => {
+      const key = item[groupConfig];
+      if (!grouped[key]) {
+        grouped[key] = [];
       }
-      return false;
+      grouped[key].push(item);
+      return grouped;
+    }, {});
+  }
+
+  function applyLimit(data) {
+    if (!limitConfig) return data;
+
+    if (groupConfig && typeof data === 'object') {
+      return Object.fromEntries(
+        Object.entries(data).map(([key, items]) => [
+          key,
+          items.slice(0, limitConfig)
+        ])
+      );
     }
 
-    return detect(value);
+    return data.slice(0, limitConfig);
   }
+
+  return {
+    filterBy(predicate) {
+      filters.push(predicate);
+      return this;
+    },
+
+    sortBy(key, order = 'asc') {
+      sortConfig = { key, order };
+      return this;
+    },
+
+    groupBy(key) {
+      groupConfig = key;
+      return this;
+    },
+
+    limit(n) {
+      limitConfig = n;
+      return this;
+    },
+
+    execute() {
+      let result = applyFilters(originalData);
+      result = applySorting(result);
+      
+      if (groupConfig) {
+        result = applyGrouping(result);
+        result = applyLimit(result);
+      } else {
+        result = applyLimit(result);
+      }
+
+      return result;
+    }
+  };
 }
 
-// Export the logger instance
-const logger = new Logger();
-module.exports = { logger };
+module.exports = { createDatasetManager };

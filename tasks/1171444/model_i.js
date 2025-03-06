@@ -1,133 +1,83 @@
-class Logger {
-  constructor() {
-    this.logs = [];
-    // Priority: DEBUG=0, INFO=1, WARN=2, ERROR=3
-    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    this.currentLevel = 'DEBUG';
-  }
+function createDatasetManager(dataset) {
+  // Keep the original data unmodified
+  const originalData = dataset.slice();
 
-  getTimestamp() {
-    return new Date().toISOString();
-  }
+  // Collect all filters instead of overwriting
+  const filters = [];
+  let sortKey = null;
+  let sortOrder = 'asc';
+  let groupKey = null;
+  let limitCount = null;
 
-  levelPriority(level) {
-    return this.levels.indexOf(level);
-  }
+  return {
+    filterBy(predicate) {
+      filters.push(predicate);
+      return this;
+    },
 
-  setLogLevel(level) {
-    if (!this.levels.includes(level)) {
-      throw new Error('Invalid log level');
-    }
-    this.currentLevel = level;
-  }
+    sortBy(key, order = 'asc') {
+      sortKey = key;
+      sortOrder = order;
+      return this;
+    },
 
-  // Changed comparison from <= to >= so that only messages
-  // at or above the currentLevel are logged.
-  _shouldLog(level) {
-    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
-  }
+    groupBy(key) {
+      groupKey = key;
+      return this;
+    },
 
-  // Added a debug() method to match the tests’ expectations
-  debug(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      console.debug(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    limit(n) {
+      limitCount = n;
+      return this;
+    },
 
-  // Often “log()” is treated like a DEBUG-level log.
-  log(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
-      console.log(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    execute() {
+      // Start with a fresh copy so we never mutate the original
+      let result = originalData.slice();
 
-  info(message) {
-    if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
-      console.info(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  warn(message) {
-    if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
-      console.warn(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  error(message) {
-    if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
-      console.error(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      return JSON.stringify(message);
-    }
-    return String(message);
-  }
-
-  clear() {
-    this.logs = [];
-  }
-
-  getLogs() {
-    return this.logs;
-  }
-
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
-        }
-      }, 0);
-    });
-  }
-
-  // Fixed isCircular so it actually checks for cycles
-  isCircular(obj) {
-    const seen = new WeakSet();
-    const detect = (value) => {
-      if (value && typeof value === 'object') {
-        if (seen.has(value)) {
-          return true;
-        }
-        seen.add(value);
-        // Recursively check all object values
-        return Object.values(value).some(detect);
+      // 1. Apply all filters in sequence
+      for (const predicate of filters) {
+        result = result.filter(predicate);
       }
-      return false;
-    };
-    return detect(obj);
-  }
+
+      // 2. Sort if a sort key is provided
+      if (sortKey) {
+        result.sort((a, b) => {
+          if (a[sortKey] < b[sortKey]) return sortOrder === 'asc' ? -1 : 1;
+          if (a[sortKey] > b[sortKey]) return sortOrder === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      // 3 & 4. If no group key, limit the whole array; if groupKey, group first, then limit each group
+      if (!groupKey) {
+        // (a) No grouping: Limit the entire result array
+        if (limitCount != null) {
+          result = result.slice(0, limitCount);
+        }
+        return result;
+      } else {
+        // (b) Group the data
+        const grouped = {};
+        for (const item of result) {
+          const keyValue = item[groupKey];
+          if (!grouped[keyValue]) {
+            grouped[keyValue] = [];
+          }
+          grouped[keyValue].push(item);
+        }
+
+        // If a limit is set, apply it to each group array
+        if (limitCount != null) {
+          for (const keyValue of Object.keys(grouped)) {
+            grouped[keyValue] = grouped[keyValue].slice(0, limitCount);
+          }
+        }
+
+        return grouped;
+      }
+    }
+  };
 }
 
-// Export the logger instance
-const logger = new Logger();
-module.exports = { logger };
+module.exports = { createDatasetManager };

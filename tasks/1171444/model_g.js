@@ -1,136 +1,86 @@
-class Logger {
-  constructor() {
-    this.logs = [];
-    // Keep this order: index 0 => DEBUG, 1 => INFO, 2 => WARN, 3 => ERROR
-    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    this.currentLevel = 'DEBUG';
-  }
+function createDatasetManager(dataset) {
+  // Keep track of all operations in the order they were called.
+  // We'll apply them in sequence within execute().
+  const operations = [];
 
-  getTimestamp() {
-    return new Date().toISOString();
-  }
+  return {
+    filterBy(predicate) {
+      operations.push({ type: 'filter', predicate });
+      return this;
+    },
 
-  levelPriority(level) {
-    return this.levels.indexOf(level) + 1;
-  }
+    sortBy(key, order = 'asc') {
+      operations.push({ type: 'sort', key, order });
+      return this;
+    },
 
-  setLogLevel(level) {
-    if (!this.levels.includes(level)) {
-      throw new Error('Invalid log level');
-    }
-    this.currentLevel = level;
-  }
+    groupBy(key) {
+      operations.push({ type: 'group', key });
+      return this;
+    },
 
-  // REVERSED the logic to log only if message level >= currentLevel
-  _shouldLog(level) {
-    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
-  }
+    limit(n) {
+      operations.push({ type: 'limit', n });
+      return this;
+    },
 
-  // Added debug() to match info(), warn(), and error() tests
-  debug(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      console.debug(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    execute() {
+      // Copy the original dataset so we don't mutate it.
+      let result = dataset.slice();
 
-  // The test uses log() as a generic debug-like method, but we'll leave it as-is
-  log(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
-      console.log(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+      // Apply each operation in order.
+      for (const op of operations) {
+        switch (op.type) {
+          case 'filter':
+            result = result.filter(op.predicate);
+            break;
 
-  info(message) {
-    if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
-      console.info(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+          case 'sort': {
+            const { key, order } = op;
+            result.sort((a, b) => {
+              if (a[key] < b[key]) return order === 'asc' ? -1 : 1;
+              if (a[key] > b[key]) return order === 'asc' ? 1 : -1;
+              return 0;
+            });
+            break;
+          }
 
-  warn(message) {
-    if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
-      console.warn(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+          case 'group': {
+            const grouped = {};
+            const { key } = op;
+            // Build an object of arrays, keyed by the group field
+            for (const item of result) {
+              const groupValue = item[key];
+              if (!grouped[groupValue]) {
+                grouped[groupValue] = [];
+              }
+              grouped[groupValue].push(item);
+            }
+            result = grouped;
+            break;
+          }
 
-  error(message) {
-    if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
-      console.error(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      // For objects, return JSON
-      return JSON.stringify(message);
-    }
-    return String(message);
-  }
-
-  clear() {
-    this.logs = [];
-  }
-
-  getLogs() {
-    return this.logs;
-  }
-
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        // If the message is circular, reject
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
+          case 'limit': {
+            const { n } = op;
+            if (Array.isArray(result)) {
+              // If still an array, just slice at the top level
+              result = result.slice(0, n);
+            } else {
+              // If grouped (object), slice each array
+              for (const groupKey in result) {
+                if (Array.isArray(result[groupKey])) {
+                  result[groupKey] = result[groupKey].slice(0, n);
+                }
+              }
+            }
+            break;
+          }
         }
-      }, 0);
-    });
-  }
-
-  // FIXED the isCircular check so it properly detects real circular references
-  isCircular(obj, seen = new WeakSet()) {
-    if (obj === null || typeof obj !== 'object') {
-      return false;
-    }
-    if (seen.has(obj)) {
-      return true;
-    }
-    seen.add(obj);
-
-    for (const key of Object.keys(obj)) {
-      if (this.isCircular(obj[key], seen)) {
-        return true;
       }
-    }
 
-    return false;
-  }
+      return result;
+    }
+  };
 }
 
-// Export the logger instance
-const logger = new Logger();
-module.exports = { logger };
+module.exports = { createDatasetManager };

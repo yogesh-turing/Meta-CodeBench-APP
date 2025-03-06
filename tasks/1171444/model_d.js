@@ -1,128 +1,90 @@
-class Logger {
-  constructor() {
-    this.logs = [];
-    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    this.currentLevel = 'DEBUG';
+function createDatasetManager(dataset) {
+  const filters = [];
+  let sortConfig = null;
+  let groupConfig = null;
+  let limitConfig = null;
+  const originalData = [...dataset];
+
+  function applyFilters(data) {
+    return filters.reduce((filtered, predicate) => 
+      filtered.filter(predicate), [...data]);
   }
 
-  getTimestamp() {
-    return new Date().toISOString();
-  }
-
-  levelPriority(level) {
-    const index = this.levels.indexOf(level);
-    return index === -1 ? 0 : index;
-  }
-
-  setLogLevel(level) {
-    if (!this.levels.includes(level)) {
-      throw new Error('Invalid log level');
-    }
-    this.currentLevel = level;
-  }
-
-  _shouldLog(level) {
-    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
-  }
-
-  debug(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      console.debug(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  log(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${this.serialize(message)}`;
-      console.log(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  info(message) {
-    if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
-      console.info(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  warn(message) {
-    if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
-      console.warn(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  error(message) {
-    if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
-      console.error(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      try {
-        return JSON.stringify(message);
-      } catch (error) {
-        return 'Circular structure detected';
-      }
-    }
-    return String(message);
-  }
-
-  clear() {
-    this.logs = [];
-  }
-
-  getLogs() {
-    return this.logs;
-  }
-
-  isCircular(obj) {
-    try {
-      JSON.stringify(obj);
-      return false;
-    } catch (error) {
-      return error.message.includes('circular');
-    }
-  }
-
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        try {
-          if (this.isCircular(message)) {
-            reject(new Error('Circular structure'));
-            return;
-          }
-          const output = this.serialize(message);
-          this.logs.push(output);
-          resolve(output);
-        } catch (error) {
-          reject(error);
-        }
-      }, 0);
+  function applySorting(data) {
+    if (!sortConfig) return data;
+    
+    return [...data].sort((a, b) => {
+      const aVal = a[sortConfig.key];
+      const bVal = b[sortConfig.key];
+      const modifier = sortConfig.order === 'desc' ? -1 : 1;
+      
+      if (aVal < bVal) return -1 * modifier;
+      if (aVal > bVal) return 1 * modifier;
+      return 0;
     });
   }
+
+  function applyLimit(data) {
+    if (!limitConfig) return data;
+    if (Array.isArray(data)) {
+      return data.slice(0, limitConfig);
+    }
+    return Object.fromEntries(
+      Object.entries(data).map(([key, value]) => [
+        key,
+        value.slice(0, limitConfig)
+      ])
+    );
+  }
+
+  function applyGrouping(data) {
+    if (!groupConfig) return data;
+    
+    return data.reduce((grouped, item) => {
+      const key = item[groupConfig];
+      if (!grouped[key]) {
+        grouped[key] = [];
+      }
+      grouped[key].push(item);
+      return grouped;
+    }, {});
+  }
+
+  return {
+    filterBy(predicate) {
+      filters.push(predicate);
+      return this;
+    },
+
+    sortBy(key, order = 'asc') {
+      sortConfig = { key, order };
+      return this;
+    },
+
+    groupBy(key) {
+      groupConfig = key;
+      return this;
+    },
+
+    limit(n) {
+      limitConfig = n;
+      return this;
+    },
+
+    execute() {
+      let result = applyFilters(originalData);
+      result = applySorting(result);
+      
+      if (groupConfig) {
+        result = applyGrouping(result);
+        result = applyLimit(result);
+      } else {
+        result = applyLimit(result);
+      }
+      
+      return result;
+    }
+  };
 }
 
-const logger = new Logger();
-module.exports = { logger };
+module.exports = { createDatasetManager };

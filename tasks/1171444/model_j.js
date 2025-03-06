@@ -1,151 +1,94 @@
-class Logger {
-  constructor() {
-    this.logs = [];
-    // Keep levels in ascending order of severity:
-    //  DEBUG < INFO < WARN < ERROR
-    // so that setting WARN only logs WARN and ERROR, for example.
-    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    this.currentLevel = 'DEBUG';
-  }
+function createDatasetManager(dataset) {
+  // Keep a reference to the original data (we won't mutate it).
+  // Instead of immediately changing "dataset", we'll do all transformations
+  // at the time of execute() on a fresh copy.
+  let originalData = dataset;
 
-  // Return an ISO timestamp. In tests, the time may be mocked to a fixed date.
-  getTimestamp() {
-    return new Date().toISOString();
-  }
+  // We’ll collect all filters here so multiple filterBy() calls can work.
+  let filterPredicates = [];
 
-  // Convert a level string to a numeric priority.
-  levelPriority(level) {
-    return this.levels.indexOf(level);
-  }
+  // Store sort configuration
+  let sortKey = null;
+  let sortOrder = 'asc';
 
-  // Change the current log level.
-  setLogLevel(level) {
-    if (!this.levels.includes(level)) {
-      throw new Error('Invalid log level');
-    }
-    this.currentLevel = level;
-  }
+  // Store group key
+  let groupKey = null;
 
-  // Adjust so that we only log the same or higher severity than currentLevel.
-  _shouldLog(level) {
-    // e.g. If current level is WARN (2), only log if levelPriority(level) >= 2
-    return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
-  }
+  // Store limit
+  let limitCount = null;
 
-  // Provided "log" method. Often used for basic debugging, but in your tests
-  // there's also a separate debug() method. You can adapt as needed.
-  log(message) {
-    // This method uses 'DEBUG' internally, so it respects filtering.
-    if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
-      console.log(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+  return {
+    filterBy(predicate) {
+      filterPredicates.push(predicate);
+      return this; // chainable
+    },
 
-  info(message) {
-    if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
-      console.info(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    sortBy(key, order = 'asc') {
+      sortKey = key;
+      sortOrder = order;
+      return this; // chainable
+    },
 
-  warn(message) {
-    if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
-      console.warn(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    groupBy(key) {
+      groupKey = key;
+      return this; // chainable
+    },
 
-  error(message) {
-    if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
-      console.error(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    limit(n) {
+      limitCount = n;
+      return this; // chainable
+    },
 
-  // The test suite expects a dedicated debug() method with a specific format
-  debug(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      // console.debug can be used in many environments (Node, browser).
-      // If the environment doesn’t support console.debug, you might want
-      // to replace with console.log or remove console.debug calls.
-      console.debug(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
+    execute() {
+      // Work on a copy so we don't mutate the original dataset
+      let data = [...originalData];
 
-  // Turn a value into a string for logging.
-  serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      // Safely convert object to JSON (where possible).
-      return JSON.stringify(message);
-    }
-    return String(message);
-  }
-
-  // Remove all logged entries.
-  clear() {
-    this.logs = [];
-  }
-
-  // Retrieve the logged entries so far.
-  getLogs() {
-    return this.logs;
-  }
-
-  // Asynchronous logging that rejects if the object is circular.
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
-        }
-      }, 0);
-    });
-  }
-
-  // Fix isCircular so it actually detects circular references.
-  isCircular(obj) {
-    const seenObjects = new WeakSet();
-
-    function detectCycle(value) {
-      if (value && typeof value === 'object') {
-        if (seenObjects.has(value)) {
-          return true;
-        }
-        seenObjects.add(value);
-        // Recursively check all child values
-        return Object.values(value).some((child) => detectCycle(child));
+      // Apply all collected filters in sequence
+      for (const predicate of filterPredicates) {
+        data = data.filter(predicate);
       }
-      // Primitives/undefined/null are not circular
-      return false;
-    }
 
-    return detectCycle(obj);
-  }
+      // Apply sort if specified
+      if (sortKey) {
+        data.sort((a, b) => {
+          const aVal = a[sortKey];
+          const bVal = b[sortKey];
+          if (aVal < bVal) return sortOrder === 'asc' ? -1 : 1;
+          if (aVal > bVal) return sortOrder === 'asc' ? 1 : -1;
+          return 0;
+        });
+      }
+
+      // If grouping is specified, transform data into grouped object
+      if (groupKey) {
+        const groupedData = {};
+
+        data.forEach(item => {
+          const key = item[groupKey];
+          if (!groupedData[key]) {
+            groupedData[key] = [];
+          }
+          groupedData[key].push(item);
+        });
+
+        // If limit is specified, limit each group to 'limitCount' items.
+        if (limitCount !== null) {
+          for (const key in groupedData) {
+            groupedData[key] = groupedData[key].slice(0, limitCount);
+          }
+        }
+
+        return groupedData;
+      } else {
+        // If not grouped, apply limit to the entire array.
+        if (limitCount !== null) {
+          data = data.slice(0, limitCount);
+        }
+
+        return data;
+      }
+    }
+  };
 }
 
-// Export the logger instance
-const logger = new Logger();
-module.exports = { logger };
+module.exports = { createDatasetManager };
