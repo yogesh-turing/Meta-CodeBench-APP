@@ -1,300 +1,179 @@
-const fs = require('fs');
-const path = require('path');
-// const { RewardCalculator } = require(process.env.TARGET_FILE);
-const { RewardCalculator } = require('./model_i');
+const { InventoryManagementSystem } = require("./model_a");
+// const { InventoryManagementSystem } = require(process.env.TARGET_FILE);
 
-describe('RewardCalculator Module - Expected Object Output', () => {
-  let rc;
-  const tempFile = path.join(__dirname, 'tempTransactions.json');
+describe("Inventory Management System", () => {
+  let ims;
 
   beforeEach(() => {
-    rc = new RewardCalculator();
+    ims = new InventoryManagementSystem();
   });
 
-  afterEach(() => {
-    if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-    const logFile = path.join(__dirname, 'calcLog.txt');
-    if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
-  });
+  test("should add a product correctly", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
 
-  test('should correctly transform a $120 purchase transaction', () => {
-    // For a $120 purchase:
-    // reward calculation: (100 - 50)*1 + (120 - 100)*2 = 50 + 40 = 90.
-    rc.addTransaction('user1', {
-      amount: 120,
-      date: '2023-07-01',
-      type: 'purchase',
-    });
-    const tx = rc.getTransaction('user1', 0);
-    expect(tx).toEqual({
-      amount: 90,
-      date: new Date('2023-07-01'),
-      type: 'purchase',
+    const product = ims.getProductById("1");
+    expect(product).toEqual({
+      productId: "1",
+      name: "Laptop",
+      description: "A powerful laptop",
+      quantity: 10,
+      price: 1000,
     });
   });
 
-  test('should correctly transform a $45 purchase transaction to 0 points', () => {
-    rc.addTransaction('user2', {
-      amount: 45,
-      date: '2023-07-02',
-      type: 'purchase',
-    });
-    const tx = rc.getTransaction('user2', 0);
-    expect(tx).toEqual({
-      amount: 0,
-      date: new Date('2023-07-02'),
-      type: 'purchase',
-    });
-  });
-
-  test('should correctly transform a $150 refund transaction', () => {
-    // For a $150 refund:
-    // Expected reward: -((100-50)*1 + (150-100)*2) = -150.
-    rc.addTransaction('user3', {
-      amount: 150,
-      date: '2023-07-03',
-      type: 'refund',
-    });
-    const tx = rc.getTransaction('user3', 0);
-    expect(tx).toEqual({
-      amount: -150,
-      date: new Date('2023-07-03'),
-      type: 'refund',
-    });
-  });
-
-  test('should correctly generate monthly rewards summary for multiple transactions', () => {
-    // For user4:
-    // Transaction 1: $70 on 2023-06-15 → reward = 70 - 50 = 20.
-    // Transaction 2: $130 on 2023-06-20 → reward = (100-50) + (130-100)*2 = 50 + 60 = 110.
-    // Transaction 3: $80 on 2023-07-05 → reward = 80 - 50 = 30.
-    rc.addTransaction('user4', {
-      amount: 70,
-      date: '2023-06-15',
-      type: 'purchase',
-    });
-    rc.addTransaction('user4', {
-      amount: 130,
-      date: '2023-06-20',
-      type: 'purchase',
-    });
-    rc.addTransaction('user4', {
-      amount: 80,
-      date: '2023-07-05',
-      type: 'purchase',
-    });
-    const summary = rc.getMonthlySummary('user4');
-    expect(summary).toEqual({
-      '2023-06': 130, // 20 + 110
-      '2023-07': 30,
-    });
-  });
-
-  test('should correctly calculate total rewards for a user', () => {
-    // For user5:
-    // Transaction 1: $90 on 2023-05-01 → reward = 90 - 50 = 40.
-    // Transaction 2: $110 on 2023-05-15 → reward = (100-50) + (110-100)*2 = 50 + 20 = 70.
-    rc.addTransaction('user5', {
-      amount: 90,
-      date: '2023-05-01',
-      type: 'purchase',
-    });
-    rc.addTransaction('user5', {
-      amount: 110,
-      date: '2023-05-15',
-      type: 'purchase',
-    });
-    const total = rc.getTotalRewards('user5');
-    expect(total).toEqual({ amount: 110, userId: 'user5' });
-  });
-
-  test('should correctly calculate rewards for a given date range', () => {
-    // For user6:
-    // Transaction 1: $90 on 2023-05-01 → reward = 40.
-    // Transaction 2: $110 on 2023-05-15 → reward = 70.
-    // Transaction 3: $130 on 2023-06-01 → not within date range.
-    rc.addTransaction('user6', {
-      amount: 90,
-      date: '2023-05-01',
-      type: 'purchase',
-    });
-    rc.addTransaction('user6', {
-      amount: 110,
-      date: '2023-05-15',
-      type: 'purchase',
-    });
-    rc.addTransaction('user6', {
-      amount: 130,
-      date: '2023-06-01',
-      type: 'purchase',
-    });
-    
-    const rangeRewards = rc.getRewardsForDateRange(
-      'user6',
-      '2023-05-01',
-      '2023-05-31'
+  test("should throw error if adding product with invalid details", () => {
+    expect(() => ims.addProduct("2", "", "", "1", 1)).toThrow(
+      "Invalid product details"
     );
-    expect(rangeRewards).toEqual({
-      amount: 110,
-      from: new Date('2023-05-01'),
-      to: new Date('2023-05-31'),
-      userId: 'user6',
-    });
   });
 
-  test('should clear transactions for a user', () => {
-    rc.addTransaction('user7', {
-      amount: 100,
-      date: '2023-07-10',
-      type: 'purchase',
-    });
-    // Before clearing, the transaction should exist.
-    let tx = rc.getTransaction('user7', 0);
-    expect(tx).toEqual({
-      amount: 50, // 100 - 50 = 50 points for a purchase of $100
-      date: new Date('2023-07-10'),
-      type: 'purchase',
-    });
-    rc.clearTransactions('user7');
-    const log = rc.getTransactionLog();
-    expect(log.find(([id]) => id === 'user7')).toBeUndefined();
+  test("should throw error if adding productid is of invalid type", () => {
+    expect(() =>
+      ims.addProduct(1, "Laptop", "A powerful laptop", 10, 1000)
+    ).toThrow("Invalid product details");
   });
 
-  test('should update reward configuration and affect calculations', () => {
-    // New configuration: lowerThreshold: 30, upperThreshold: 80, lowerMultiplier: 2, upperMultiplier: 3.
-    rc.updateConfig({
-      lowerThreshold: 30,
-      upperThreshold: 80,
-      lowerMultiplier: 2,
-      upperMultiplier: 3,
-    });
-    rc.addTransaction('user8', {
-      amount: 100,
-      date: '2023-08-01',
-      type: 'purchase',
-    });
-    // Expected reward = floor((80-30)*2) + floor((100-80)*3) = 100 + 60 = 160.
-    const tx = rc.getTransaction('user8', 0);
-    expect(tx).toEqual({
-      amount: 160,
-      date: new Date('2023-08-01'),
-      type: 'purchase',
-    });
+  test("should throw error if product name is of invalid type", () => {
+    expect(() =>
+      ims.addProduct("1", 123, "A powerful laptop", 10, 1000)
+    ).toThrow("Invalid product details");
   });
 
-  test('should export and import transactions correctly', () => {
-    rc.addTransaction('user9', {
-      amount: 95,
-      date: '2023-08-05',
-      type: 'purchase',
-    });
-    const exportSuccess = rc.exportTransactionsToFile(tempFile);
-    expect(exportSuccess).toEqual(true);
-    const rc2 = new RewardCalculator();
-    const importSuccess = rc2.importTransactionsFromFile(tempFile);
-    expect(importSuccess).toEqual(true);
-    const tx = rc2.getTransaction('user9', 0);
-    expect(tx).toEqual({
-      amount: 45,
-      date: new Date('2023-08-05'),
-      type: 'purchase',
-    });
+  test("should throw error if product description is of invalid type", () => {
+    expect(() => ims.addProduct("1", "Laptop", 12333, 10, 1000)).toThrow(
+      "Invalid product details"
+    );
   });
 
-  test('should process bulk transactions and return correct processed count', () => {
-    const bulk = [
-      {
-        userId: 'user10',
-        transaction: { amount: 60, date: '2023-09-01', type: 'purchase' },
-      }, // → reward = 10.
-      {
-        userId: 'user10',
-        transaction: { amount: 110, date: '2023-09-02', type: 'purchase' },
-      }, // → reward = 60.
-      {
-        userId: 'user10',
-        transaction: { amount: 80, date: '2023-09-03', type: 'purchase' },
-      }, // → reward = 30.
-      {
-        userId: 'user10',
-        transaction: { amount: 120, date: '2023-09-04', type: 'purchase' },
-      }, // → reward = 90.
-    ];
-    const processed = rc.processBulkTransactions(bulk);
-    expect(processed).toEqual({ count: 4, userId: 'user10' });
+  test("should throw error if product quantity is of invalid type", () => {
+    expect(() => ims.addProduct("1", "Laptop", "Laptop", "sa", 1000)).toThrow(
+      "Invalid product details"
+    );
   });
 
-  test('should return a deep copy of the transaction log', () => {
-    rc.addTransaction('user11', {
-      amount: 100,
-      date: '2023-10-01',
-      type: 'purchase',
-    });
-    const logCopy1 = rc.getTransactionLog();
-    logCopy1[0][1][0].amount = 9999;
-    const logCopy2 = rc.getTransactionLog();
-    expect(logCopy2[0][1][0].amount).not.toEqual(9999);
+  test("should throw error if product price is of invalid type", () => {
+    expect(() => ims.addProduct("1", "Laptop", "Laptop", 10, "sa")).toThrow(
+      "Invalid product details"
+    );
   });
 
-  test('should print user reward summary with correct information', () => {
-    rc.addTransaction('user12', {
-      amount: 120,
-      date: '2023-11-01',
-      type: 'purchase',
-    }); // → reward = 90.
-    rc.addTransaction('user12', {
-      amount: 80,
-      date: '2023-11-05',
-      type: 'purchase',
-    }); // → reward = 30.
-    const summary = rc.printUserRewardSummary('user12');
-    const expectedSummary =
-      'User: user12\nTotal Rewards: 120\nMonthly Breakdown:\n2023-11 : 120\n';
-    expect(summary).toEqual(expectedSummary);
+  test("should update product quantity correctly", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    ims.updateProductQuantity("1", 20);
+
+    const product = ims.getProductById("1");
+    expect(product.quantity).toBe(20);
   });
 
-  test('should persist calculation log asynchronously', (done) => {
-    rc.addTransaction('user13', {
-      amount: 150,
-      date: '2023-12-01',
-      type: 'purchase',
-    });
-    const total = rc.getTotalRewards('user13');
-    rc.persistCalculationLog((err, result) => {
-      expect(err).toBeNull();
-      expect(result).toEqual({ persisted: true });
-      const logFile = path.join(__dirname, 'calcLog.txt');
-      expect(fs.existsSync(logFile)).toEqual(true);
-      done();
-    });
-  }, 10000); 
-
-  test('should correctly transform a $50 purchase transaction (exact threshold) to 0 points', () => {
-    rc.addTransaction('user14', {
-      amount: 50,
-      date: '2023-12-15',
-      type: 'purchase',
-    });
-    const tx = rc.getTransaction('user14', 0);
-    expect(tx).toEqual({
-      amount: 0,
-      date: new Date('2023-12-15'),
-      type: 'purchase',
-    });
+  test("should throw error if product not found while updating quantity", () => {
+    expect(() => ims.updateProductQuantity("non-existing-id", 20)).toThrow(
+      "Product not found"
+    );
   });
 
-  test('should handle transactions with invalid dates gracefully', () => {
-    rc.addTransaction('user15', {
-      amount: 120,
-      date: 'invalid-date',
-      type: 'purchase',
-    });
-    const log = rc.getTransactionLog();
-    expect(log.find(([id]) => id === 'user15')).toBeUndefined();
+  test("should throw error if trying to update quantity with negative value", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    expect(() => ims.updateProductQuantity("1", -5)).toThrow(
+      "Quantity must be a non-negative number"
+    );
   });
 
-  test('should return 0 total rewards for a non-existent user', () => {
-    const total = rc.getTotalRewards('nonexistent');
-    expect(total).toEqual({ amount: 0, userId: 'nonexistent' });
+  test("should throw error if adding productid is of invalid type while updating", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+
+    expect(() => ims.updateProductQuantity(1, 5)).toThrow(
+      "Invalid product details"
+    );
+  });
+
+  test("should throw error if productid is of invalid type while updating", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+
+    expect(() => ims.updateProductQuantity(1, "5")).toThrow(
+      "Invalid product details"
+    );
+  });
+
+  test("should apply discount correctly", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    ims.applyDiscount("1", 10);
+
+    const product = ims.getProductById("1");
+    expect(product.price).toBe(900); // 1000 - 10% = 900
+  });
+
+  test("should throw error if product not found while applying discount", () => {
+    expect(() => ims.applyDiscount("non-existing-id", 10)).toThrow(
+      "Product not found"
+    );
+  });
+
+  test("should throw error if discount percentage is invalid", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    expect(() => ims.applyDiscount("1", 110)).toThrow(
+      "Invalid discount percentage"
+    );
+  });
+
+  test("should throw error if productid is of invalid type while discount", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+
+    expect(() => ims.applyDiscount(1, 110)).toThrow("Invalid product details");
+  });
+
+  test("should throw error if discount percentage is of invalid type while discount", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+
+    expect(() => ims.applyDiscount("1", "110")).toThrow(
+      "Invalid product details"
+    );
+  });
+
+  test("should generate stock report", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    ims.addProduct("2", "Phone", "A smartphone", 20, 500);
+
+    const report = ims.generateStockReport();
+    expect(report).toEqual([
+      { productId: "1", name: "Laptop", quantity: 10, price: 1000 },
+      { productId: "2", name: "Phone", quantity: 20, price: 500 },
+    ]);
+  });
+
+  test("should delete a product correctly", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    ims.deleteProduct("1");
+
+    expect(() => ims.getProductById("1")).toThrow("Product not found");
+  });
+
+  test("should throw an error when product id is of invalid type while deleting", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+
+    expect(() => ims.deleteProduct(1)).toThrow("Invalid product details");
+  });
+
+  test("should throw error if product not found while deleting", () => {
+    expect(() => ims.deleteProduct("non-existing-id")).toThrow(
+      "Product not found"
+    );
+  });
+
+  test("should return low stock products", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    ims.addProduct("2", "Phone", "A smartphone", 5, 500);
+
+    const lowStock = ims.getLowStockProducts(10);
+    expect(lowStock).toEqual([
+      { productId: "2", name: "Phone", quantity: 5, price: 500 },
+    ]);
+  });
+
+  test("should return empty array for low stock products if none are found", () => {
+    ims.addProduct("1", "Laptop", "A powerful laptop", 10, 1000);
+    ims.addProduct("2", "Phone", "A smartphone", 15, 500);
+
+    const lowStock = ims.getLowStockProducts(5);
+    expect(lowStock).toBe("No low stock products");
   });
 });

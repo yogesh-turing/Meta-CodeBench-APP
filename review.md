@@ -1,11 +1,30 @@
 Model Evaluations:
-    Model A, C, D, E:
-        In the base code the `getTransactionLog` function is defined but not used anywhere. The `exportTransactionsToFile` function uses `getTransactionLog` function, this is misleading information.
-        Also from prompt is not clear how functions `exportTransactionsToFile` and `importTransactionsFromFile` should be working.
-        First Observed Failure Reason: It seems to be incorrect, as the test case failed for exporting and importing the transactions and Model is returning `null` value. So the issues is not related to serialization or date objects.
-    Model B: Looks good.
-    Model F, G, H, I, J:
-        The models failed to "calculate rewards for a given date range", this requirment is not clear in the prompt.
+    first Observed failure it partially correct. The way models trying to find the product is incorrect.
+    The `propEq` function expects first parameter as value and second parameter as field name.
 
-The use prompt is not very clear, hence models are failing. So please try to make prompt as clear as possible. So that we can confidently penlize models for not implementing the requirments.
-As per new guidelines you can include test cases in the prompt to make requirments more clear.
+Incorrect Solution Explanation:
+    Same as above, issue is with Rambda's `find` and `findIndex` functions.
+    These functions are used in other functions `getProductById`, `updateProductQuantity`, `applyDiscount` and `deleteProduct`.
+    You can provide explanation in 2-4 lines for Rambda's `find` and `findIndex` functions. Then mention other function impacted due to improper use of Rambda functions.
+    Here you don't have to explain each and every test case, just explain the root cause. In this case there is one root cause.
+
+
+
+Completed all tests for 1171511
+
+============= TEST SUMMARY =============
+
+1171511:
+  base       : 5/23 tests passed [FAILED]
+  correct    : 23/23 tests passed [PASSED]
+  incorrect  : 17/23 tests passed [FAILED]
+  model_a    : 17/23 tests passed [FAILED]
+  model_b    : 23/23 tests passed [PASSED]
+  model_c    : 17/23 tests passed [FAILED]
+  model_d    : 17/23 tests passed [FAILED]
+  model_e    : 17/23 tests passed [FAILED]
+  model_f    : 16/23 tests passed [FAILED]
+  model_g    : 16/23 tests passed [FAILED]
+  model_h    : 16/23 tests passed [FAILED]
+  model_i    : 16/23 tests passed [FAILED]
+  model_j    : 16/23 tests passed [FAILED]

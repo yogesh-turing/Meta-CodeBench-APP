@@ -1,277 +1,139 @@
-const fs = require('fs');
-const path = require('path');
+const R = require("ramda");
 
-class RewardCalculator {
+class InventoryManagementSystem {
   constructor() {
-    this.userTransactions = new Map();
-    this.calculationLog = [];
-    this.config = {
-      lowerThreshold: 50,
-      upperThreshold: 100,
-      lowerMultiplier: 1,
-      upperMultiplier: 2,
-    };
+    this.products = [];
   }
 
-  addTransaction(userId, transaction) {
+  addProduct(productId, name, description, quantity, price) {
     if (
-      !transaction ||
-      typeof transaction.amount !== 'number' ||
-      !transaction.date
+      typeof productId !== "string" ||
+      typeof name !== "string" ||
+      typeof description !== "string" ||
+      typeof quantity !== "number" ||
+      typeof price !== "number"
     ) {
-      throw new Error('Invalid transaction data');
+      throw new Error("Invalid product details");
     }
 
-    // Convert to a proper Date and skip invalid dates.
-    const dateObj = new Date(transaction.date);
-    if (isNaN(dateObj.getTime())) {
-      // Skip adding invalid-date transactions.
-      return false;
+    if (quantity < 0 || price < 0) {
+      throw new Error("Quantity and price must be non-negative");
     }
 
-    // Create transaction object.
-    const txnObj = {
-      amount: transaction.amount,
-      date: dateObj,
-      type: transaction.type || 'purchase',
+    const product = {
+      productId,
+      name,
+      description,
+      quantity,
+      price,
     };
 
-    // Initialize user transactions array if needed.
-    if (!this.userTransactions.has(userId)) {
-      this.userTransactions.set(userId, []);
-    }
-    const transactions = this.userTransactions.get(userId);
-    transactions.push(txnObj);
+    this.products.push(product);
+  }
 
-    // Sort transactions by date using ISO for stable ordering.
-    transactions.sort((a, b) =>
-      a.date.toISOString().localeCompare(b.date.toISOString())
+  updateProductQuantity(productId, quantity) {
+    if (typeof productId !== "string" || typeof quantity !== "number") {
+      throw new Error("Invalid product details");
+    }
+
+    const productIndex = R.findIndex(
+      R.propEq("productId", productId),
+      this.products
     );
-    return true;
-  }
 
-  // Calculates reward points for a single transaction using the rules:
-  //   - 0 points for amounts ≤ lowerThreshold
-  //   - For amounts > 50 but ≤ 100: floor(amount - 50) × 1
-  //   - For amounts > 100: (100 - 50) × 1 + (amount - 100) × 2
-  //   - Refund = negative of purchase points
-  calculateTransactionPoints(transaction) {
-    const { amount, type } = transaction;
-    const { lowerThreshold, upperThreshold, lowerMultiplier, upperMultiplier } = this.config;
-    let points = 0;
-
-    if (amount <= lowerThreshold) {
-      points = 0;
-    } else if (amount > lowerThreshold && amount <= upperThreshold) {
-      points = Math.floor((amount - lowerThreshold) * lowerMultiplier);
-    } else {
-      // For amounts above upperThreshold:
-      // floor((upperThreshold - lowerThreshold) * lowerMultiplier) +
-      // floor((amount - upperThreshold) * upperMultiplier)
-      points =
-        Math.floor((upperThreshold - lowerThreshold) * lowerMultiplier) +
-        Math.floor((amount - upperThreshold) * upperMultiplier);
+    if (productIndex === -1) {
+      throw new Error("Product not found");
     }
 
-    // For refund transactions, return negative points.
-    if (type === 'refund') {
-      points = -points;
+    if (quantity < 0) {
+      throw new Error("Quantity must be a non-negative number");
     }
-    return points;
+
+    this.products[productIndex].quantity = quantity;
   }
 
-  // Calculates total reward points for a user across all transactions.
-  calculateUserRewards(userId) {
-    if (!this.userTransactions.has(userId)) return 0;
-    const transactions = this.userTransactions.get(userId);
-
-    const totalPoints = transactions.reduce((sum, txn) => {
-      // Ignore invalid dates (should not be present, but just in case).
-      if (isNaN(txn.date.getTime())) return sum;
-      return sum + this.calculateTransactionPoints(txn);
-    }, 0);
-
-    // Log the calculation.
-    this.calculationLog.push({ userId, totalPoints, timestamp: new Date() });
-    return totalPoints;
-  }
-
-  // Calculates monthly rewards summary for a user.
-  calculateMonthlyRewards(userId) {
-    if (!this.userTransactions.has(userId)) return {};
-    const transactions = this.userTransactions.get(userId);
-    const monthlySummary = {};
-
-    for (let txn of transactions) {
-      if (isNaN(txn.date.getTime())) continue;
-      // Format month key as YYYY-MM
-      const month = (txn.date.getMonth() + 1).toString().padStart(2, '0');
-      const monthKey = txn.date.getFullYear() + '-' + month;
-      if (!monthlySummary[monthKey]) {
-        monthlySummary[monthKey] = 0;
-      }
-      monthlySummary[monthKey] += this.calculateTransactionPoints(txn);
+  applyDiscount(productId, discountPercentage) {
+    if (
+      typeof productId !== "string" ||
+      typeof discountPercentage !== "number"
+    ) {
+      throw new Error("Invalid product details");
     }
-    return monthlySummary;
-  }
 
-  // Asynchronously persists the calculation log to a file.
-  persistCalculationLog(callback) {
-    setTimeout(() => {
-      try {
-        fs.writeFileSync(
-          path.join(__dirname, 'calcLog.txt'),
-          JSON.stringify(this.calculationLog, null, 2)
-        );
-        callback(null, { persisted: true });
-      } catch (e) {
-        callback(e);
-      }
-    }, 50);
-  }
+    const productIndex = R.findIndex(
+      R.propEq("productId", productId),
+      this.products
+    );
 
-  // Clears all transactions for a user.
-  clearTransactions(userId) {
-    if (!this.userTransactions.has(userId)) return false;
-    this.userTransactions.delete(userId);
-    return true;
-  }
-
-  // Dynamically updates reward configuration.
-  updateConfig(newConfig) {
-    for (let key in newConfig) {
-      if (this.config.hasOwnProperty(key)) {
-        this.config[key] = newConfig[key];
-      }
+    if (productIndex === -1) {
+      throw new Error("Product not found");
     }
+
+    if (discountPercentage < 0 || discountPercentage > 100) {
+      throw new Error("Invalid discount percentage");
+    }
+
+    const product = this.products[productIndex];
+    product.price -= (product.price * discountPercentage) / 100;
   }
 
-  // Returns a deep copy of all user transactions ([userId, transactions] array).
-  getTransactionLog() {
-    return JSON.parse(
-      JSON.stringify(Array.from(this.userTransactions.entries()))
+  getProductById(productId) {
+    if (typeof productId !== "string") {
+      throw new Error("Invalid product details");
+    }
+
+    const product = R.find(R.propEq("productId", productId), this.products);
+
+    if (!product) {
+      throw new Error("Product not found");
+    }
+
+    return product;
+  }
+
+  generateStockReport() {
+    return R.map(
+      R.pick(["productId", "name", "quantity", "price"]),
+      this.products
     );
   }
 
-  // Calculates rewards for a given date range.
-  calculateRewardsForDateRange(userId, startDate, endDate) {
-    if (!this.userTransactions.has(userId)) return 0;
-    const transactions = this.userTransactions.get(userId);
-    let total = 0;
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    transactions.forEach((txn) => {
-      if (txn.date > start && txn.date < end) {
-        total += this.calculateTransactionPoints(txn);
-      }
-    });
-    return total;
-  }
-
-  // Prints a detailed summary of a user's rewards (total and monthly).
-  printUserRewardSummary(userId) {
-    const rewards = this.calculateUserRewards(userId);
-    const monthly = this.calculateMonthlyRewards(userId);
-    let summary =
-      'User: ' + userId + '\nTotal Rewards: ' + rewards + '\nMonthly Breakdown:\n';
-
-    for (let key in monthly) {
-      summary += key + ' : ' + monthly[key] + '\n';
+  deleteProduct(productId) {
+    if (typeof productId !== "string") {
+      throw new Error("Invalid product details");
     }
 
-    console.log(summary);
-    return summary;
-  }
+    const productIndex = R.findIndex(
+      R.propEq("productId", productId),
+      this.products
+    );
 
-  // Imports transactions from a JSON file.
-  importTransactionsFromFile(filePath) {
-    try {
-      const data = fs.readFileSync(filePath, 'utf8');
-      const transactions = JSON.parse(data);
-      // Expect transactions to be an array of { userId, transaction }.
-      transactions.forEach((item) => {
-        if (item.userId && item.transaction) {
-          this.addTransaction(item.userId, item.transaction);
-        }
-      });
-      return true;
-    } catch (e) {
-      console.log('Error importing transactions: ' + e.message);
-      return false;
+    if (productIndex === -1) {
+      throw new Error("Product not found");
     }
+
+    this.products.splice(productIndex, 1);
   }
 
-  // Exports all transactions to a JSON file, flattened as an array of objects
-  // in the shape { userId, transaction } so it can be re-imported easily.
-  exportTransactionsToFile(filePath) {
-    try {
-      const all = [];
-      for (const [userId, txns] of this.userTransactions.entries()) {
-        for (const txn of txns) {
-          all.push({ userId, transaction: txn });
-        }
-      }
-      fs.writeFileSync(filePath, JSON.stringify(all, null, 2));
-      return true;
-    } catch (e) {
-      console.log('Error exporting transactions: ' + e.message);
-      return false;
+  getLowStockProducts(threshold) {
+    if (typeof threshold !== "number") {
+      throw new Error("Invalid product details");
     }
-  }
 
-  // Processes bulk transactions (array of { userId, transaction }).
-  processBulkTransactions(transactions) {
-    if (!Array.isArray(transactions)) {
-      throw new Error('Invalid transactions data');
+    const lowStockProducts = R.filter(
+      R.propSatisfies(R.lt(R.__, threshold), "quantity"),
+      this.products
+    );
+
+    if (lowStockProducts.length === 0) {
+      return "No low stock products";
     }
-    let processedCount = 0;
-    let userId = null;
 
-    transactions.forEach((item) => {
-      if (item.transaction && typeof item.transaction.amount === 'number') {
-        this.addTransaction(item.userId, item.transaction);
-        processedCount++;
-        userId = item.userId;
-      }
-    });
-    return { count: processedCount, userId };
-  }
-
-  // Helper: returns the transformed transaction for a user at a given index.
-  getTransaction(userId, index) {
-    if (!this.userTransactions.has(userId)) return null;
-    const transactions = this.userTransactions.get(userId);
-    if (index < 0 || index >= transactions.length) return null;
-    const txn = transactions[index];
-    return {
-      amount: this.calculateTransactionPoints(txn),
-      date: txn.date,
-      type: txn.type,
-    };
-  }
-
-  // Helper: returns the monthly summary (object mapping YYYY-MM to total rewards).
-  getMonthlySummary(userId) {
-    return this.calculateMonthlyRewards(userId);
-  }
-
-  // Helper: returns total rewards as an object { amount, userId }.
-  getTotalRewards(userId) {
-    const total = this.calculateUserRewards(userId);
-    return { amount: total, userId };
-  }
-
-  // Helper: returns rewards for a given date range as an object.
-  getRewardsForDateRange(userId, startDate, endDate) {
-    const total = this.calculateRewardsForDateRange(userId, startDate, endDate);
-    return {
-      amount: total,
-      from: new Date(startDate),
-      to: new Date(endDate),
-      userId,
-    };
+    return R.map(
+      R.pick(["productId", "name", "quantity"]),
+      lowStockProducts
+    );
   }
 }
 
-module.exports = { RewardCalculator };
+module.exports = { InventoryManagementSystem };
