@@ -1,249 +1,153 @@
 Team Leader A:
+Critical Issues Found:
 
-Code Review Findings:
+1. Router/History Implementation Error
+   - The `useHistory` hook is used outside of Router context in the App component
+   - This causes a runtime error as `useHistory` must be used within a Router component
+   - The navigation logic should be moved to a child component within Router
 
-1. Duplicate Post Rendering
-   - Both App.jsx and Post.jsx render the same list of posts, creating redundant UI elements
-   - This violates DRY principles and may confuse users seeing the same content twice
+2. Data Fetching and State Management
+   - `inefficientMethod` doesn't parse the response with `.json()`
+   - This causes the API data to be unusable as it returns the raw Response object
+   - Double state management with both useState and localStorage is redundant
 
-2. Unsafe HTML Rendering
-   - Usage of dangerouslySetInnerHTML for post titles in App.jsx is unnecessary and poses security risks
-   - Post titles should be rendered as regular text since they don't contain HTML
+3. Custom Hook Implementation
+   - `useInefficientLocalStorage` has a logical flaw where it sets localStorage but never updates `storedValue`
+   - The hook's return value becomes stale as `setStoredValue` is never called
+   - This creates a disconnect between localStorage and the component state
 
-3. Missing Error Handling & Loading States
-   - No error state display for failed API requests
-   - No loading indicator during API calls
-   - Users have no feedback about the application's state
+4. Deprecated Router Components
+   - `Switch` and `BrowserRouter` import style are from React Router v5
+   - These are deprecated in favor of `Routes` and newer import syntax in React Router v6
+   - Current implementation will need updates for newer React Router versions
 
-4. Inefficient Query Implementation
-   - API calls trigger on every keystroke due to direct query state updates
-   - Should implement debouncing to reduce unnecessary API calls
-   - Consider adding a minimum query length before triggering searches
-
-5. Missing PropTypes/TypeScript
-   - No prop type validation for the onPostDataChange prop
-   - Makes the component interface unclear and prone to runtime errors
-
-6. Redundant State Management
-   - Posts state is maintained in both App and Post components
-   - Should centralize state management in one location (preferably the parent)
-
-7. Direct DOM Manipulation
-   - Using ReactDOM.render is deprecated in React 18
-   - Should use createRoot instead for better concurrent features support
-
+5. JSX Syntax Error
+   - The ternary expression in News component has incorrect parentheses placement
+   - `(storedPosts || posts.map(...)` is syntactically invalid
+   - This would cause a runtime error in the mapping operation
 ---
 
 Team Leader B:
+Critical Issues Found:
 
-Code Review Points:
+1. Router Implementation Error:
+   The `useHistory` hook is used outside of Router context in the App component, which will cause runtime errors. The App component wraps the Router, making history unavailable. The navigation logic should be moved to a child component inside the Router.
 
-1. Duplicate Post Rendering
-   - Both App.jsx and Post.jsx render the same list of posts, creating redundant UI
-   - This violates DRY principle and may confuse users
-   - Consider consolidating the rendering to one location
+2. API Data Handling Bug:
+   In `inefficientMethod`, the response is returned directly without calling `.json()`. This will return a Response object instead of the actual data, causing the posts to be unreadable. Should be `const data = await response.json()`.
 
-2. Missing Error Handling & Loading States
-   - No error state display for failed API calls
-   - No loading indicator during fetch operations
-   - Users have no feedback during data loading or when errors occur
+3. Custom Hook Logic Flaw:
+   `useInefficientLocalStorage` is redundantly used alongside direct localStorage operations in the News component. The custom hook sets localStorage while the component also directly sets it, causing unnecessary operations and potential race conditions.
 
-3. Uncontrolled API Calls
-   - API calls trigger on every keystroke (query change)
-   - No debouncing implemented for search input
-   - This creates unnecessary API load and potential rate limiting issues
+4. Deprecated Router Components:
+   The code uses React Router v5's `Switch` component which is deprecated. Modern applications should use React Router v6 with `Routes` instead of `Switch`, and the component prop should be replaced with element prop.
 
-4. Security Vulnerability
-   - Usage of dangerouslySetInnerHTML without sanitization
-   - This poses an XSS security risk
-   - Should either sanitize HTML or avoid using dangerouslySetInnerHTML
-
-5. Missing PropTypes/TypeScript
-   - No prop type validation for the onPostDataChange prop
-   - Makes the component interface unclear and prone to runtime errors
-   - Should implement PropTypes or migrate to TypeScript
-
-6. Inefficient State Management
-   - Duplicate state management (posts stored in both components)
-   - Unnecessary prop drilling with onPostDataChange
-   - Consider using Context API or moving state management to a single location
+5. State Management Inefficiency:
+   The News component maintains duplicate state between `posts` and `storedPosts`, leading to unnecessary rerenders and potential state synchronization issues. The data should be managed in a single source of truth.
 
 ---
 
 Team Leader C:
 
-Code Review Points:
+Critical Issues Found:
 
-1. Duplicate Post Rendering
-   - Both App.jsx and Post.jsx render the same list of posts, creating redundant UI
-   - This violates DRY principle and may confuse users
-   - Should consolidate post rendering to a single location
+1. Router Implementation Error
+   - Using `useHistory` hook outside Router context in App component will cause runtime errors
+   - The `Router` component should wrap the entire application in index.jsx, not in App.jsx
 
-2. Unsafe HTML Rendering
-   - Usage of dangerouslySetInnerHTML for post titles is unnecessary and poses security risks
-   - Post titles from the API are plain text, not HTML
-   - Should use regular text rendering instead
+2. Data Fetching and Processing
+   - `inefficientMethod` doesn't parse the response (missing `.json()`)
+   - Unnecessary double storage of posts (both in state and localStorage)
+   - No error handling for the fetch operation
 
-3. Missing Error Handling & Loading States
-   - No error state displayed to users when fetch fails
-   - No loading indicator during API calls
-   - Users have no feedback about the application state
+3. Custom Hook Implementation
+   - `useInefficientLocalStorage` hook has a flawed implementation where it sets localStorage on every render
+   - The hook's state and localStorage can get out of sync due to improper dependency management
 
-4. Inefficient API Calls
-   - API is called on every keystroke due to direct query state updates
-   - Should implement debouncing for search input to reduce API calls
-   - Consider adding a minimum query length before triggering search
+4. Navigation Implementation
+   - Using deprecated `Switch` component from react-router-dom (should use `Routes` in v6)
+   - Direct manipulation of history instead of using modern navigation hooks like `useNavigate`
 
-5. Missing PropTypes/TypeScript
-   - No prop type validation for onPostDataChange
-   - Makes the component interface unclear and harder to maintain
-   - Should add PropTypes or migrate to TypeScript
-
-6. Incomplete Effect Dependencies
-   - useEffect dependency array missing onPostDataChange
-   - Could lead to stale closure issues
-   - Should include all external dependencies
-
-7. Missing Error Boundaries
-   - No error boundaries to gracefully handle runtime errors
-   - Application might completely break on unexpected errors
-   - Should implement error boundaries at appropriate component levels
-
+5. JSX Syntax Error
+   - Incorrect parentheses placement in the News component's render logic:
+   `(storedPosts || posts.map())` is syntactically incorrect and will cause runtime errors
 ---
 
 Team Leader D:
 
-Code Review Findings:
+Critical Issues Found:
 
-1. Duplicate State & Rendering
-   - Both App.jsx and Post.jsx maintain the same posts data (postsData and posts)
-   - This creates unnecessary state synchronization and double rendering
-   - Recommendation: Maintain posts state only in App.jsx and pass filtered results down
+1. Router Implementation Error:
+   The `useHistory` hook is used outside of Router context in the App component, which will cause runtime errors. The App component should not use `useHistory` directly since it contains the Router.
 
-2. Security Vulnerability
-   - Usage of dangerouslySetInnerHTML for post titles creates XSS vulnerability
-   - Recommendation: Remove dangerouslySetInnerHTML and use regular text rendering since titles shouldn't contain HTML
+2. Data Fetching and State Management:
+   The `inefficientMethod` is not properly handling the fetch response - it's returning the Response object directly without calling `.json()`. This will cause the posts data to be unusable.
 
-3. Missing Error Handling & Loading States
-   - No error display to users when fetch fails
-   - No loading indicator during API calls
-   - Recommendation: Add error state and loading state with appropriate UI feedback
+3. Custom Hook Logic Flaw:
+   `useInefficientLocalStorage` has redundant state management. It's maintaining its own state while also writing directly to localStorage, and the component is separately managing localStorage for the same key ('posts'), leading to potential race conditions.
 
-4. Performance Issue with Search
-   - API is called on every keystroke due to direct query state updates
-   - Recommendation: Implement debouncing for search input to limit API calls
+4. Component Logic Redundancy:
+   The News component is unnecessarily complex with duplicate data storage - it's using both the custom hook and direct localStorage manipulation for the same data, creating potential synchronization issues.
 
-5. Missing PropTypes/TypeScript
-   - No type checking for component props
-   - Recommendation: Add PropTypes or migrate to TypeScript for better type safety
-
-6. Accessibility Issues
-   - Search input lacks proper ARIA labels and form semantics
-   - List items could benefit from more semantic HTML structure
-   - Recommendation: Add appropriate ARIA attributes and semantic HTML
-
-7. Missing Environment Configuration
-   - API URL is hardcoded
-   - Recommendation: Move API URL to environment variables
-
+5. Navigation Implementation:
+   The navigation implementation is overly complex for the use case. Using separate functions (`navigateHome`, `navigateNews`) for simple route changes adds unnecessary complexity when Link components from react-router-dom would be more appropriate.
 ---
 
 Team Leader E:
 
 Code Review Findings:
 
-1. Duplicate Post Rendering
-   - Both App.jsx and Post.jsx render the same list of posts, creating redundant UI elements
-   - This violates DRY principle and creates unnecessary DOM elements
-   - Recommendation: Choose a single component to handle the post list display
+1. Router Implementation Error:
+   The `useHistory` hook is used outside of the Router context in the App component, which will cause runtime errors. The App component should not be wrapped in a Router since it's using the hook internally.
 
-2. Unsafe HTML Rendering
-   - Usage of dangerouslySetInnerHTML for post titles is unnecessary and poses security risks
-   - Post titles from the API are plain text, not HTML
-   - Recommendation: Remove dangerouslySetInnerHTML and use direct text rendering
+2. Data Fetching Issue:
+   In `inefficientMethod`, the response is returned directly without calling `.json()`. This will return a Response object instead of the actual data, causing the posts display to fail.
 
-3. Missing Error Handling UI
-   - Fetch errors are only logged to console
-   - Users receive no feedback when API calls fail
-   - Recommendation: Add error state and error message display to inform users
+3. Custom Hook Logic Flaw:
+   `useInefficientLocalStorage` hook has a redundant implementation. It's storing data in localStorage twice (once in the hook and once in the News component) and the state management is inefficient. This creates unnecessary renders and potential race conditions.
 
-4. Inefficient Search Implementation
-   - Every keystroke triggers an API call without debouncing
-   - This creates unnecessary network traffic and potential rate limiting issues
-   - Recommendation: Implement debouncing (e.g., 300ms delay) for search input
+4. Navigation Anti-pattern:
+   Using imperative navigation (`history.push`) for static navigation buttons is an anti-pattern in React Router. Should use `Link` or `NavLink` components instead for declarative navigation.
 
-5. Missing Loading States
-   - No loading indicators during API calls
-   - Users have no feedback while waiting for results
-   - Recommendation: Add loading state and spinner/skeleton UI
-
-6. ReactDOM.render Usage
-   - ReactDOM.render is deprecated in React 18
-   - Recommendation: Use createRoot instead for React 18 compatibility
-
-7. Missing PropTypes/TypeScript
-   - No type checking for component props
-   - Makes code more prone to runtime errors
-   - Recommendation: Add PropTypes or migrate to TypeScript
-
+5. Deprecated Router Components:
+   The code uses `Switch` from 'react-router-dom' which is deprecated in newer versions (v6+). Should be using `Routes` instead, along with updated route syntax.
 ---
 
 Team Leader F:
-
-1. Fetch call on every keystroke: Every time the user types, a new network request is made. This can be inefficient and may lead to performance issues for large or frequent inputs.
-
-2. Usage of dangerouslySetInnerHTML: While it may be intentional, it’s generally considered a potential security risk and should only be used if you trust the content completely. Encoding or sanitizing data is often advisable.
-
-3. Duplicate storage of the same data: The parent and child both keep track of the posts, which can create confusion or inconsistencies over time. Ideally, store and manage data in one component and pass it down as needed.
-
-4. Minimal error handling: The code only logs errors to the console without providing any user feedback or fallback. A more robust error handling strategy would improve the user experience.
-
-5. Potential improvement with React 18: ReactDOM.render is not deprecated yet but is being phased out. Migrating to the createRoot API would future-proof this application.
-
+1. The fetch call assigns the entire response object rather than parsed JSON, which is likely a bug (e.g., it never actually processes response data).  
+2. Using both local storage directly in the effect and also via the custom hook causes duplication and introduces inefficiency; consider consolidating.  
+3. “inefficientMethod” is not self-descriptive, and should either be renamed or made more explicit about what it’s doing.  
+4. There is no error handling or network failure fallback in the fetch call, so the component could silently fail and never update the UI.  
+5. The routing setup uses “useHistory” and “Switch,” which are deprecated in React Router v6 (though still valid in older versions, it’s generally advised to use the newer “useNavigate” and “Routes”).
 ---
 
 Team Leader G:
-1. The application makes a new fetch call on every keypress without any debouncing or throttling, which can lead to unnecessary network requests and slow performance.  
-2. Both the parent (App) and the child (Post) hold the same fetched post data in state. This duplication can cause confusion and make updates harder to manage; one source of truth is often clearer.  
-3. The code uses dangerouslySetInnerHTML in App for rendering post titles, which can pose security risks if the content is not correctly sanitized. Reviewing the necessity for this approach would be beneficial.  
-4. There’s limited error handling in the fetch call, only logging to the console. A more robust approach, such as displaying a user-facing error message or using a loading/error state, would improve the user experience.  
-5. The effect in Post triggers whenever the query changes, but there’s no fallback or behavior when the input is empty (other than no fetch). Clarifying behavior (e.g., showing a default post list or leaving it empty) might be useful.  
-6. ReactDOM.render is used in App. In newer versions of React, createRoot is recommended for better concurrent features and compatibility with future releases.
-
+1. The fetch call in inefficientMethod never parses JSON; returning the raw response object instead of response.json() is a likely bug.  
+2. There’s duplication in how localStorage is used—both the News component and the custom hook try to manage the same data. This can lead to confusion and inconsistent state.  
+3. The conditional rendering in the News component (using storedPosts || posts.map(…)) has mismatched parentheses, causing a syntax or logical error.  
+4. Using useHistory and Switch suggests older versions of React Router. In newer releases, useNavigate and Routes are favored.  
+5. The name inefficientMethod is not descriptive. Using clear, self-explanatory naming would help maintainability.  
 ---
 
 Team Leader H:
-
-1. DangerouslySetInnerHTML Usage: Relying on dangerouslySetInnerHTML for displaying post titles can pose security risks unless absolutely necessary. Prefer using plain text or escaped content unless there's a specific requirement for raw HTML.
-
-2. Excessive Network Requests: The fetch call triggers on every keystroke. Implementing debouncing or throttling would improve performance and reduce unnecessary requests.
-
-3. Missing Loading/Fetch States: There is no visual feedback or state management for loading or error conditions. Adding these states would enhance the user experience and make the app more resilient.
-
-4. Outdated ReactDOM Rendering: Using ReactDOM.render is fine in older React versions, but in React 18+, createRoot and root.render are now the recommended approach.
-
-5. Limited Error Handling: The current catch block simply logs errors to the console. A more robust error-handling strategy (e.g., showing an error message to the user) would be beneficial.
-
-6. Directly Syncing Fetched Data: Passing fetched data up to the parent state with onPostDataChange works, but can quickly become less maintainable if the app grows. Considering a more centralized state management or a custom hook might improve scalability.
-
+1) The fetch call returns the entire response rather than parsing JSON, so the data is never actually used (e.g., response.json()). This is both unclear and likely incorrect.  
+2) There is duplicated localStorage handling in the News component’s useEffect and the custom hook, leading to unnecessary complexity and possible data inconsistencies.  
+3) The custom hook name “useInefficientLocalStorage” and logic suggest bad practice. Typically, you’d manage localStorage centrally or use a well-named, well-structured hook without redundant storage calls.  
+4) The condition “storedPosts && storedPosts.length === 0 ? … : …” may unintentionally display “Loading…” when storedPosts is an empty array, causing confusion or incorrect UI states. Proper loading and error states would clarify this.  
+5) The useHistory hook is deprecated in React Router v6. In modern projects, useNavigate is recommended for navigation to avoid potential future compatibility issues.
 ---
 
 Team Leader I:
-
-1. Using dangerouslySetInnerHTML is risky: It can expose your app to XSS vulnerabilities, especially when rendering data fetched from an external source. Only use it when absolutely necessary and ensure the data is sanitized.  
-2. Duplicating state in both Post and App: You store the same posts in both components. Decide which component should own the data and pass it down as needed to avoid redundancy and potential inconsistencies.  
-3. No debounce for the search input: Every keystroke triggers a fetch, which can be inefficient and lead to excessive network requests. Consider debouncing or waiting until the user finishes typing before fetching.  
-4. ReactDOM.render is the older rendering API: In more recent React versions, you can use the createRoot API from react-dom/client. While not strictly deprecated, updating is a best practice moving forward.  
-5. Using async/await could improve readability: Wrapping the fetch call in try/catch with async/await tends to lead to more readable error handling compared to then/catch chaining.  
-6. Minimal error handling: Apart from logging the error, no feedback is provided to users in case of network problems or empty results. Providing a user-friendly message would enhance the user experience.
-
+1) The fetch call just returns the entire response object instead of parsed JSON, so you never actually retrieve and use the post data. That should be fixed to properly parse response data.  
+2) The News component stores posts both in state and local storage separately, which can lead to redundant operations and potential inconsistencies if they get out of sync.  
+3) The custom hook name (e.g., “useInefficientLocalStorage”) is unclear and doesn’t follow typical naming conventions for clarity or best practices.  
+4) There’s a mismatch in the News component’s conditional rendering logic (e.g., using “storedPosts || posts.map(...)” can cause unintended behavior), making it easy to mix up data source origins or create an error.  
+5) You’re using useHistory from React Router v5, which is deprecated in favor of newer hooks like useNavigate in React Router v6. If you're on a newer version, updating to the current approach is recommended.
 ---
 
 Team Leader J:
-
-• The unthrottled fetch on every keystroke can be inefficient and unnecessarily taxing on the API, causing potential performance issues when a user types quickly.  
-• Relying on dangerouslySetInnerHTML can introduce security risks unless you are absolutely sure the content is sanitized.  
-• The fetch call lacks any cancellation or cleanup logic, so rapid consecutive queries could lead to race conditions or unexpected results.  
-• The Post component controls both querying and displaying data, which can be separated for better organization (e.g., a dedicated search component and a separate results component).  
-• A fallback or error state for failed fetch requests would improve user experience and resiliency.  
-• The dependency array in the useEffect only includes query; if onPostDataChange needs to be recomputed or replaced later, you may need to include it there as well.
+1. The “inefficientMethod” function is returning the entire fetch response instead of parsing it as JSON, which will likely cause issues when accessing posts. It’s standard to invoke “response.json()” for usable data.  
+2. The router usage is mixing older and newer patterns. In React Router v6, “useHistory” is deprecated and should be replaced with “useNavigate.”  
+3. Storing the API response both silently in the effect and in a custom hook can be redundant, leading to extra complexity. Clarifying a single approach to local storage is advisable.  
+4. The custom “useInefficientLocalStorage” hook name suggests it’s not optimal, but the name itself doesn’t clarify its purpose well. A more descriptive name and a refined implementation (e.g., handling parsing errors, storing only necessary data) would be better.  
+5. Within the conditional rendering, you have “Loading...” displayed if “storedPosts.length === 0.” This could fail if “storedPosts” is null (since “.length” would error), so a more robust check or a default value for state is recommended.
