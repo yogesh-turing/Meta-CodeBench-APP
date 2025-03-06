@@ -1,4 +1,4 @@
-const { TeamProjectManagementSystem } = require(process.env.TARGET_FILE);
+const { TeamProjectManagementSystem } = require('./incorrect');
 
 describe("Team Project Management System", () => {
   let system;
