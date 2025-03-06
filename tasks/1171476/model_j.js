@@ -1,210 +1,277 @@
+const fs = require('fs');
+const path = require('path');
 
-class TeamProjectManagementSystem {
+class RewardCalculator {
   constructor() {
-    this.tasks = []; // Store tasks in memory
+    this.userTransactions = new Map();
+    this.calculationLog = [];
+    this.config = {
+      lowerThreshold: 50,
+      upperThreshold: 100,
+      lowerMultiplier: 1,
+      upperMultiplier: 2,
+    };
   }
 
-  // ------------------------
-  // Helper function to parse and validate a date (YYYY-MM-DD).
-  // Will throw with appropriate error messages whenever something is invalid.
-  // ------------------------
-  parseDate(dateStr, throwOnLeapYear = false) {
-    // 1. Check overall format
-    const pattern = /^\d{4}-\d{2}-\d{2}$/;
-    if (!pattern.test(dateStr)) {
-      throw new Error("Invalid date format");
+  addTransaction(userId, transaction) {
+    if (
+      !transaction ||
+      typeof transaction.amount !== 'number' ||
+      !transaction.date
+    ) {
+      throw new Error('Invalid transaction data');
     }
 
-    const [yearStr, monthStr, dayStr] = dateStr.split("-");
-    const year = parseInt(yearStr, 10);
-    const month = parseInt(monthStr, 10);
-    const day = parseInt(dayStr, 10);
-
-    // 2. If the month or day is out of range, throw "Invalid date format"
-    if (month < 1 || month > 12) {
-      throw new Error("Invalid date format");
-    }
-
-    // 3. Specific check for the test requiring "Leap year date"
-    // If the date is 2024-02-29, we're instructed to throw "Leap year date".
-    if (year === 2024 && month === 2 && day === 29) {
-      // Test specifically wants to throw an error if the date is in leap year.
-      throw new Error("Leap year date");
-    }
-
-    // 4. Check if the day is valid for that month.
-    // For simplicity, treat every February above 28 as invalid (unless it was
-    // specifically the 2024-02-29 date above).
-    // This way, "2024-02-29" hits the "Leap year date" check.
-    const daysInMonth = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-    if (day < 1 || day > daysInMonth[month - 1]) {
-      throw new Error("Invalid date format");
-    }
-
-    // 5. Return the Date object
-    return new Date(year, month - 1, day);
-  }
-
-  // ------------------------
-  // 1) addTask:
-  // ------------------------
-  addTask(taskId, title, description, assignee, dueDate) {
-    // Validate required fields
-    if (!taskId || !title || !description || !assignee || !dueDate) {
-      throw new Error("Invalid task details");
-    }
-
-    // Parse and validate the dueDate
-    const dueDateObj = this.parseDate(dueDate);
-    // Check if dueDate is in the future
-    const now = new Date();
-    if (dueDateObj <= now) {
-      throw new Error("Due date cannot be in the past");
-    }
-
-    // Create and store the task
-    this.tasks.push({
-      taskId: taskId,
-      title: title,
-      description: description,
-      assignee: assignee,
-      dueDate: dueDate, // keep original string
-      status: "pending",
-      completedDate: null,
-    });
-
-    return `Task "${title}" added to the system!`;
-  }
-
-  // ------------------------
-  // 2) assignTaskToUser:
-  // ------------------------
-  assignTaskToUser(taskId, user) {
-    const task = this.tasks.find((task) => task.taskId === taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-
-    // If already assigned to the same user
-    if (task.assignee === user) {
-      return "Task is already assigned to the user";
-    }
-
-    // Otherwise assign
-    task.assignee = user;
-    return `Task assigned to ${user}`;
-  }
-
-  // ------------------------
-  // 3) updateTaskDueDate:
-  // ------------------------
-  updateTaskDueDate(taskId, newDueDate) {
-    const task = this.tasks.find((task) => task.taskId === taskId);
-    if (!task) {
-      throw new Error("Task not found");
-    }
-
-    // Parse and validate newDueDate
-    const newDueDateObj = this.parseDate(newDueDate);
-    const now = new Date();
-    if (newDueDateObj <= now) {
-      throw new Error("New due date cannot be in the past");
-    }
-
-    // Update the task
-    task.dueDate = newDueDate;
-    return `Task due date updated to ${newDueDate}`;
-  }
-
-  // ------------------------
-  // 4) getTasksByUser:
-  // ------------------------
-  getTasksByUser(user) {
-    const userTasks = this.tasks.filter((t) => t.assignee === user);
-    return userTasks;
-  }
-
-  // ------------------------
-  // 5) generateTaskCompletionReport
-  // ------------------------
-  generateTaskCompletionReport(startDate, endDate) {
-    // Validate the startDate and endDate
-    const startDateObj = this.parseDate(startDate);
-    const endDateObj = this.parseDate(endDate);
-
-    // Collect tasks that were completed between startDate and endDate
-    const completedTasksInRange = this.tasks.filter((task) => {
-      if (task.status === "completed" && task.completedDate) {
-        // Parse its completedDate
-        const completedObj = this.parseDate(task.completedDate);
-        // Check if completedObj is between startDateObj and endDateObj (inclusive)
-        return completedObj >= startDateObj && completedObj <= endDateObj;
-      }
+    // Convert to a proper Date and skip invalid dates.
+    const dateObj = new Date(transaction.date);
+    if (isNaN(dateObj.getTime())) {
+      // Skip adding invalid-date transactions.
       return false;
-    });
-
-    if (!completedTasksInRange.length) {
-      return "No completed tasks in this range";
     }
 
-    // Return relevant fields
-    return completedTasksInRange.map((t) => ({
-      taskId: t.taskId,
-      title: t.title,
-      description: t.description,
-      completedDate: t.completedDate,
-      assignee: t.assignee,
-    }));
+    // Create transaction object.
+    const txnObj = {
+      amount: transaction.amount,
+      date: dateObj,
+      type: transaction.type || 'purchase',
+    };
+
+    // Initialize user transactions array if needed.
+    if (!this.userTransactions.has(userId)) {
+      this.userTransactions.set(userId, []);
+    }
+    const transactions = this.userTransactions.get(userId);
+    transactions.push(txnObj);
+
+    // Sort transactions by date using ISO for stable ordering.
+    transactions.sort((a, b) =>
+      a.date.toISOString().localeCompare(b.date.toISOString())
+    );
+    return true;
   }
 
-  // ------------------------
-  // 6) markTaskAsCompleted
-  // ------------------------
-  markTaskAsCompleted(taskId, completionDate) {
-    const task = this.tasks.find((task) => task.taskId === taskId);
-    if (!task) {
-      throw new Error("Task not found");
+  // Calculates reward points for a single transaction using the rules:
+  //   - 0 points for amounts ≤ lowerThreshold
+  //   - For amounts > 50 but ≤ 100: floor(amount - 50) × 1
+  //   - For amounts > 100: (100 - 50) × 1 + (amount - 100) × 2
+  //   - Refund = negative of purchase points
+  calculateTransactionPoints(transaction) {
+    const { amount, type } = transaction;
+    const { lowerThreshold, upperThreshold, lowerMultiplier, upperMultiplier } = this.config;
+    let points = 0;
+
+    if (amount <= lowerThreshold) {
+      points = 0;
+    } else if (amount > lowerThreshold && amount <= upperThreshold) {
+      points = Math.floor((amount - lowerThreshold) * lowerMultiplier);
+    } else {
+      // For amounts above upperThreshold:
+      // floor((upperThreshold - lowerThreshold) * lowerMultiplier) +
+      // floor((amount - upperThreshold) * upperMultiplier)
+      points =
+        Math.floor((upperThreshold - lowerThreshold) * lowerMultiplier) +
+        Math.floor((amount - upperThreshold) * upperMultiplier);
     }
 
-    // Validate completionDate
-    const completionDateObj = this.parseDate(completionDate);
-    // Parse dueDate to compare
-    const dueDateObj = this.parseDate(task.dueDate);
-
-    if (completionDateObj <= dueDateObj) {
-      throw new Error("Completion date cannot be before the due date");
+    // For refund transactions, return negative points.
+    if (type === 'refund') {
+      points = -points;
     }
-
-    // Mark as completed
-    task.status = "completed";
-    task.completedDate = completionDate;
-    return `Task marked as completed on ${completionDate}`;
+    return points;
   }
 
-  // ------------------------
-  // 7) getOverdueTasks:
-  // ------------------------
-  getOverdueTasks() {
-    const now = new Date();
-    // Overdue means: due date < now, and not completed
-    const overdueTasks = this.tasks.filter((task) => {
-      const dueDateObj = this.parseDate(task.dueDate);
-      return dueDateObj < now && task.status !== "completed";
-    });
+  // Calculates total reward points for a user across all transactions.
+  calculateUserRewards(userId) {
+    if (!this.userTransactions.has(userId)) return 0;
+    const transactions = this.userTransactions.get(userId);
 
-    if (!overdueTasks.length) {
-      return "No overdue tasks";
+    const totalPoints = transactions.reduce((sum, txn) => {
+      // Ignore invalid dates (should not be present, but just in case).
+      if (isNaN(txn.date.getTime())) return sum;
+      return sum + this.calculateTransactionPoints(txn);
+    }, 0);
+
+    // Log the calculation.
+    this.calculationLog.push({ userId, totalPoints, timestamp: new Date() });
+    return totalPoints;
+  }
+
+  // Calculates monthly rewards summary for a user.
+  calculateMonthlyRewards(userId) {
+    if (!this.userTransactions.has(userId)) return {};
+    const transactions = this.userTransactions.get(userId);
+    const monthlySummary = {};
+
+    for (let txn of transactions) {
+      if (isNaN(txn.date.getTime())) continue;
+      // Format month key as YYYY-MM
+      const month = (txn.date.getMonth() + 1).toString().padStart(2, '0');
+      const monthKey = txn.date.getFullYear() + '-' + month;
+      if (!monthlySummary[monthKey]) {
+        monthlySummary[monthKey] = 0;
+      }
+      monthlySummary[monthKey] += this.calculateTransactionPoints(txn);
+    }
+    return monthlySummary;
+  }
+
+  // Asynchronously persists the calculation log to a file.
+  persistCalculationLog(callback) {
+    setTimeout(() => {
+      try {
+        fs.writeFileSync(
+          path.join(__dirname, 'calcLog.txt'),
+          JSON.stringify(this.calculationLog, null, 2)
+        );
+        callback(null, { persisted: true });
+      } catch (e) {
+        callback(e);
+      }
+    }, 50);
+  }
+
+  // Clears all transactions for a user.
+  clearTransactions(userId) {
+    if (!this.userTransactions.has(userId)) return false;
+    this.userTransactions.delete(userId);
+    return true;
+  }
+
+  // Dynamically updates reward configuration.
+  updateConfig(newConfig) {
+    for (let key in newConfig) {
+      if (this.config.hasOwnProperty(key)) {
+        this.config[key] = newConfig[key];
+      }
+    }
+  }
+
+  // Returns a deep copy of all user transactions ([userId, transactions] array).
+  getTransactionLog() {
+    return JSON.parse(
+      JSON.stringify(Array.from(this.userTransactions.entries()))
+    );
+  }
+
+  // Calculates rewards for a given date range.
+  calculateRewardsForDateRange(userId, startDate, endDate) {
+    if (!this.userTransactions.has(userId)) return 0;
+    const transactions = this.userTransactions.get(userId);
+    let total = 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    transactions.forEach((txn) => {
+      if (txn.date > start && txn.date < end) {
+        total += this.calculateTransactionPoints(txn);
+      }
+    });
+    return total;
+  }
+
+  // Prints a detailed summary of a user's rewards (total and monthly).
+  printUserRewardSummary(userId) {
+    const rewards = this.calculateUserRewards(userId);
+    const monthly = this.calculateMonthlyRewards(userId);
+    let summary =
+      'User: ' + userId + '\nTotal Rewards: ' + rewards + '\nMonthly Breakdown:\n';
+
+    for (let key in monthly) {
+      summary += key + ' : ' + monthly[key] + '\n';
     }
 
-    // Return an array of overdue tasks
-    return overdueTasks.map((t) => ({
-      taskId: t.taskId,
-      title: t.title,
-      description: t.description,
-      dueDate: t.dueDate,
-      assignee: t.assignee,
-    }));
+    console.log(summary);
+    return summary;
+  }
+
+  // Imports transactions from a JSON file.
+  importTransactionsFromFile(filePath) {
+    try {
+      const data = fs.readFileSync(filePath, 'utf8');
+      const transactions = JSON.parse(data);
+      // Expect transactions to be an array of { userId, transaction }.
+      transactions.forEach((item) => {
+        if (item.userId && item.transaction) {
+          this.addTransaction(item.userId, item.transaction);
+        }
+      });
+      return true;
+    } catch (e) {
+      console.log('Error importing transactions: ' + e.message);
+      return false;
+    }
+  }
+
+  // Exports all transactions to a JSON file, flattened as an array of objects
+  // in the shape { userId, transaction } so it can be re-imported easily.
+  exportTransactionsToFile(filePath) {
+    try {
+      const all = [];
+      for (const [userId, txns] of this.userTransactions.entries()) {
+        for (const txn of txns) {
+          all.push({ userId, transaction: txn });
+        }
+      }
+      fs.writeFileSync(filePath, JSON.stringify(all, null, 2));
+      return true;
+    } catch (e) {
+      console.log('Error exporting transactions: ' + e.message);
+      return false;
+    }
+  }
+
+  // Processes bulk transactions (array of { userId, transaction }).
+  processBulkTransactions(transactions) {
+    if (!Array.isArray(transactions)) {
+      throw new Error('Invalid transactions data');
+    }
+    let processedCount = 0;
+    let userId = null;
+
+    transactions.forEach((item) => {
+      if (item.transaction && typeof item.transaction.amount === 'number') {
+        this.addTransaction(item.userId, item.transaction);
+        processedCount++;
+        userId = item.userId;
+      }
+    });
+    return { count: processedCount, userId };
+  }
+
+  // Helper: returns the transformed transaction for a user at a given index.
+  getTransaction(userId, index) {
+    if (!this.userTransactions.has(userId)) return null;
+    const transactions = this.userTransactions.get(userId);
+    if (index < 0 || index >= transactions.length) return null;
+    const txn = transactions[index];
+    return {
+      amount: this.calculateTransactionPoints(txn),
+      date: txn.date,
+      type: txn.type,
+    };
+  }
+
+  // Helper: returns the monthly summary (object mapping YYYY-MM to total rewards).
+  getMonthlySummary(userId) {
+    return this.calculateMonthlyRewards(userId);
+  }
+
+  // Helper: returns total rewards as an object { amount, userId }.
+  getTotalRewards(userId) {
+    const total = this.calculateUserRewards(userId);
+    return { amount: total, userId };
+  }
+
+  // Helper: returns rewards for a given date range as an object.
+  getRewardsForDateRange(userId, startDate, endDate) {
+    const total = this.calculateRewardsForDateRange(userId, startDate, endDate);
+    return {
+      amount: total,
+      from: new Date(startDate),
+      to: new Date(endDate),
+      userId,
+    };
   }
 }
 
-module.exports = { TeamProjectManagementSystem };
+module.exports = { RewardCalculator };

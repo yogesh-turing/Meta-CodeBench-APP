@@ -1,164 +1,223 @@
-class TeamProjectManagementSystem {
-    constructor() {
-      this.tasks = [];
+const fs = require('fs');
+const path = require('path');
+
+class RewardCalculator {
+  constructor() {
+    this.userTransactions = new Map();
+    this.calculationLog = [];
+    this.config = {
+      lowerThreshold: 50,
+      upperThreshold: 100,
+      lowerMultiplier: 1,
+      upperMultiplier: 2,
+    };
+  }
+
+  addTransaction(userId, transaction) {
+    if (!transaction || typeof transaction.amount !== 'number' || !transaction.date) {
+      throw new Error('Invalid transaction data');
     }
-  
-    validateDate(dateStr) {
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
-        throw new Error("Invalid date format");
-      }
-  
-      const [year, month, day] = dateStr.split('-').map(Number);
-      const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || (year % 400 === 0);
-      
-      if (month < 1 || month > 12 || day < 1) {
-        throw new Error("Invalid date format");
-      }
-  
-      const daysInMonth = [31, isLeapYear ? 29 : 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
-      if (day > daysInMonth[month - 1]) {
-        throw new Error("Invalid date format");
-      }
-  
-      if (isLeapYear && month === 2 && day === 29) {
-        throw new Error("Leap year date");
-      }
-  
-      return new Date(year, month - 1, day);
+
+    const date = new Date(transaction.date);
+    if (isNaN(date.getTime())) {
+      return false;
     }
-  
-    compareDates(date1, date2) {
-      return date1.getTime() - date2.getTime();
+
+    const txnObj = {
+      amount: transaction.amount,
+      date: date,
+      type: transaction.type || 'purchase',
+    };
+
+    if (!this.userTransactions.has(userId)) {
+      this.userTransactions.set(userId, []);
     }
-  
-    findTaskById(taskId) {
-      return this.tasks.find(task => task.taskId === taskId);
+    
+    const transactions = this.userTransactions.get(userId);
+    transactions.push(txnObj);
+    transactions.sort((a, b) => a.date.getTime() - b.date.getTime());
+    return true;
+  }
+
+  calculateTransactionPoints(transaction) {
+    const { amount, type } = transaction;
+    const { lowerThreshold, upperThreshold, lowerMultiplier, upperMultiplier } = this.config;
+
+    let points = 0;
+    if (amount <= lowerThreshold) {
+      points = 0;
+    } else if (amount <= upperThreshold) {
+      points = Math.floor((amount - lowerThreshold) * lowerMultiplier);
+    } else {
+      points = Math.floor((upperThreshold - lowerThreshold) * lowerMultiplier) +
+              Math.floor((amount - upperThreshold) * upperMultiplier);
     }
-  
-    addTask(taskId, title, description, assignee, dueDate) {
-      if (!taskId || !title || !description || !assignee || !dueDate) {
-        throw new Error("Invalid task details");
+
+    return type === 'refund' ? -points : points;
+  }
+
+  calculateUserRewards(userId) {
+    if (!this.userTransactions.has(userId)) return 0;
+
+    const transactions = this.userTransactions.get(userId);
+    const totalPoints = transactions.reduce((sum, txn) => {
+      if (isNaN(txn.date.getTime())) return sum;
+      return sum + this.calculateTransactionPoints(txn);
+    }, 0);
+
+    this.calculationLog.push({
+      userId,
+      totalPoints,
+      timestamp: new Date()
+    });
+
+    return totalPoints;
+  }
+
+  calculateMonthlyRewards(userId) {
+    if (!this.userTransactions.has(userId)) return {};
+
+    const transactions = this.userTransactions.get(userId);
+    const monthlySummary = {};
+
+    transactions.forEach(txn => {
+      if (isNaN(txn.date.getTime())) return;
+
+      const monthKey = `${txn.date.getFullYear()}-${String(txn.date.getMonth() + 1).padStart(2, '0')}`;
+      monthlySummary[monthKey] = (monthlySummary[monthKey] || 0) + this.calculateTransactionPoints(txn);
+    });
+
+    return monthlySummary;
+  }
+
+  persistCalculationLog(callback) {
+    setTimeout(() => {
+      try {
+        fs.writeFileSync(
+          path.join(__dirname, 'calcLog.txt'),
+          JSON.stringify(this.calculationLog, null, 2)
+        );
+        callback(null, { persisted: true });
+      } catch (e) {
+        callback(e);
       }
-  
-      const parsedDueDate = this.validateDate(dueDate);
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-  
-      if (this.compareDates(parsedDueDate, currentDate) < 0) {
-        throw new Error("Due date cannot be in the past");
-      }
-  
-      this.tasks.push({
-        taskId,
-        title,
-        description,
-        assignee,
-        dueDate,
-        status: "pending",
-        completedDate: null
+    }, 50);
+  }
+
+  clearTransactions(userId) {
+    return this.userTransactions.delete(userId);
+  }
+
+  updateConfig(newConfig) {
+    Object.assign(this.config, newConfig);
+  }
+
+  getTransactionLog() {
+    return Array.from(this.userTransactions.entries());
+  }
+
+  calculateRewardsForDateRange(userId, startDate, endDate) {
+    if (!this.userTransactions.has(userId)) return 0;
+
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    
+    return this.userTransactions.get(userId)
+      .filter(txn => txn.date >= start && txn.date <= end)
+      .reduce((sum, txn) => sum + this.calculateTransactionPoints(txn), 0);
+  }
+
+  getTransaction(userId, index) {
+    if (!this.userTransactions.has(userId)) return null;
+
+    const transactions = this.userTransactions.get(userId);
+    if (index < 0 || index >= transactions.length) return null;
+
+    const txn = transactions[index];
+    return {
+      amount: this.calculateTransactionPoints(txn),
+      date: txn.date,
+      type: txn.type
+    };
+  }
+
+  getMonthlySummary(userId) {
+    return this.calculateMonthlyRewards(userId);
+  }
+
+  getTotalRewards(userId) {
+    return {
+      amount: this.calculateUserRewards(userId),
+      userId
+    };
+  }
+
+  getRewardsForDateRange(userId, startDate, endDate) {
+    return {
+      amount: this.calculateRewardsForDateRange(userId, startDate, endDate),
+      from: new Date(startDate),
+      to: new Date(endDate),
+      userId
+    };
+  }
+
+  printUserRewardSummary(userId) {
+    const rewards = this.calculateUserRewards(userId);
+    const monthly = this.calculateMonthlyRewards(userId);
+    let summary = `User: ${userId}\nTotal Rewards: ${rewards}\nMonthly Breakdown:\n`;
+    
+    Object.entries(monthly).forEach(([month, points]) => {
+      summary += `${month} : ${points}\n`;
+    });
+    
+    console.log(summary);
+    return summary;
+  }
+
+  importTransactionsFromFile(filePath) {
+    try {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+      data.forEach(item => {
+        if (item.userId && item.transaction) {
+          this.addTransaction(item.userId, item.transaction);
+        }
       });
-  
-      return `Task "${title}" added to the system!`;
-    }
-  
-    assignTaskToUser(taskId, user) {
-      const task = this.findTaskById(taskId);
-      if (!task) {
-        throw new Error("Task not found");
-      }
-  
-      if (task.assignee === user) {
-        return "Task is already assigned to the user";
-      }
-  
-      task.assignee = user;
-      return `Task assigned to ${user}`;
-    }
-  
-    updateTaskDueDate(taskId, newDueDate) {
-      const task = this.findTaskById(taskId);
-      if (!task) {
-        throw new Error("Task not found");
-      }
-  
-      const parsedNewDueDate = this.validateDate(newDueDate);
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-  
-      if (this.compareDates(parsedNewDueDate, currentDate) < 0) {
-        throw new Error("New due date cannot be in the past");
-      }
-  
-      task.dueDate = newDueDate;
-      return `Task due date updated to ${newDueDate}`;
-    }
-  
-    getTasksByUser(user) {
-      return this.tasks.filter(task => task.assignee === user).map(task => ({
-        taskId: task.taskId,
-        title: task.title,
-        description: task.description,
-        dueDate: task.dueDate,
-        assignee: task.assignee
-      }));
-    }
-  
-    generateTaskCompletionReport(startDate, endDate) {
-      const parsedStartDate = this.validateDate(startDate);
-      const parsedEndDate = this.validateDate(endDate);
-  
-      const completedTasks = this.tasks.filter(task => {
-        if (task.status !== "completed" || !task.completedDate) return false;
-        const completedDate = this.validateDate(task.completedDate);
-        return this.compareDates(completedDate, parsedStartDate) >= 0 &&
-               this.compareDates(completedDate, parsedEndDate) <= 0;
-      }).map(task => ({
-        taskId: task.taskId,
-        title: task.title,
-        description: task.description,
-        completedDate: task.completedDate,
-        assignee: task.assignee
-      }));
-  
-      return completedTasks.length ? completedTasks : "No completed tasks in this range";
-    }
-  
-    markTaskAsCompleted(taskId, completionDate) {
-      const task = this.findTaskById(taskId);
-      if (!task) {
-        throw new Error("Task not found");
-      }
-  
-      const parsedCompletionDate = this.validateDate(completionDate);
-      const parsedDueDate = this.validateDate(task.dueDate);
-  
-      if (this.compareDates(parsedCompletionDate, parsedDueDate) < 0) {
-        throw new Error("Completion date cannot be before the due date");
-      }
-  
-      task.status = "completed";
-      task.completedDate = completionDate;
-      return `Task marked as completed on ${completionDate}`;
-    }
-  
-    getOverdueTasks() {
-      const currentDate = new Date();
-      currentDate.setHours(0, 0, 0, 0);
-  
-      const overdueTasks = this.tasks.filter(task => {
-        if (task.status === "completed") return false;
-        const dueDate = this.validateDate(task.dueDate);
-        return this.compareDates(dueDate, currentDate) < 0;
-      }).map(task => ({
-        taskId: task.taskId,
-        title: task.title,
-        description: task.description,
-        dueDate: task.dueDate,
-        assignee: task.assignee
-      }));
-  
-      return overdueTasks.length ? overdueTasks : "No overdue tasks";
+      return true;
+    } catch (e) {
+      console.log('Error importing transactions: ' + e.message);
+      return false;
     }
   }
-  
-  module.exports = { TeamProjectManagementSystem };
+
+  exportTransactionsToFile(filePath) {
+    try {
+      fs.writeFileSync(filePath, JSON.stringify(this.getTransactionLog(), null, 2));
+      return true;
+    } catch (e) {
+      console.log('Error exporting transactions: ' + e.message);
+      return false;
+    }
+  }
+
+  processBulkTransactions(transactions) {
+    if (!Array.isArray(transactions)) {
+      throw new Error('Invalid transactions data');
+    }
+
+    let processedCount = 0;
+    let lastUserId = null;
+
+    transactions.forEach(item => {
+      if (item.userId && item.transaction && typeof item.transaction.amount === 'number') {
+        if (this.addTransaction(item.userId, item.transaction)) {
+          processedCount++;
+          lastUserId = item.userId;
+        }
+      }
+    });
+
+    return { count: processedCount, userId: lastUserId };
+  }
+}
+
+module.exports = { RewardCalculator };
