@@ -1,91 +1,163 @@
-function createDatasetManager(dataset) {
-  const filters = [];
-  let sortConfig = null;
-  let groupConfig = null;
-  let limitConfig = null;
-  const originalData = [...dataset];
-
-  function applyFilters(data) {
-    return filters.reduce((filtered, predicate) => 
-      filtered.filter(predicate), [...data]);
+class TeamProjectManagementSystem {
+  constructor() {
+    this.tasks = [];
   }
 
-  function applySorting(data) {
-    if (!sortConfig) return data;
-    
-    return [...data].sort((a, b) => {
-      const valueA = a[sortConfig.key];
-      const valueB = b[sortConfig.key];
-      
-      if (sortConfig.order === 'asc') {
-        return valueA < valueB ? -1 : valueA > valueB ? 1 : 0;
-      }
-      return valueA > valueB ? -1 : valueA < valueB ? 1 : 0;
-    });
-  }
-
-  function applyLimit(data) {
-    if (!limitConfig) return data;
-    return data.slice(0, limitConfig);
-  }
-
-  function applyGrouping(data) {
-    if (!groupConfig) return data;
-    
-    return data.reduce((grouped, item) => {
-      const key = item[groupConfig];
-      if (!grouped[key]) {
-        grouped[key] = [];
-      }
-      grouped[key].push(item);
-      return grouped;
-    }, {});
-  }
-
-  function applyLimitToGroups(groupedData) {
-    if (!limitConfig) return groupedData;
-    
-    return Object.entries(groupedData).reduce((result, [key, items]) => {
-      result[key] = items.slice(0, limitConfig);
-      return result;
-    }, {});
-  }
-
-  return {
-    filterBy(predicate) {
-      filters.push(predicate);
-      return this;
-    },
-
-    sortBy(key, order = 'asc') {
-      sortConfig = { key, order };
-      return this;
-    },
-
-    groupBy(key) {
-      groupConfig = key;
-      return this;
-    },
-
-    limit(n) {
-      limitConfig = n;
-      return this;
-    },
-
-    execute() {
-      let result = applyFilters(originalData);
-      result = applySorting(result);
-      
-      if (groupConfig) {
-        result = applyGrouping(result);
-        result = applyLimitToGroups(result);
-      } else {
-        result = applyLimit(result);
-      }
-      
-      return result;
+  validateDate(dateStr) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      throw new Error("Invalid date format");
     }
-  };
+
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const date = new Date(year, month - 1, day);
+
+    if (date.getFullYear() !== year || date.getMonth() + 1 !== month || date.getDate() !== day) {
+      throw new Error("Invalid date format");
+    }
+
+    if (month === 2 && day === 29) {
+      throw new Error("Leap year date");
+    }
+
+    return date;
+  }
+
+  isDateInPast(dateStr) {
+    const date = this.validateDate(dateStr);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return date < today;
+  }
+
+  findTaskById(taskId) {
+    const task = this.tasks.find(t => t.taskId === taskId);
+    if (!task) {
+      throw new Error("Task not found");
+    }
+    return task;
+  }
+
+  addTask(taskId, title, description, assignee, dueDate) {
+    if (!taskId || !title || !description || !assignee || !dueDate) {
+      throw new Error("Invalid task details");
+    }
+
+    if (typeof taskId !== 'string' || typeof title !== 'string' || 
+        typeof description !== 'string' || typeof assignee !== 'string' || 
+        typeof dueDate !== 'string') {
+      throw new Error("Invalid task details");
+    }
+
+    this.validateDate(dueDate);
+
+    if (this.isDateInPast(dueDate)) {
+      throw new Error("Due date cannot be in the past");
+    }
+
+    this.tasks.push({
+      taskId,
+      title,
+      description,
+      assignee,
+      dueDate,
+      status: "pending",
+      completedDate: null
+    });
+
+    return `Task "${title}" added to the system!`;
+  }
+
+  assignTaskToUser(taskId, user) {
+    const task = this.findTaskById(taskId);
+    
+    if (task.assignee === user) {
+      return "Task is already assigned to the user";
+    }
+    
+    task.assignee = user;
+    return `Task assigned to ${user}`;
+  }
+
+  updateTaskDueDate(taskId, newDueDate) {
+    const task = this.findTaskById(taskId);
+    this.validateDate(newDueDate);
+
+    if (this.isDateInPast(newDueDate)) {
+      throw new Error("New due date cannot be in the past");
+    }
+
+    task.dueDate = newDueDate;
+    return `Task due date updated to ${newDueDate}`;
+  }
+
+  getTasksByUser(user) {
+    return this.tasks.filter(task => task.assignee === user);
+  }
+
+  generateTaskCompletionReport(startDate, endDate) {
+    this.validateDate(startDate);
+    this.validateDate(endDate);
+
+    const start = this.validateDate(startDate);
+    const end = this.validateDate(endDate);
+
+    const completedTasks = this.tasks.filter(task => {
+      if (task.status !== "completed" || !task.completedDate) return false;
+      const completedDate = this.validateDate(task.completedDate);
+      return completedDate >= start && completedDate <= end;
+    });
+
+    if (completedTasks.length === 0) {
+      return "No completed tasks in this range";
+    }
+
+    return completedTasks.map(task => ({
+      taskId: task.taskId,
+      title: task.title,
+      description: task.description,
+      completedDate: task.completedDate,
+      assignee: task.assignee
+    }));
+  }
+
+  markTaskAsCompleted(taskId, completionDate) {
+    const task = this.findTaskById(taskId);
+    this.validateDate(completionDate);
+
+    const completionDateTime = this.validateDate(completionDate);
+    const dueDateTime = this.validateDate(task.dueDate);
+
+    if (completionDateTime < dueDateTime) {
+      throw new Error("Completion date cannot be before the due date");
+    }
+
+    task.status = "completed";
+    task.completedDate = completionDate;
+    return `Task marked as completed on ${completionDate}`;
+  }
+
+  getOverdueTasks() {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const overdueTasks = this.tasks.filter(task => {
+      if (task.status === "completed") return false;
+      const dueDate = this.validateDate(task.dueDate);
+      return dueDate < today;
+    });
+
+    if (overdueTasks.length === 0) {
+      return "No overdue tasks";
+    }
+
+    return overdueTasks.map(task => ({
+      taskId: task.taskId,
+      title: task.title,
+      description: task.description,
+      dueDate: task.dueDate,
+      assignee: task.assignee
+    }));
+  }
 }
 
-module.exports = { createDatasetManager };
+module.exports = { TeamProjectManagementSystem };
