@@ -3,7 +3,7 @@ function createAutocompleteManager(entries) {
 
   return {
     search(prefix) {
-      // Handle non-string prefix by returning an empty array
+      // Check if prefix is a string; if not, return an empty array
       if (typeof prefix !== 'string') {
         return [];
       }
@@ -17,7 +17,7 @@ function createAutocompleteManager(entries) {
     },
 
     addEntry(item) {
-      // Only add if item is a string and not already present
+      // Only add the entry if it's a string and not already present in the data
       if (typeof item === 'string' && !data.includes(item)) {
         data.push(item);
       }
@@ -25,7 +25,7 @@ function createAutocompleteManager(entries) {
 
     removeEntry(item) {
       const idx = data.indexOf(item);
-      // Only splice if the item is found
+      // Check if the item exists before attempting to splice
       if (idx !== -1) {
         data.splice(idx, 1);
       }

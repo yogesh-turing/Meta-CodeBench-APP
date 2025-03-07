@@ -1,18 +1,7 @@
 TEST SUMMARY
 ============
 
-1171511:
-base       : 5/23 tests passed [FAILED]
-correct    : 23/23 tests passed [PASSED]
-incorrect  : 17/23 tests passed [FAILED]
-model_a    : 17/23 tests passed [FAILED]
-model_b    : 23/23 tests passed [PASSED]
-model_c    : 17/23 tests passed [FAILED]
-model_d    : 17/23 tests passed [FAILED]
-model_e    : 17/23 tests passed [FAILED]
-model_f    : 16/23 tests passed [FAILED]
-model_g    : 16/23 tests passed [FAILED]
-model_h    : 16/23 tests passed [FAILED]
-model_i    : 16/23 tests passed [FAILED]
-model_j    : 16/23 tests passed [FAILED]
+1171500:
+base       : 7/10 tests passed [FAILED]
+correct    : 10/10 tests passed [PASSED]
 

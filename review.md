@@ -1,10 +1,10 @@
 Estimated skill requirements:
-    Include "Language-specific features"
+Include "Language-specific features"
 
 Unit Test :
-    Please include test suite inside ```javascript ```
+Please include the test suite inside ```javascript ```
 
 Model Evaluations:
-    Looks good, I could run the test runner as Unit test provided in the task are not properly formatted, once unit test field it updated with proper format will run the test runner and reevaluate the model responses.
+Looks good, I could run the test runner as the Unit test provided in the task is not properly formatted, once the unit test field is updated with the proper format will run the test runner and reevaluate the model responses.
 
 Everything else looks good.
