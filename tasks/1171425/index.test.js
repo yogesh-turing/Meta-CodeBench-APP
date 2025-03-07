@@ -1,4 +1,3 @@
-// const { logger } = require('./solution.js');
 const { logger } = require(process.env.TARGET_FILE);
 
 describe('Advanced Logger ', () => {
