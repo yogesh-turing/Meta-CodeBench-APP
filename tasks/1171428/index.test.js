@@ -1,4 +1,4 @@
-const { AccountManagement } = require('./model_c');
+const { AccountManagement } = require('./model_b');
 
 describe("AccountManagement", () => {
   let accountManagement;
