@@ -2,5 +2,5 @@ TEST SUMMARY
 ============
 
 1171425:
-model_f    : 23/24 tests passed [FAILED]
+correct    : 24/24 tests passed [PASSED]
 

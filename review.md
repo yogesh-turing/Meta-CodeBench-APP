@@ -1,5 +1,20 @@
 Model A, B:
     Looks good, as from prompt its clear to return 0 for unknown logging levels and correct priorities for known levels.
+Incorrect Solution Explanation:
+    - There are 14 test cases failed, there could be more issues with the solution.
+        - There is issue with `levelPriority` function which you have mentioned in model evaluations.
+        - Another issue is with `log` where it add "DEBUG" with date string to log.
+        - Third issue is already mentioned in the explanantion.
+    - In "Incorrect Solution Explanation", cover all the issues which are there in the solution.
+
+
+Ideal Response Explanation:
+    - It should explain, how an ideal solution is better than the incorrect solution and how it fixes the issues which are there in incorrect solution.
+    - Here you can compare the incorrect solution and the ideal solution.
+    - Do not mention Model name over here. (Model G is mentioned in the explanation)
+    - For this task, we found there are 3 issues in incorrect solution, you can explain how these 3 issues are fixed/overcome in ideal solution.
+    
+
 
 
 

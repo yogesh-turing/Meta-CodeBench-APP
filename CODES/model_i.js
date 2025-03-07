@@ -10,7 +10,7 @@ class Logger {
   }
 
   levelPriority(level) {
-    return this.levels.indexOf(level);
+    return this.levels.indexOf(level) + 1;
   }
 
   setLogLevel(level) {
