@@ -1,100 +1,163 @@
-const { createAutocompleteManager } = require(process.env.TARGET_FILE);
+const { UserAuthenticationSystem } = require(process.env.TARGET_FILE);
 
-describe("createAutocompleteManager (Multi-Word Autocomplete)", () => {
-  let manager;
+describe("UserAuthenticationSystem", () => {
+  let system;
 
   beforeEach(() => {
-    const initialEntries = [
-      "apple banana",
-      "carrot bean",
-      "apple sauce",
-      "banana bread",
-      "apple pie"
-    ];
-    manager = createAutocompleteManager(initialEntries);
+    system = new UserAuthenticationSystem();
   });
 
-  test("returns matching entries where any word starts with prefix (case-insensitive)", () => {
-    // "apple banana" -> second word is "banana", which starts with "ban"
-    // "banana bread" -> first word "banana" starts with "ban"
-    const results = manager.search("ban");
-    expect(results).toContain("apple banana");
-    expect(results).toContain("banana bread");
+  // Test 1: Register User
+  test("should register a user successfully", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    const users = system.users;
+    expect(users.length).toBe(1);
+    expect(users[0].username).toBe("john123");
+    expect(users[0].email).toBe("john@example.com");
+    expect(users[0].role).toBe("user");
   });
 
-  test("does not match if prefix only appears mid-word", () => {
-    // "apple banana" has "banana" which contains "ann" in the middle,
-    // but does not start with "ann".
-    const results = manager.search("ann");
-    expect(results).toEqual([]); // No match
+  test("should throw error if username is invalid not having length between 4 to 20 characters", () => {
+    expect(() => {
+      system.registerUser("jo", "Password123", "john@example.com", "user");
+    }).toThrow("Invalid username format");
   });
 
-  test("limits results to 5 if more than 5 matches exist", () => {
-    // Add extra entries that match "app" to force more than 5
-    manager.addEntry("app tart");
-    manager.addEntry("app test");
-    manager.addEntry("app fun");
-    manager.addEntry("app data");
-    manager.addEntry("app doc");
-    manager.addEntry("app zero");
-    
-    const results = manager.search("app"); 
-    // We expect only 5 items, even if more match
-    expect(results.length).toBeLessThanOrEqual(5);
+  test("should throw error if username is invalid not having length between 4 to 20 characters", () => {
+    expect(() => {
+      system.registerUser("jo", "Password123", "john@example.com", "user");
+    }).toThrow("Invalid username format");
   });
 
-  test("handles prefix that is not a string by returning empty array or throwing error", () => {
-    // Decide if we want to throw an error or return []
-    // We'll assume the correct approach is to return an empty array
-    const results = manager.search(123); // Not a string
-    expect(results).toEqual([]);
+  test("should throw error if username is invalid having character other than alphanumeric", () => {
+    expect(() => {
+      system.registerUser(
+        "jo#1234555*",
+        "Password123",
+        "john@example.com",
+        "user"
+      );
+    }).toThrow("Invalid username format");
   });
 
-  test("addEntry() allows adding new multi-word entries", () => {
-    manager.addEntry("coconut water");
-    const results = manager.search("coc");
-    expect(results).toEqual(["coconut water"]);
+  test("should throw error if password is not strong enough", () => {
+    expect(() => {
+      system.registerUser("john123", "pass", "john@example.com", "user");
+    }).toThrow("Password is not strong enough");
   });
 
-  test("removeEntry() does not splice the last entry if item is not found", () => {
-    // Initially we have 5 entries
-    const allEntries = manager.search(""); 
-    expect(allEntries.length).toBe(5);
-
-    // Attempt to remove an entry that doesn't exist
-    manager.removeEntry("nonexistent entry");
-
-    // The original 5 should still exist
-    const afterRemoval = manager.search("");
-    expect(afterRemoval.length).toBe(5);
+  test("should throw error if email is invalid", () => {
+    expect(() => {
+      system.registerUser("john123", "Password123", "invalid-email", "user");
+    }).toThrow("Invalid email format");
   });
 
-  test("removeEntry() actually removes the exact entry", () => {
-    manager.removeEntry("carrot bean");
-    const results = manager.search("car");
-    // "carrot bean" should be removed, so no match
-    expect(results).toEqual([]);
+  test("should throw error if role is invalid", () => {
+    expect(() => {
+      system.registerUser(
+        "john123",
+        "Password123",
+        "john@example.com",
+        "guest"
+      );
+    }).toThrow("Invalid role");
   });
 
-  test("verifies partial matching is on word boundaries, not mid-word", () => {
-    // "apple banana" has "apple" and "banana"
-    // Searching "ple" or "ana" in the middle of "apple"/"banana" is not a match
-    expect(manager.search("ple")).toEqual([]);
-    expect(manager.search("ana")).toEqual([]);
+  test("should throw error if user already exists", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    expect(() => {
+      system.registerUser("john123", "Password123", "john@example.com", "user");
+    }).toThrow("User already exists");
   });
 
-  test("multi-word entries: searching 'apple' matches both 'apple banana' and 'apple sauce'", () => {
-    const results = manager.search("apple");
-    // We expect at least these two
-    expect(results).toContain("apple banana");
-    expect(results).toContain("apple sauce");
+  // Test 2: Login User
+  test("should login successfully with correct credentials", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    const token = system.loginUser("john123", "Password123");
+    expect(token).toBe("sessionToken123");
   });
 
-  test("case-insensitive search for 'BAN'", () => {
-    // Should match both 'apple banana' and 'banana bread'
-    const results = manager.search("BAN");
-    expect(results).toEqual(
-      expect.arrayContaining(["apple banana", "banana bread"])
+  test("should throw error on invalid username or password", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    expect(() => {
+      system.loginUser("john123", "WrongPassword");
+    }).toThrow("Invalid username or password");
+  });
+
+  // Test 3: Change User Password
+  test("should change user password successfully", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    system.changeUserPassword("john123", "Password123", "NewPassword123");
+    const user = system.users.find((user) => user.username === "john123");
+    expect(user.password).toBe("NewPassword123");
+  });
+
+  test("should throw error if old password is incorrect", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    expect(() => {
+      system.changeUserPassword(
+        "john123",
+        "WrongOldPassword",
+        "NewPassword123"
+      );
+    }).toThrow("Invalid username or password");
+  });
+
+  test("should throw error if new password is not strong enough", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    expect(() => {
+      system.changeUserPassword("john123", "Password123", "new");
+    }).toThrow("New password is not strong enough");
+  });
+
+  // Test 4: Assign Role to User
+  test("should assign a new role to user", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    system.assignRoleToUser("john123", "admin");
+    const user = system.users.find((user) => user.username === "john123");
+    expect(user.role).toBe("admin");
+  });
+
+  test("should throw error if user not found", () => {
+    expect(() => {
+      system.assignRoleToUser("nonexistentuser", "admin");
+    }).toThrow("User not found");
+  });
+
+  test("should throw error if role is invalid", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    expect(() => {
+      system.assignRoleToUser("john123", "superuser");
+    }).toThrow("Invalid role");
+  });
+
+  // Test 5: Get Users by Role
+  test("should return users with specified role", () => {
+    system.registerUser("john123", "Password123", "john@example.com", "user");
+    system.registerUser(
+      "admin123",
+      "AdminPassword123",
+      "admin@example.com",
+      "admin"
     );
+    const users = system.getUsersByRole("user");
+    expect(users.length).toBe(1);
+    expect(users[0].username).toBe("john123");
+  });
+
+  test("should return 'No users found with the specified role' if no users are found", () => {
+    const result = system.getUsersByRole("moderator");
+    expect(result).toBe("No users found with the specified role");
+  });
+
+  // Test 6: Validate User Email
+  test("should validate email format correctly", () => {
+    expect(system.validateEmail("valid@example.com")).toBe(true);
+  });
+
+  test("should throw error on invalid email format", () => {
+    expect(() => {
+      system.validateEmail("invalid-email");
+    }).toThrow("Invalid email format");
   });
 });

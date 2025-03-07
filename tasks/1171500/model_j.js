@@ -36,7 +36,10 @@ class UserAuthenticationSystem {
     if (emailValidation.error) throw new Error("Invalid email format");
     if (roleValidation.error) throw new Error("Invalid role specified");
 
-    const userExists = R.find(R.propEq("username", username), this.users);
+    const userExists = R.find(
+      R.propEq("username", username.toLowerCase()), 
+      this.users.map(user => ({ ...user, username: user.username.toLowerCase() }))
+    );
     if (userExists) throw new Error("User already exists");
 
     this.users.push({ username, password, email, role });

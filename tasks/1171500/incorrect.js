@@ -18,7 +18,7 @@ class UserAuthenticationSystem {
     this._validateStringParam(email, "registerUser");
     this._validateStringParam(role, "registerUser");
 
-    const userExists = R.find(R.propEq(username, "username"))(this.users);
+    const userExists = R.find(R.propEq("username", username))(this.users);
     if (userExists) {
       throw new Error("User already exists");
     }
@@ -101,12 +101,12 @@ class UserAuthenticationSystem {
       .valid("user", "admin", "moderator")
       .required();
     const roleValidation = roleSchema.validate(role);
-
+    
     if (roleValidation.error) {
       throw new Error("Invalid role");
     }
 
-    const userIndex = R.findIndex(R.propEq(username, "username"))(this.users);
+    const userIndex = R.findIndex(R.propEq("username", username))(this.users);
     if (userIndex === -1) {
       throw new Error("User not found");
     }
@@ -120,7 +120,7 @@ class UserAuthenticationSystem {
   getUsersByRole(role) {
     this._validateStringParam(role, "getUsersByRole");
 
-    const usersWithRole = R.filter(R.propEq(role, "role"))(this.users);
+    const usersWithRole = R.filter(R.propEq("role", role))(this.users);
     return usersWithRole.length === 0
       ? "No users found with the specified role"
       : usersWithRole;
@@ -131,7 +131,7 @@ class UserAuthenticationSystem {
 
     const emailSchema = Joi.string().email().required();
     const validation = emailSchema.validate(email);
-
+    
     if (validation.error) {
       throw new Error("Invalid email format");
     }

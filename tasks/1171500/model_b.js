@@ -18,16 +18,11 @@ class UserAuthenticationSystem {
     this._validateStringParam(email, "registerUser");
     this._validateStringParam(role, "registerUser");
 
-    const userExists = R.find(R.propEq(username, "username"))(this.users);
-    if (userExists) {
-      throw new Error("User already exists");
-    }
-
     const schema = Joi.object({
       username: Joi.string().alphanum().min(4).max(20).required(),
       password: Joi.string()
         .min(8)
-        .pattern(/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/)
+        .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
         .required(),
       email: Joi.string().email().required(),
       role: Joi.string().valid("user", "admin", "moderator").required(),
@@ -45,9 +40,12 @@ class UserAuthenticationSystem {
           throw new Error("Invalid email format");
         case "role":
           throw new Error("Invalid role specified");
-        default:
-          throw new Error("Validation failed");
       }
+    }
+
+    const userExists = R.any(R.propEq("username", username), this.users);
+    if (userExists) {
+      throw new Error("User already exists");
     }
 
     this.users.push({ username, password, email, role });
@@ -57,8 +55,8 @@ class UserAuthenticationSystem {
     this._validateStringParam(username, "loginUser");
     this._validateStringParam(password, "loginUser");
 
-    const user = R.find(R.whereEq({ username, password }))(this.users);
-    if (!user) {
+    const user = R.find(R.propEq("username", username), this.users);
+    if (!user || user.password !== password) {
       throw new Error("Invalid username or password");
     }
     return "sessionToken123";
@@ -69,17 +67,14 @@ class UserAuthenticationSystem {
     this._validateStringParam(oldPassword, "changeUserPassword");
     this._validateStringParam(newPassword, "changeUserPassword");
 
-    const userIndex = R.findIndex(
-      R.whereEq({ username, password: oldPassword })
-    )(this.users);
-
-    if (userIndex === -1) {
+    const userIndex = R.findIndex(R.propEq("username", username), this.users);
+    if (userIndex === -1 || this.users[userIndex].password !== oldPassword) {
       throw new Error("Invalid username or password");
     }
 
     const passwordSchema = Joi.string()
       .min(8)
-      .pattern(/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/)
+      .regex(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)/)
       .required();
 
     const validation = passwordSchema.validate(newPassword);
@@ -87,43 +82,35 @@ class UserAuthenticationSystem {
       throw new Error("New password is not strong enough");
     }
 
-    this.users[userIndex] = {
-      ...this.users[userIndex],
-      password: newPassword,
-    };
+    this.users[userIndex].password = newPassword;
   }
 
   assignRoleToUser(username, role) {
     this._validateStringParam(username, "assignRoleToUser");
     this._validateStringParam(role, "assignRoleToUser");
 
-    const roleSchema = Joi.string()
-      .valid("user", "admin", "moderator")
-      .required();
+    const roleSchema = Joi.string().valid("user", "admin", "moderator");
     const roleValidation = roleSchema.validate(role);
-
     if (roleValidation.error) {
       throw new Error("Invalid role");
     }
 
-    const userIndex = R.findIndex(R.propEq(username, "username"))(this.users);
+    const userIndex = R.findIndex(R.propEq("username", username), this.users);
     if (userIndex === -1) {
       throw new Error("User not found");
     }
 
-    this.users[userIndex] = {
-      ...this.users[userIndex],
-      role,
-    };
+    this.users[userIndex].role = role;
   }
 
   getUsersByRole(role) {
     this._validateStringParam(role, "getUsersByRole");
 
-    const usersWithRole = R.filter(R.propEq(role, "role"))(this.users);
-    return usersWithRole.length === 0
-      ? "No users found with the specified role"
-      : usersWithRole;
+    const usersWithRole = R.filter(R.propEq("role", role), this.users);
+    if (R.isEmpty(usersWithRole)) {
+      return "No users found with the specified role";
+    }
+    return usersWithRole;
   }
 
   validateEmail(email) {
@@ -131,7 +118,6 @@ class UserAuthenticationSystem {
 
     const emailSchema = Joi.string().email().required();
     const validation = emailSchema.validate(email);
-
     if (validation.error) {
       throw new Error("Invalid email format");
     }

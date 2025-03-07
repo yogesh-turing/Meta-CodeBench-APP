@@ -36,7 +36,7 @@ class UserAuthenticationSystem {
     if (emailValidation.error) throw new Error("Invalid email format");
     if (roleValidation.error) throw new Error("Invalid role specified");
 
-    const userExists = R.find(R.propEq("username", username), this.users);
+    const userExists = R.any(R.propEq("username", username), this.users);
     if (userExists) throw new Error("User already exists");
 
     this.users.push({ username, password, email, role });
@@ -47,8 +47,9 @@ class UserAuthenticationSystem {
     this._validateStringParam(password, "loginUser");
 
     const user = R.find(R.propEq("username", username), this.users);
-    if (!user || user.password !== password)
+    if (!user || user.password !== password) {
       throw new Error("Invalid username or password");
+    }
     return "sessionToken123";
   }
 
@@ -58,15 +59,17 @@ class UserAuthenticationSystem {
     this._validateStringParam(newPassword, "changeUserPassword");
 
     const user = R.find(R.propEq("username", username), this.users);
-    if (!user || user.password !== oldPassword)
+    if (!user || user.password !== oldPassword) {
       throw new Error("Invalid username or password");
+    }
 
     const passwordSchema = Joi.string()
       .min(8)
       .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/);
     const passwordValidation = passwordSchema.validate(newPassword);
-    if (passwordValidation.error)
+    if (passwordValidation.error) {
       throw new Error("New password is not strong enough");
+    }
 
     user.password = newPassword;
   }
@@ -80,7 +83,9 @@ class UserAuthenticationSystem {
 
     const roleSchema = Joi.string().valid("user", "admin", "moderator");
     const roleValidation = roleSchema.validate(role);
-    if (roleValidation.error) throw new Error("Invalid role");
+    if (roleValidation.error) {
+      throw new Error("Invalid role");
+    }
 
     user.role = role;
   }
@@ -89,8 +94,9 @@ class UserAuthenticationSystem {
     this._validateStringParam(role, "getUsersByRole");
 
     const usersWithRole = this.users.filter((user) => user.role === role);
-    if (usersWithRole.length === 0)
+    if (usersWithRole.length === 0) {
       return "No users found with the specified role";
+    }
     return usersWithRole;
   }
 
@@ -99,7 +105,9 @@ class UserAuthenticationSystem {
 
     const emailSchema = Joi.string().email();
     const { error } = emailSchema.validate(email);
-    if (error) throw new Error("Invalid email format");
+    if (error) {
+      throw new Error("Invalid email format");
+    }
     return true;
   }
 }

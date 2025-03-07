@@ -31,8 +31,7 @@ class UserAuthenticationSystem {
     const roleValidation = roleSchema.validate(role);
 
     if (usernameValidation.error) throw new Error("Invalid username format");
-    if (passwordValidation.error)
-      throw new Error("Password is not strong enough");
+    if (passwordValidation.error) throw new Error("Password is not strong enough");
     if (emailValidation.error) throw new Error("Invalid email format");
     if (roleValidation.error) throw new Error("Invalid role specified");
 
@@ -58,15 +57,14 @@ class UserAuthenticationSystem {
     this._validateStringParam(newPassword, "changeUserPassword");
 
     const user = R.find(R.propEq("username", username), this.users);
-    if (!user || user.password !== oldPassword)
-      throw new Error("Invalid username or password");
+    if (!user) throw new Error("Invalid username or password");
+    if (user.password !== oldPassword) throw new Error("Invalid username or password");
 
     const passwordSchema = Joi.string()
       .min(8)
       .regex(/(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])/);
     const passwordValidation = passwordSchema.validate(newPassword);
-    if (passwordValidation.error)
-      throw new Error("New password is not strong enough");
+    if (passwordValidation.error) throw new Error("New password is not strong enough");
 
     user.password = newPassword;
   }
@@ -89,8 +87,7 @@ class UserAuthenticationSystem {
     this._validateStringParam(role, "getUsersByRole");
 
     const usersWithRole = this.users.filter((user) => user.role === role);
-    if (usersWithRole.length === 0)
-      return "No users found with the specified role";
+    if (usersWithRole.length === 0) return "No users found with the specified role";
     return usersWithRole;
   }
 
