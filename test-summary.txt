@@ -2,17 +2,5 @@ TEST SUMMARY
 ============
 
 1171500:
-base       : 14/20 tests passed [FAILED]
-correct    : 20/20 tests passed [PASSED]
-incorrect  : 17/20 tests passed [FAILED]
-model_a    : 17/20 tests passed [FAILED]
-model_b    : 14/20 tests passed [FAILED]
-model_c    : 14/20 tests passed [FAILED]
-model_d    : 20/20 tests passed [PASSED]
-model_e    : 14/20 tests passed [FAILED]
-model_f    : 14/20 tests passed [FAILED]
-model_g    : 14/20 tests passed [FAILED]
-model_h    : 14/20 tests passed [FAILED]
-model_i    : 14/20 tests passed [FAILED]
-model_j    : 14/20 tests passed [FAILED]
+incorrect  : 20/20 tests passed [PASSED]
 

@@ -1,10 +1,5 @@
-Estimated skill requirements:
-Include "Language-specific features"
+Model E:
+    First Observed Failure Reason: Please correct the explanation.
 
-Unit Test :
-Please include the test suite inside ```javascript ```
-
-Model Evaluations:
-Looks good, I could run the test runner as the Unit test provided in the task is not properly formatted, once the unit test field is updated with the proper format will run the test runner and reevaluate the model responses.
-
-Everything else looks good.
+Incorrect Solution Explanation:
+    Add backtick for findIndex as well.
