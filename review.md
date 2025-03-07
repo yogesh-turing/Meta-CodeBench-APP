@@ -1,3 +1,7 @@
+In the `getProductById` function, the model attempted to find a product using multiple functions from the Ramda library. The `propEq` function expects two parameters: the first parameter should be the value, and the second parameter should be the field. The model incorrectly passed the field name as the first parameter and the value as the second parameter. As a result, the `getProductById` function failed to find the product and threw a "Product not found" error.
+
+
+
 Model Evaluations:
     first Observed failure it partially correct. The way models trying to find the product is incorrect.
     The `propEq` function expects first parameter as value and second parameter as field name.
