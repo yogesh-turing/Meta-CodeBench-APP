@@ -1,7 +1,6 @@
 class Logger {
   constructor() {
     this.logs = [];
-    // Keep this order: index 0 => DEBUG, 1 => INFO, 2 => WARN, 3 => ERROR
     this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
     this.currentLevel = 'DEBUG';
   }
@@ -21,12 +20,10 @@ class Logger {
     this.currentLevel = level;
   }
 
-  // REVERSED the logic to log only if message level >= currentLevel
   _shouldLog(level) {
     return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
   }
 
-  // Added debug() to match info(), warn(), and error() tests
   debug(message) {
     if (this._shouldLog('DEBUG')) {
       const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
@@ -37,7 +34,6 @@ class Logger {
     return '';
   }
 
-  // The test uses log() as a generic debug-like method, but we'll leave it as-is
   log(message) {
     if (this._shouldLog('DEBUG')) {
       const output = this.serialize(message);
@@ -78,14 +74,14 @@ class Logger {
     return '';
   }
 
-  serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      // For objects, return JSON
-      return JSON.stringify(message);
+  serialize(value) {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+
+    if (typeof value === 'object') {
+      return JSON.stringify(value);
     }
-    return String(message);
+    return String(value);
   }
 
   clear() {
@@ -96,10 +92,10 @@ class Logger {
     return this.logs;
   }
 
+  // Asynchronous logging
   async logAsync(message) {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        // If the message is circular, reject
         if (this.isCircular(message)) {
           reject(new Error('Circular structure'));
         } else {
@@ -111,23 +107,20 @@ class Logger {
     });
   }
 
-  // FIXED the isCircular check so it properly detects real circular references
-  isCircular(obj, seen = new WeakSet()) {
-    if (obj === null || typeof obj !== 'object') {
+  isCircular(obj) {
+    const seen = new WeakSet();
+
+    function detect(value) {
+      if (value && typeof value === 'object') {
+        if (seen.has(value)) return true;
+        seen.add(value);
+        // Recursively check each property
+        return Object.values(value).some(detect);
+      }
       return false;
     }
-    if (seen.has(obj)) {
-      return true;
-    }
-    seen.add(obj);
 
-    for (const key of Object.keys(obj)) {
-      if (this.isCircular(obj[key], seen)) {
-        return true;
-      }
-    }
-
-    return false;
+    return detect(obj);
   }
 }
 

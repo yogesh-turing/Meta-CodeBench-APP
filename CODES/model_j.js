@@ -1,24 +1,18 @@
 class Logger {
   constructor() {
     this.logs = [];
-    // Keep levels in ascending order of severity:
-    //  DEBUG < INFO < WARN < ERROR
-    // so that setting WARN only logs WARN and ERROR, for example.
     this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
     this.currentLevel = 'DEBUG';
   }
 
-  // Return an ISO timestamp. In tests, the time may be mocked to a fixed date.
   getTimestamp() {
     return new Date().toISOString();
   }
 
-  // Convert a level string to a numeric priority.
   levelPriority(level) {
-    return this.levels.indexOf(level);
+    return this.levels.indexOf(level) + 1;
   }
 
-  // Change the current log level.
   setLogLevel(level) {
     if (!this.levels.includes(level)) {
       throw new Error('Invalid log level');
@@ -26,16 +20,11 @@ class Logger {
     this.currentLevel = level;
   }
 
-  // Adjust so that we only log the same or higher severity than currentLevel.
   _shouldLog(level) {
-    // e.g. If current level is WARN (2), only log if levelPriority(level) >= 2
     return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
   }
 
-  // Provided "log" method. Often used for basic debugging, but in your tests
-  // there's also a separate debug() method. You can adapt as needed.
   log(message) {
-    // This method uses 'DEBUG' internally, so it respects filtering.
     if (this._shouldLog('DEBUG')) {
       const output = this.serialize(message);
       console.log(output);
@@ -75,13 +64,9 @@ class Logger {
     return '';
   }
 
-  // The test suite expects a dedicated debug() method with a specific format
   debug(message) {
     if (this._shouldLog('DEBUG')) {
       const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      // console.debug can be used in many environments (Node, browser).
-      // If the environment doesn’t support console.debug, you might want
-      // to replace with console.log or remove console.debug calls.
       console.debug(output);
       this.logs.push(output);
       return output;
@@ -89,60 +74,55 @@ class Logger {
     return '';
   }
 
-  // Turn a value into a string for logging.
   serialize(message) {
     if (message === null) return 'null';
     if (message === undefined) return 'undefined';
     if (typeof message === 'object') {
-      // Safely convert object to JSON (where possible).
-      return JSON.stringify(message);
+      if (message !== null) {
+        return JSON.stringify(message);
+      }
+      return 'null';
     }
     return String(message);
   }
 
-  // Remove all logged entries.
   clear() {
     this.logs = [];
   }
 
-  // Retrieve the logged entries so far.
   getLogs() {
     return this.logs;
   }
 
-  // Asynchronous logging that rejects if the object is circular.
   async logAsync(message) {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
+        try {
+          if (this.isCircular(message)) {
+            reject(new Error('Circular structure'));
+          } else {
+            const output = this.serialize(message);
+            this.logs.push(output);
+            resolve(output);
+          }
+        } catch (error) {
+          reject(error);
         }
       }, 0);
     });
   }
 
-  // Fix isCircular so it actually detects circular references.
   isCircular(obj) {
     const seenObjects = new WeakSet();
-
-    function detectCycle(value) {
-      if (value && typeof value === 'object') {
-        if (seenObjects.has(value)) {
-          return true;
-        }
-        seenObjects.add(value);
-        // Recursively check all child values
-        return Object.values(value).some((child) => detectCycle(child));
+    const check = (obj) => {
+      if (obj && typeof obj === 'object') {
+        if (seenObjects.has(obj)) return true;
+        seenObjects.add(obj);
+        return Object.values(obj).some(check);
       }
-      // Primitives/undefined/null are not circular
       return false;
-    }
-
-    return detectCycle(obj);
+    };
+    return check(obj);
   }
 }
 

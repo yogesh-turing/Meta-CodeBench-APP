@@ -10,8 +10,7 @@ class Logger {
   }
 
   levelPriority(level) {
-    const index = this.levels.indexOf(level);
-    return index === -1 ? 0 : index;
+    return this.levels.indexOf(level);
   }
 
   setLogLevel(level) {
@@ -37,7 +36,7 @@ class Logger {
 
   log(message) {
     if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${this.serialize(message)}`;
+      const output = this.serialize(message);
       console.log(output);
       this.logs.push(output);
       return output;
@@ -82,27 +81,35 @@ class Logger {
       try {
         return JSON.stringify(message);
       } catch (error) {
-        return 'Circular structure detected';
+        if (error instanceof TypeError) {
+          throw new Error('Circular structure');
+        }
+        throw error;
       }
     }
     return String(message);
   }
 
-  clear() {
-    this.logs = [];
-  }
-
-  getLogs() {
-    return this.logs;
-  }
-
   isCircular(obj) {
-    try {
-      JSON.stringify(obj);
+    const seen = new WeakSet();
+    
+    const detect = (obj) => {
+      if (obj && typeof obj === 'object') {
+        if (seen.has(obj)) return true;
+        seen.add(obj);
+        
+        return Object.keys(obj).some(key => {
+          try {
+            return detect(obj[key]);
+          } catch (error) {
+            return false;
+          }
+        });
+      }
       return false;
-    } catch (error) {
-      return error.message.includes('circular');
-    }
+    };
+    
+    return detect(obj);
   }
 
   async logAsync(message) {
@@ -111,16 +118,24 @@ class Logger {
         try {
           if (this.isCircular(message)) {
             reject(new Error('Circular structure'));
-            return;
+          } else {
+            const output = this.serialize(message);
+            this.logs.push(output);
+            resolve(output);
           }
-          const output = this.serialize(message);
-          this.logs.push(output);
-          resolve(output);
         } catch (error) {
           reject(error);
         }
       }, 0);
     });
+  }
+
+  clear() {
+    this.logs = [];
+  }
+
+  getLogs() {
+    return this.logs;
   }
 }
 

@@ -1,4 +1,5 @@
-const { logger } = require('./incorrect.js');
+// const { logger } = require('./solution.js');
+const { logger } = require(process.env.TARGET_FILE);
 
 describe('Advanced Logger ', () => {
   // Freeze time so that timestamps are predictable.
@@ -98,8 +99,8 @@ describe('Advanced Logger ', () => {
 
     test('error() logs with proper format when allowed', () => {
       const output = logger.error('Error advanced message');
-      expect(output).toMatch(
-        /^ERROR $2023-01-01T00:00:00.000Z$: Error advanced message$/
+      expect(output).toBe(
+        'ERROR [2023-01-01T00:00:00.000Z]: Error advanced message'
       );
     });
 
@@ -114,8 +115,8 @@ describe('Advanced Logger ', () => {
       expect(logger.warn('Filtered warn')).toBe(
         'WARN [2023-01-01T00:00:00.000Z]: Filtered warn'
       );
-      expect(logger.error('Filtered error')).toMatch(
-        /^ERROR $2023-01-01T00:00:00.000Z$: Filtered error$/
+      expect(logger.error('Filtered error')).toBe(
+        'ERROR [2023-01-01T00:00:00.000Z]: Filtered error'
       );
       expect(logger.debug('Filtered debug')).toBe('');
       expect(logger.info('Should be filtered')).toBe('');
@@ -219,7 +220,7 @@ describe('Advanced Logger ', () => {
       expect(logs).toEqual([
         'INFO [2023-01-01T00:00:00.000Z]: First',
         'WARN [2023-01-01T00:00:00.000Z]: Second',
-        expect.stringMatching(/^ERROR $2023-01-01T00:00:00.000Z$: Third$/),
+        'ERROR [2023-01-01T00:00:00.000Z]: Third',
       ]);
     });
 

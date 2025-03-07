@@ -1,3 +1,8 @@
+Model A, B:
+    Looks good, as from prompt its clear to return 0 for unknown logging levels and correct priorities for known levels.
+
+
+
 User Prompt and Unit Test:
 - The regex was used in some of the test cases, and hardcoded string in some of the test cases.
 - In the prompt, you can mention not to change the output string formats and use hard-coded strings.

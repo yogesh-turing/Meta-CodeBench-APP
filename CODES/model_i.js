@@ -10,7 +10,7 @@ class Logger {
   }
 
   levelPriority(level) {
-    return this.levels.indexOf(level) + 1;
+    return this.levels.indexOf(level);
   }
 
   setLogLevel(level) {
@@ -26,7 +26,7 @@ class Logger {
 
   log(message) {
     if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
+      const output = `DEBUG [${this.getTimestamp()}]: ${this.serialize(message)}`;
       console.log(output);
       this.logs.push(output);
       return output;
@@ -78,14 +78,11 @@ class Logger {
     if (message === null) return 'null';
     if (message === undefined) return 'undefined';
     if (typeof message === 'object') {
-      if (message !== null) {
-        try {
-          return JSON.stringify(message);
-        } catch (e) {
-          return 'Unserializable message';
-        }
+      try {
+        return JSON.stringify(message);
+      } catch (e) {
+        throw new Error('Serialization failed.');
       }
-      return 'null';
     }
     return String(message);
   }
@@ -95,18 +92,23 @@ class Logger {
   }
 
   getLogs() {
-    return [...this.logs];
+    return this.logs;
   }
 
   async logAsync(message) {
     return new Promise((resolve, reject) => {
+      if (this.isCircular(message)) {
+        reject(new Error('Circular structure'));
+        return;
+      }
+      
       setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
+        try {
           const output = this.serialize(message);
           this.logs.push(output);
           resolve(output);
+        } catch (e) {
+          reject(e);
         }
       }, 0);
     });
@@ -115,16 +117,28 @@ class Logger {
   isCircular(obj) {
     const seenObjects = new WeakSet();
 
-    const check = (obj) => {
-      if (obj && typeof obj === 'object') {
-        if (seenObjects.has(obj)) return true;
-        seenObjects.add(obj);
-        return Object.values(obj).some(value => check(value));
+    const detect = (obj) => {
+      if (typeof obj !== 'object' || obj === null) {
+        return false;
       }
+
+      if (seenObjects.has(obj)) {
+        return true;
+      }
+
+      seenObjects.add(obj);
+
+      for (let key in obj) {
+        if (detect(obj[key])) {
+          return true;
+        }
+      }
+
+      seenObjects.delete(obj);
       return false;
     };
 
-    return check(obj);
+    return detect(obj);
   }
 }
 

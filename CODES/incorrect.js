@@ -10,8 +10,7 @@ class Logger {
   }
 
   levelPriority(level) {
-    const index = this.levels.indexOf(level);
-    return index === -1 ? 0 : index;
+    return this.levels.indexOf(level);
   }
 
   setLogLevel(level) {
@@ -25,19 +24,9 @@ class Logger {
     return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
   }
 
-  debug(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
-      console.debug(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
   log(message) {
     if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
+      const output = this.formatLog('DEBUG', message);
       console.log(output);
       this.logs.push(output);
       return output;
@@ -47,7 +36,7 @@ class Logger {
 
   info(message) {
     if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
+      const output = this.formatLog('INFO', message);
       console.info(output);
       this.logs.push(output);
       return output;
@@ -57,7 +46,7 @@ class Logger {
 
   warn(message) {
     if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
+      const output = this.formatLog('WARN', message);
       console.warn(output);
       this.logs.push(output);
       return output;
@@ -67,7 +56,7 @@ class Logger {
 
   error(message) {
     if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
+      const output = this.formatLog('ERROR', message);
       console.error(output);
       this.logs.push(output);
       return output;
@@ -75,17 +64,12 @@ class Logger {
     return '';
   }
 
+  formatLog(level, message) {
+    return `${level} [${this.getTimestamp()}]: ${this.serialize(message)}`;
+  }
+
   serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      try {
-        return JSON.stringify(message);
-      } catch (error) {
-        return 'null';
-      }
-    }
-    return String(message);
+    return JSON.stringify(message);
   }
 
   clear() {
@@ -96,33 +80,34 @@ class Logger {
     return this.logs;
   }
 
+  async logAsync(message) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        if (this.isCircular(message)) {
+          reject(new Error('Circular structure'));
+        } else {
+          const output = this.serialize(message);
+          this.logs.push(output);
+          resolve(output);
+        }
+      }, 0);
+    });
+  }
+
   isCircular(obj) {
     try {
       JSON.stringify(obj);
       return false;
     } catch (error) {
-      return error.message.includes('circular');
+      return true;
     }
   }
 
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        try {
-          if (this.isCircular(message)) {
-            reject(new Error('Circular structure'));
-            return;
-          }
-          const output = this.serialize(message);
-          this.logs.push(output);
-          resolve(output);
-        } catch (error) {
-          reject(error);
-        }
-      }, 0);
-    });
+  debug(message) {
+    return this.log(message);
   }
 }
 
+// Export the logger instance
 const logger = new Logger();
 module.exports = { logger };

@@ -10,8 +10,7 @@ class Logger {
   }
 
   levelPriority(level) {
-    const index = this.levels.indexOf(level);
-    return index === -1 ? 0 : index;
+    return this.levels.indexOf(level);
   }
 
   setLogLevel(level) {
@@ -37,7 +36,7 @@ class Logger {
 
   log(message) {
     if (this._shouldLog('DEBUG')) {
-      const output = `DEBUG [${this.getTimestamp()}]: ${this.serialize(message)}`;
+      const output = this.serialize(message);
       console.log(output);
       this.logs.push(output);
       return output;
@@ -82,7 +81,7 @@ class Logger {
       try {
         return JSON.stringify(message);
       } catch (error) {
-        return 'Circular structure detected';
+        throw new Error('Circular structure detected');
       }
     }
     return String(message);
@@ -93,16 +92,29 @@ class Logger {
   }
 
   getLogs() {
-    return [...this.logs];
+    return this.logs;
   }
 
-  isCircular(obj) {
-    try {
-      JSON.stringify(obj);
+  isCircular(obj, seen = new WeakSet()) {
+    if (!obj || typeof obj !== 'object') {
       return false;
-    } catch (error) {
-      return error.message.includes('circular');
     }
+
+    if (seen.has(obj)) {
+      return true;
+    }
+
+    seen.add(obj);
+
+    for (const value of Object.values(obj)) {
+      if (typeof value === 'object' && value !== null) {
+        if (this.isCircular(value, seen)) {
+          return true;
+        }
+      }
+    }
+
+    return false;
   }
 
   async logAsync(message) {
@@ -113,6 +125,7 @@ class Logger {
             reject(new Error('Circular structure'));
             return;
           }
+
           const output = this.serialize(message);
           this.logs.push(output);
           resolve(output);

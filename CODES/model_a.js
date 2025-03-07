@@ -1,7 +1,6 @@
 class Logger {
   constructor() {
     this.logs = [];
-    // Priority: DEBUG=0, INFO=1, WARN=2, ERROR=3
     this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
     this.currentLevel = 'DEBUG';
   }
@@ -21,13 +20,10 @@ class Logger {
     this.currentLevel = level;
   }
 
-  // Changed comparison from <= to >= so that only messages
-  // at or above the currentLevel are logged.
   _shouldLog(level) {
     return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
   }
 
-  // Added a debug() method to match the tests’ expectations
   debug(message) {
     if (this._shouldLog('DEBUG')) {
       const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
@@ -38,7 +34,6 @@ class Logger {
     return '';
   }
 
-  // Often “log()” is treated like a DEBUG-level log.
   log(message) {
     if (this._shouldLog('DEBUG')) {
       const output = this.serialize(message);
@@ -83,9 +78,53 @@ class Logger {
     if (message === null) return 'null';
     if (message === undefined) return 'undefined';
     if (typeof message === 'object') {
-      return JSON.stringify(message);
+      try {
+        return JSON.stringify(message);
+      } catch (error) {
+        throw new Error('Circular structure detected');
+      }
     }
     return String(message);
+  }
+
+  isCircular(obj) {
+    const seen = new WeakSet();
+    
+    const detect = (obj) => {
+      if (obj && typeof obj === 'object') {
+        if (seen.has(obj)) return true;
+        seen.add(obj);
+        
+        return Object.values(obj).some(value => {
+          if (value && typeof value === 'object') {
+            return detect(value);
+          }
+          return false;
+        });
+      }
+      return false;
+    };
+    
+    return detect(obj);
+  }
+
+  async logAsync(message) {
+    return new Promise((resolve, reject) => {
+      setTimeout(() => {
+        try {
+          if (this.isCircular(message)) {
+            reject(new Error('Circular structure'));
+            return;
+          }
+          
+          const output = this.serialize(message);
+          this.logs.push(output);
+          resolve(output);
+        } catch (error) {
+          reject(error);
+        }
+      }, 0);
+    });
   }
 
   clear() {
@@ -95,39 +134,7 @@ class Logger {
   getLogs() {
     return this.logs;
   }
-
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
-        }
-      }, 0);
-    });
-  }
-
-  // Fixed isCircular so it actually checks for cycles
-  isCircular(obj) {
-    const seen = new WeakSet();
-    const detect = (value) => {
-      if (value && typeof value === 'object') {
-        if (seen.has(value)) {
-          return true;
-        }
-        seen.add(value);
-        // Recursively check all object values
-        return Object.values(value).some(detect);
-      }
-      return false;
-    };
-    return detect(obj);
-  }
 }
 
-// Export the logger instance
 const logger = new Logger();
 module.exports = { logger };

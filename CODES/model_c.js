@@ -1,21 +1,16 @@
 class Logger {
   constructor() {
     this.logs = [];
-    // Lower numeric index means lower priority. 
-    // The tests seem to want 'DEBUG' < 'INFO' < 'WARN' < 'ERROR'. 
     this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
     this.currentLevel = 'DEBUG';
   }
 
-  // 4) If your test expects the exact date "2023-01-01T00:00:00.000Z", hard-code it:
-  //    Otherwise, mock Date in the test. For now, we'll match the test exactly:
   getTimestamp() {
-    return '2023-01-01T00:00:00.000Z';
+    return new Date().toISOString();
   }
 
-  // Return 1 for DEBUG, 2 for INFO, 3 for WARN, 4 for ERROR
   levelPriority(level) {
-    return this.levels.indexOf(level) + 1;
+    return this.levels.indexOf(level);
   }
 
   setLogLevel(level) {
@@ -25,13 +20,10 @@ class Logger {
     this.currentLevel = level;
   }
 
-  // 1) Fix logic: You only log if the message's priority is >= your current level's priority
-  //    e.g. If currentLevel is WARN=3, only messages with priority 3 or 4 should be logged.
   _shouldLog(level) {
     return this.levelPriority(level) >= this.levelPriority(this.currentLevel);
   }
 
-  // Add a missing debug() method
   debug(message) {
     if (this._shouldLog('DEBUG')) {
       const output = `DEBUG [${this.getTimestamp()}]: ${message}`;
@@ -43,9 +35,6 @@ class Logger {
   }
 
   log(message) {
-    // Based on test behavior, log() is effectively "debug" in many frameworks.
-    // We'll keep the original logic to call this.serialize(message),
-    // but we'll check if we shouldLog('DEBUG') 
     if (this._shouldLog('DEBUG')) {
       const output = this.serialize(message);
       console.log(output);
@@ -85,14 +74,17 @@ class Logger {
     return '';
   }
 
-  serialize(value) {
-    if (value === null) return 'null';
-    if (value === undefined) return 'undefined';
-
-    if (typeof value === 'object') {
-      return JSON.stringify(value);
+  serialize(message) {
+    if (message === null) return 'null';
+    if (message === undefined) return 'undefined';
+    if (typeof message === 'object') {
+      try {
+        return JSON.stringify(message);
+      } catch (error) {
+        throw new Error('Circular structure detected');
+      }
     }
-    return String(value);
+    return String(message);
   }
 
   clear() {
@@ -103,39 +95,40 @@ class Logger {
     return this.logs;
   }
 
-  // Asynchronous logging
+  isCircular(obj) {
+    const seen = new WeakSet();
+    
+    const detectCircular = (obj) => {
+      if (obj && typeof obj === 'object') {
+        if (seen.has(obj)) return true;
+        seen.add(obj);
+        
+        return Object.keys(obj).some(key => detectCircular(obj[key]));
+      }
+      return false;
+    };
+    
+    return detectCircular(obj);
+  }
+
   async logAsync(message) {
     return new Promise((resolve, reject) => {
       setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
+        try {
+          if (this.isCircular(message)) {
+            reject(new Error('Circular structure'));
+            return;
+          }
+          const output = this.serialize(message);
+          this.logs.push(output);
+          resolve(output);
+        } catch (error) {
+          reject(error);
         }
       }, 0);
     });
   }
-
-  // 3) Correct isCircular() so it actually detects cycles instead of always returning true
-  isCircular(obj) {
-    const seen = new WeakSet();
-
-    function detect(value) {
-      if (value && typeof value === 'object') {
-        if (seen.has(value)) return true;
-        seen.add(value);
-        // Recursively check each property
-        return Object.values(value).some(detect);
-      }
-      return false;
-    }
-
-    return detect(obj);
-  }
 }
 
-// Export the logger instance
 const logger = new Logger();
 module.exports = { logger };
