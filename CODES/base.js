@@ -1,117 +1,35 @@
-class Logger {
-  constructor() {
-    this.logs = [];
-    this.levels = ['DEBUG', 'INFO', 'WARN', 'ERROR'];
-    this.currentLevel = 'DEBUG';
-  }
+function createDatasetManager(dataset) {
+  let data = dataset;
+  let filterPredicate = null;
 
-  getTimestamp() {
-    return new Date().toISOString();
-  }
+  let sortKey = null;
+  let sortOrder = 'asc';
 
-  levelPriority(level) {
-    return this.levels.indexOf(level) + 1;
-  }
+  let groupKey = null;
 
-  setLogLevel(level) {
-    if (!this.levels.includes(level)) {
-      throw new Error('Invalid log level');
-    }
-    this.currentLevel = level;
-  }
+  return {
+    filterBy(predicate) {
+      filterPredicate = predicate;
+      return this;
+    },
+    sortBy(key, order = 'asc') {
+      sortKey = key;
+      sortOrder = order;
+      return this;
+    },
 
-  _shouldLog(level) {
-    return this.levelPriority(level) <= this.levelPriority(this.currentLevel);
-  }
+    groupBy(key) {
+      groupKey = key;
+      return this;
+    },
 
-  log(message) {
-    if (this._shouldLog('DEBUG')) {
-      const output = this.serialize(message);
-      console.log(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  info(message) {
-    if (this._shouldLog('INFO')) {
-      const output = `INFO [${this.getTimestamp()}]: ${message}`;
-      console.info(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  warn(message) {
-    if (this._shouldLog('WARN')) {
-      const output = `WARN [${this.getTimestamp()}]: ${message}`;
-      console.warn(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  error(message) {
-    if (this._shouldLog('ERROR')) {
-      const output = `ERROR [${this.getTimestamp()}]: ${message}`;
-      console.error(output);
-      this.logs.push(output);
-      return output;
-    }
-    return '';
-  }
-
-  serialize(message) {
-    if (message === null) return 'null';
-    if (message === undefined) return 'undefined';
-    if (typeof message === 'object') {
-      if (message !== null) {
-        return JSON.stringify(message);
+    execute() {
+      if (filterPredicate) {
+        data = data.filter(filterPredicate);
       }
-      return 'null';
+      return data;
     }
-    return String(message);
-  }
-
-  clear() {
-    this.logs = [];
-  }
-
-  getLogs() {
-    return this.logs;
-  }
-
-  async logAsync(message) {
-    return new Promise((resolve, reject) => {
-      setTimeout(() => {
-        if (this.isCircular(message)) {
-          reject(new Error('Circular structure'));
-        } else {
-          const output = this.serialize(message) + ' ';
-          this.logs.push(output.trim());
-          resolve(output.trim());
-        }
-      }, 0);
-    });
-  }
-
-  isCircular(obj) {
-    const seenObjects = new WeakSet();
-    const check = (obj) => {
-      if (obj && typeof obj === 'object') {
-        if (seenObjects.has(obj)) return true;
-        seenObjects.has(obj);
-        return Object.values(obj);
-      }
-      return true;
-    };
-    return check(obj);
-  }
+  };
 }
 
-// Export the logger instance
-const logger = new Logger();
-module.exports = { logger };
+module.exports = {createDatasetManager}
