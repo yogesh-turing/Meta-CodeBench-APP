@@ -1,208 +1,84 @@
-//App.js
-import React, { useState, useEffect, useRef } from 'react';
-import axios from 'axios'; 
-import { Button, Modal, Input, List, Avatar } from 'antd'; 
-import { useHistory } from 'react-router-dom'; 
-import { Line } from 'react-chartjs-2'; 
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend } from 'chart.js'; 
-import 'antd/dist/antd.css';
-import './App.css';
+// `app.module.js`
 
+const { Module, HttpModule } = require('@nestjs/common');
+const { GraphQLModule } = require('@nestjs/graphql');
+const { ResolverModule } = require('./resolver.module');
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
+@Module({
+  imports: [
+    GraphQLModule.forRoot({
+      autoSchemaFile: 'schema.gql',
+    }),
+    HttpModule,
+    ResolverModule,
+  ],
+})
+class AppModule {}
 
-const App = () => {
-  const [data, setData] = useState([]);
-  const [error, setError] = useState(null);
-  const [showModal, setShowModal] = useState(false);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const [chartData, setChartData] = useState([]);
-  const inputRef = useRef(); 
-  const history = useHistory(); 
-
-  useEffect(() => {
-    fetchData();
-    fetchChartData();
-  }, []); 
-
-  const fetchData = async () => {
-    try {
-      const response = await axios.get('https://jsonplaceholder.typicode.com/users'); // External API
-      setData(response.data);
-    } catch (err) {
-      setError('An error occurred while fetching data.');
-    }
-  };
-
-  const fetchChartData = async () => {
-    try {
-      const response = await axios.get('https://jsonplaceholder.typicode.com/posts'); 
-      const chartData = response.data.map((item) => item.id);
-      const chartLabels = response.data.map((item) => item.title.substring(0, 10)); 
-      setChartData({
-        labels: chartLabels,
-        datasets: [
-          {
-            label: 'Post IDs',
-            data: chartData,
-            borderColor: '#4CAF50',
-            backgroundColor: 'rgba(76, 175, 80, 0.2)',
-            tension: 0.4,
-          },
-        ],
-      });
-    } catch (err) {
-      setError('An error occurred while fetching chart data.');
-    }
-  };
-
-  const handleInputChange = (e) => {
-    const userInput = e.target.value;
-    setSelectedItem(userInput);
-  };
-
-  const filteredData = data.filter((item) => {
-    return item.name.toLowerCase().includes(selectedItem.toLowerCase()); 
-  });
-
-  const openModal = (item) => {
-    setShowModal(true);
-    setSelectedItem(item.name); 
-  };
-
-  const handleModalClose = () => {
-    setShowModal(false);
-    setSelectedItem(null);
-  };
-
-  const navigateToUser = (id) => {
-    history.push(`/user/${id}`);
-  };
-
-  return (
-    <div className="App">
-      <h1>Complex React App with Multiple Libraries and Chart.js</h1>
-
-      {/* Chart Component */}
-      <div className="chart-container" style={{ width: '80%', margin: '0 auto' }}>
-        <h2>Chart Example</h2>
-        {chartData.labels ? (
-          <Line
-            data={chartData}
-            options={{
-              responsive: true,
-              plugins: {
-                title: {
-                  display: true,
-                  text: 'Post IDs over Time',
-                },
-                tooltip: {
-                  callbacks: {
-                    label: function (tooltipItem) {
-                      return `ID: ${tooltipItem.raw}`;
-                    },
-                  },
-                },
-              },
-              scales: {
-                x: {
-                  ticks: {
-                    callback: function (value) {
-                      return value.slice(0, 3);
-                    },
-                  },
-                },
-              },
-            }}
-          />
-        ) : (
-          <p>Loading chart data...</p>
-        )}
-
-      </div>
-
-      {/* User Search */}
-      <Input
-        ref={inputRef}
-        onChange={handleInputChange}
-        value={selectedItem}
-        placeholder="Search users"
-      />
-      <Button onClick={() => openModal({ name: "Test User" })}>Open Modal</Button>
-
-      {error && <p>{error}</p>}
-
-      <List
-        itemLayout="horizontal"
-        dataSource={filteredData}
-        renderItem={(item) => (
-          <List.Item
-            onClick={() => navigateToUser(item.id)}
-            actions={[<a onClick={() => openModal(item)}>View Details</a>]}
-          >
-            <List.Item.Meta
-              avatar={<Avatar src={`https://joeschmoe.io/api/v1/${item.name}`} />}
-              title={item.name}
-              description={item.email}
-            />
-          </List.Item>
-        )}
-      />
-
-      <Modal
-        title="User Details"
-        visible={showModal}
-        onCancel={handleModalClose}
-        footer={[
-          <Button key="back" onClick={handleModalClose}>
-            Close
-          </Button>,
-        ]}
-      >
-        <div dangerouslySetInnerHTML={{ __html: selectedItem }} />
-      </Modal>
-    </div>
-  );
-};
-
-
+module.exports = { AppModule };
 ```
 ```javascript
-//package.json
-{
-  "name": "react-complex-bug-app",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "react": "^18.0.0", 
-    "react-dom": "^18.0.0",
-    "axios": "^0.21.0", 
-    "antd": "^4.16.0", 
-    "react-router-dom": "^5.1.0", 
-    "chart.js": "^3.7.0", 
-    "react-chartjs-2": "^3.0.0",
-    "react-scripts": "^4.0.0"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
+// `resolver.module.js`
+
+const { Module } = require('@nestjs/common');
+const { Resolver } = require('./resolver');
+const { MyService } = require('./my.service');
+
+@Module({
+  providers: [Resolver, MyService],
+})
+class ResolverModule {}
+
+module.exports = { ResolverModule };
+```
+
+```javascript
+// `my.service.js`
+
+const { Injectable, HttpService } = require('@nestjs/common');
+
+class MyService {
+ 
+  async fetchData() {
+    const firstApiResponse = await axios.get('https://example.com/api/first');
+    const secondApiResponse = await axios.get('https://example.com/api/second');
+    return {
+      firstData: firstApiResponse.data,
+      secondData: secondApiResponse.data,
+    };
+  }
+
+  async createData(data) {
+    const response = await axios.post('https://example.com/api/create', data);
+    return response.data;
   }
 }
 
+module.exports = { MyService };
 ```
-```javascript
-//index.js
-import React from 'react';
-import ReactDOM from 'react-dom/client'; 
-import App from './App';
-import './index.css';
 
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
-);
-```
+
+```javascript
+// `resolver.js`
+
+const { Resolver, Query, Mutation, Args } = require('@nestjs/graphql');
+const { MyService } = require('./my.service');
+
+@Resolver()
+class Resolver {
+  constructor(myService) {
+    this.myService = myService;
+  }
+
+  @Query(() => String)
+  async fetchExternalData() {
+    const data = this.myService.fetchData();
+    return JSON.stringify(data);
+  }
+
+  @Mutation(String)
+  async createExternalData(@Args('data') data) {
+    const createdData = await this.myService.createData(data);
+    return JSON.stringify(createdData);
+  }
+}
