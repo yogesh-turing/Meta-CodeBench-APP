@@ -1,3 +1,5 @@
+Base Code:
+```javascript
 //App.js
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios'; 
@@ -206,3 +208,13 @@ ReactDOM.render(
   document.getElementById('root')
 );
 ```
+Prompt:
+
+Please do a code review for the above react application. Please look especially for things like this:
+
+- Bad practices
+- Deprecated code
+- Clear inefficiencies
+- Bugs
+
+Please mention only the 4-10 most obvious points that would always be mentioned in a good code review. Please make your code review accurate and clear while also being concise.
