@@ -1,84 +1,108 @@
-// `app.module.js`
+const fs = require('fs');
+const crypto = require('crypto');
 
-const { Module, HttpModule } = require('@nestjs/common');
-const { GraphQLModule } = require('@nestjs/graphql');
-const { ResolverModule } = require('./resolver.module');
+class EventManager {
+    constructor() {
+        this.events = {};            
+        this.users = {};             
+        this.pendingInvitations = {};
+    }
 
-@Module({
-  imports: [
-    GraphQLModule.forRoot({
-      autoSchemaFile: 'schema.gql',
-    }),
-    HttpModule,
-    ResolverModule,
-  ],
-})
-class AppModule {}
+    async createEvent(title, date, location) {
+        const id = crypto.randomUUID();
+        this.events[id] = { 
+            id, 
+            title, 
+            date, 
+            location, 
+            attendees: [], 
+            pendingInvites: [] 
+        };
+        return id;
+    }
 
-module.exports = { AppModule };
-```
-```javascript
-// `resolver.module.js`
+    deleteEvent(eventId) {
+        if (!this.events[eventId]) return;
+        delete this.events[eventId];
+        if (this.pendingInvitations[eventId]) {
+            delete this.pendingInvitations[eventId];
+        }
+    }
 
-const { Module } = require('@nestjs/common');
-const { Resolver } = require('./resolver');
-const { MyService } = require('./my.service');
+    updateEvent(eventId, newDetails) {
+        if (!this.events[eventId]) return;
+        Object.assign(this.events[eventId], newDetails);
+    }
 
-@Module({
-  providers: [Resolver, MyService],
-})
-class ResolverModule {}
+    inviteUser(eventId, userId) {
+        if (!this.events[eventId]) return;
+        if (!this.users[userId]) {
+            this.users[userId] = { id: userId, invitedEvents: [] };
+        }
 
-module.exports = { ResolverModule };
-```
+        if (this.events[eventId].pendingInvites.indexOf(userId) !== -1) {
+            return;
+        }
 
-```javascript
-// `my.service.js`
+        for (let i = 0; i < this.events[eventId].pendingInvites.length; i++) {
+            setTimeout(() => {
+                if (this.events[eventId].pendingInvites[i] === userId) {
+                    console.log(`User ${userId} is already in the pending invites for event ${eventId}.`);
+                }
+            }, 1000);
+        }
 
-const { Injectable, HttpService } = require('@nestjs/common');
+        this.events[eventId].pendingInvites.push(userId);
+        this.users[userId].invitedEvents.push(eventId);
+    }
 
-class MyService {
- 
-  async fetchData() {
-    const firstApiResponse = await axios.get('https://example.com/api/first');
-    const secondApiResponse = await axios.get('https://example.com/api/second');
-    return {
-      firstData: firstApiResponse.data,
-      secondData: secondApiResponse.data,
-    };
-  }
+    async acceptInvitation(eventId, userId) {
+        if (!this.events[eventId] || !this.users[userId]) return;
 
-  async createData(data) {
-    const response = await axios.post('https://example.com/api/create', data);
-    return response.data;
-  }
+        const index = this.events[eventId].pendingInvites.findIndex(id => id === userId);
+        if (index !== -1) {
+            this.events[eventId].attendees.push(userId);
+            this.events[eventId].pendingInvites.splice(index, 1);
+            this.logAttendance(userId, eventId);
+        }
+    }
+
+    declineInvitation(eventId, userId) {
+        if (!this.events[eventId] || !this.users[userId]) return;
+        this.events[eventId].pendingInvites = this.events[eventId].pendingInvites.filter(id => id !== userId);
+    }
+
+    getUpcomingEvents() {
+        return Object.values(this.events).filter(event => new Date(event.date) > new Date());
+    }
+
+    getEventDetails(eventId) {
+        return this.events[eventId] || null;
+    }
+
+    async sendReminder(eventId) {
+        if (!this.events[eventId]) return;
+        const attendees = this.events[eventId].attendees;
+        for (let i = 0; i < attendees.length; i++) {
+            setTimeout(() => {
+                if (this.events[eventId]) {
+                    console.log(`Reminder sent to user ${attendees[i]} for event "${this.events[eventId].title}"`);
+                }
+            }, 2000);
+        }
+    }
+
+    getAttendeeList(eventId) {
+        return this.events[eventId] ? this.events[eventId].attendees : [];
+    }
+
+    async logAttendance(userId, eventId) {
+        const logEntry = `${new Date().toISOString()} - User: ${userId} attended event: ${eventId}\n`;
+        fs.promises.appendFile('attendance.log', logEntry)
+            .catch(err => {
+                console.error(`Error logging attendance for user ${userId} at event ${eventId}:`, err);
+            });
+    }
 }
 
-module.exports = { MyService };
-```
-
-
-```javascript
-// `resolver.js`
-
-const { Resolver, Query, Mutation, Args } = require('@nestjs/graphql');
-const { MyService } = require('./my.service');
-
-@Resolver()
-class Resolver {
-  constructor(myService) {
-    this.myService = myService;
-  }
-
-  @Query(() => String)
-  async fetchExternalData() {
-    const data = this.myService.fetchData();
-    return JSON.stringify(data);
-  }
-
-  @Mutation(String)
-  async createExternalData(@Args('data') data) {
-    const createdData = await this.myService.createData(data);
-    return JSON.stringify(createdData);
-  }
-}
+module.exports = EventManager;

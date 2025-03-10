@@ -1,222 +1,292 @@
 Team Leader A:
 
-1. Missing Injectable Decorator
-- The `MyService` class lacks the `@Injectable()` decorator which is required for NestJS dependency injection.
-- This will cause runtime errors as NestJS won't properly recognize and inject the service.
+Here are the most significant issues found in the code review:
 
-2. Axios Usage Issue
-- `MyService` uses `axios` directly without importing it.
-- Should either use the injected `HttpService` (which is already imported via `HttpModule`) or properly import axios.
-- Current implementation will throw ReferenceError.
+1. Asynchronous Operations Inconsistency
+   - Methods marked as async (createEvent, acceptInvitation) don't use await or return Promises
+   - This can lead to race conditions and unexpected behavior
 
-3. Error Handling Absent
-- No error handling in either service methods or resolver.
-- External API calls should be wrapped in try-catch blocks.
-- Should include error responses in GraphQL schema.
+2. Input Validation Missing
+   - No validation for required parameters or data types in most methods
+   - Could lead to data corruption or application crashes
 
-4. Type Safety Issues
-- GraphQL types are poorly defined (using basic String type for complex objects).
-- Missing input type definitions for mutation arguments.
-- Should create proper ObjectType and InputType classes for GraphQL schema.
+3. Inefficient Invitation Check
+   - inviteUser method uses both indexOf and a setTimeout loop to check for duplicates
+   - The loop is unnecessary and creates performance overhead
+   - The setTimeout makes the check asynchronous and unreliable
 
-5. Missing Response Type Definitions
-- The resolver's return types don't match the actual returned data structure.
-- JSON.stringify() is used as a workaround, which defeats the purpose of GraphQL's type system.
-- Should define proper return types instead of using String.
+4. File System Operations Security
+   - logAttendance writes to a fixed filename without path sanitization
+   - No file size limiting or rotation mechanism
+   - Could lead to disk space issues and potential path traversal vulnerabilities
 
+5. Memory Management
+   - No cleanup mechanism for old events
+   - Continuously growing objects (events, users, pendingInvitations) could lead to memory leaks
+
+6. Improper Error Handling
+   - Many methods silently fail by returning undefined
+   - No proper error propagation to caller
+   - Missing try-catch blocks for potential errors
+
+7. Race Conditions in sendReminder
+   - setTimeout callbacks might execute after event deletion
+   - No synchronization mechanism for concurrent operations
+   - Could lead to sending reminders for deleted events
 ---
 
 Team Leader B:
 
-1. Missing Error Handling
-   - The MyService's fetchData and createData methods lack try-catch blocks
-   - No error handling in the Resolver's methods
-   - This could lead to unhandled promise rejections and poor error reporting to clients
+Here are the most significant issues that should be addressed in this code:
 
-2. Axios Import Issue
-   - MyService uses axios without importing it
-   - Should be using the injected HttpService instead, which is already imported in the module
+1. **Async/Await Inconsistency**
+The class mixes async/await with synchronous operations inconsistently. Some methods are marked async but don't use await (createEvent), while others use async operations without proper async handling (sendReminder).
 
-3. Missing Type Definitions
-   - GraphQL resolver lacks proper type definitions for inputs and outputs
-   - @Args decorator missing type validation
-   - This reduces type safety and GraphQL schema clarity
+2. **Inefficient Loop with setTimeout**
+The inviteUser method contains an inefficient and problematic loop that creates multiple timeouts to check for duplicate users. This is both resource-intensive and doesn't actually prevent race conditions.
 
-4. Incomplete Dependency Injection
-   - Resolver's constructor parameter 'myService' missing @Injectable() decorator
-   - Type annotation missing in constructor parameter
-   - This could lead to dependency injection failures
+3. **Missing Input Validation**
+Critical methods lack input validation for parameters (createEvent, updateEvent). This could lead to invalid data storage and potential security issues.
 
-5. Inefficient Data Serialization
-   - Using JSON.stringify for GraphQL responses is unnecessary and inefficient
-   - GraphQL automatically handles serialization
-   - Should return plain objects instead
+4. **Unsafe File Operations**
+The logAttendance method writes to a file without proper path sanitization or directory existence checks. This could lead to security vulnerabilities and runtime errors.
 
-6. Parallel API Calls Opportunity
-   - In MyService.fetchData(), the API calls could be run in parallel using Promise.all
-   - Current sequential execution unnecessarily increases response time
+5. **No Error Handling Strategy**
+Most methods silently fail by returning undefined when encountering errors (e.g., deleteEvent, updateEvent). This makes debugging difficult and could hide critical issues.
+
+6. **Memory Leak Risk**
+The sendReminder method creates timeouts but doesn't clean them up, potentially causing memory leaks if called frequently with invalid eventIds.
+
+7. **Inconsistent State Management**
+When deleting events, the method doesn't clean up related user references in this.users[userId].invitedEvents, leading to potential data inconsistency.
+
 ---
 
 Team Leader C:
-1. Missing Injectable Decorator
-   - The `MyService` class lacks the `@Injectable()` decorator, which is required for NestJS dependency injection.
-   - This will cause runtime errors as NestJS won't properly instantiate the service.
+Here are the most significant issues identified in the code review:
 
-2. Axios Usage Without Proper Import/Injection
-   - `MyService` uses `axios` directly without importing it.
-   - HttpService is imported but never used, despite being the recommended way in NestJS.
-   - This creates both a dependency management issue and prevents proper testing/mocking.
+1. Asynchronous Operations Mishandling
+   - `createEvent` is marked async but contains no await operations
+   - `sendReminder` uses setTimeout unnecessarily for what should be parallel operations
+   - Missing error handling in most async operations
 
-3. Improper Error Handling
-   - External API calls in `MyService` lack try-catch blocks.
-   - No error handling strategy for failed HTTP requests.
-   - This could lead to unhandled promise rejections and poor error reporting to clients.
+2. Security Vulnerability
+   - Direct file system access in `logAttendance` without path sanitization could lead to path traversal attacks
+   - No input validation for critical fields (date formats, string lengths, etc.)
 
-4. GraphQL Type Safety Issues
-   - The resolver's return types are using plain `String` with JSON.stringify.
-   - Should define proper GraphQL object types instead of serializing to string.
-   - This bypasses GraphQL's type system benefits and schema validation.
+3. Race Conditions
+   - Multiple operations modify shared state (`events`, `users`) without synchronization
+   - Concurrent invitations could lead to duplicate entries due to non-atomic operations
 
-5. Missing Parameter Types
-   - The `createExternalData` mutation's `data` parameter lacks type definition.
-   - Constructor parameter in `Resolver` class is untyped.
-   - This reduces type safety and IDE support.
+4. Memory Leak Risk
+   - No cleanup mechanism for old events
+   - `pendingInvitations` object can grow indefinitely
+   - Zombie timeouts in `sendReminder` if event is deleted
 
+5. Inefficient Operations
+   - `inviteUser` performs redundant loops and timeouts for checking duplicates
+   - `getUpcomingEvents` filters events on every call instead of maintaining an indexed structure
 
+6. Inconsistent Error Handling
+   - Most methods silently fail by returning undefined
+   - Some operations log errors while others don't
+   - No standardized error reporting mechanism
+
+7. Data Integrity Issues
+   - No validation that eventId exists before operations
+   - No checks for valid date formats or other data types
+   - Missing transaction-like operations for related data updates
 ---
 
 Team Leader D:
 
-1. Missing Error Handling:
-   The MyService's HTTP calls lack try-catch blocks and error handling, which could lead to unhandled promise rejections. This is particularly critical for external API calls that might fail.
+Here are the most significant issues that should be addressed:
 
-2. Incorrect HTTP Client Usage:
-   The service uses axios directly without injecting HttpService, despite HttpModule being imported. This breaks dependency injection principles and makes testing harder. HttpService should be injected and used instead.
+1. Async/Await Inconsistency
+The class mixes async/await with synchronous operations inconsistently. Some methods are marked async but don't use await (createEvent), while others contain asynchronous operations without proper async handling (sendReminder).
 
-3. Missing Type Definitions:
-   GraphQL resolvers are returning stringified JSON without proper type definitions. This defeats the purpose of GraphQL's type system. Proper ObjectType classes should be defined for the return types instead of using String.
+2. Unsafe Direct Object Mutations
+Direct manipulation of this.events and this.users objects makes the class vulnerable to external modifications. The getEventDetails method returns the raw object reference.
 
-4. Incomplete Decorator Configuration:
-   The @Injectable() decorator is imported but not used in MyService. This breaks NestJS's dependency injection system and could cause instantiation issues.
+3. Input Validation Missing
+Methods lack input validation for parameters (e.g., date format, empty strings, null values), which could lead to data corruption or unexpected behavior.
 
-5. Unsafe JSON Handling:
-   Resolver methods are directly stringifying data without validation or sanitization. This could expose sensitive data or cause issues with circular references. Proper data transformation should be implemented.
+4. Inefficient Invitation Check
+The inviteUser method uses setTimeout in a loop to check for duplicate invites, which is both inefficient and incorrect. The check should be immediate and use includes() instead.
 
-6. Missing Input Validation:
-   The createExternalData mutation accepts data without any validation decorators or DTOs. This could lead to security vulnerabilities and invalid data being processed.
+5. File System Operations Risk
+The logAttendance method writes to a hardcoded file path without proper error handling or file system access validation, potentially causing security and reliability issues.
+
+6. Memory Leaks in Event Listeners
+The setTimeout callbacks in sendReminder maintain references to event data but don't handle cleanup if the event is deleted, potentially causing memory leaks.
+
+7. Race Conditions
+Multiple async operations (especially in acceptInvitation and logAttendance) lack proper transaction handling, which could lead to race conditions in a multi-user environment.
 ---
 
 Team Leader E:
+Here are the most significant issues that should be addressed:
 
-1. Missing Injectable Decorator
-   - The `MyService` class lacks the `@Injectable()` decorator, which is required for NestJS dependency injection.
-   - This will cause runtime errors as NestJS won't properly recognize and inject the service.
+1. Input Validation Missing
+The class accepts inputs without validation. Parameters like title, date, location, userId, and eventId should be validated for type, format, and emptiness to prevent data corruption and potential security issues.
 
-2. Axios Usage Without HttpService
-   - Direct axios calls in `MyService` instead of using the injected `HttpService`.
-   - `HttpService` is imported but never used, despite `HttpModule` being included in the app.
-   - Using `HttpService` would provide better integration with NestJS lifecycle and testing capabilities.
+2. Async/Await Inconsistency
+Several methods are marked async but don't utilize await or handle promises properly (createEvent, sendReminder). This creates misleading behavior and potential race conditions.
 
-3. Improper Type Definitions
-   - GraphQL mutations and queries use primitive `String` type instead of proper object types.
-   - Missing proper input/output type definitions (DTOs) for GraphQL operations.
-   - This breaks GraphQL best practices and makes the API less type-safe and harder to maintain.
+3. Unsafe Direct Object Mutation
+Direct object mutation through Object.assign in updateEvent allows overwriting critical properties like id or attendees. A whitelist of updatable properties should be implemented.
 
-4. Error Handling
-   - No error handling for HTTP requests in `MyService`.
-   - No error handling in resolver methods.
-   - External API calls could fail silently, leading to unclear error states.
+4. Memory Leak Risk
+The inviteUser method contains a setTimeout that references event data but has no cleanup mechanism. If events are deleted, these timeouts continue to run and try to access non-existent data.
 
-5. Missing Parameter Types
-   - The `createExternalData` mutation's `data` parameter lacks type definition.
-   - Constructor parameter in `Resolver` class is untyped.
-   - This reduces TypeScript's effectiveness and makes the code more prone to runtime errors.
+5. File System Operations Without Error Handling
+The logAttendance method writes to the filesystem without proper error handling for file permissions, disk space, or path issues. The catch block only logs the error without proper remediation.
+
+6. Inefficient Array Operations
+The inviteUser method uses indexOf and then iterates through the array again with setTimeout, which is redundant and inefficient. A single check would suffice.
+
+7. Lack of Data Persistence
+All data is stored in memory (this.events, this.users) and will be lost when the application restarts. For a production system, this should be stored in a database with proper transaction handling.
+
 ---
 
 Team Leader F:
-1. **Missing Decorators and Dependencies:**
-   - The `HttpModule` is imported in the `AppModule` but not used anywhere in the provided code. If `HttpService` is intended to be used in `MyService`, it should be injected properly. Ensure that `HttpService` is added to the constructor of `MyService` and that `HttpModule` is imported at the module level where `MyService` is used.
+Here's a concise code review addressing the most apparent issues in the provided JavaScript code:
 
-2. **Use of Axios Directly:**
-   - `MyService` uses `axios` directly instead of `HttpService` provided by NestJS. It's a best practice to use `HttpService` for HTTP requests as it integrates with the NestJS lifecycle and provides additional features like observables.
+1. **Asynchronous Operation Handling:**
+    - `createEvent` and `sendReminder` methods are declared as `async` but contain no `await` expressions. This is misleading and can be removed unless asynchronous operations are added. Conversely, `logAttendance` correctly uses `async/await` when dealing with file operations.
 
-3. **Asynchronous Code Handling:**
-   - In `fetchExternalData`, the `fetchData` method is called without `await`. This will return a promise instead of the actual data, likely causing unexpected behavior. Ensure that `await` is used to handle asynchronous operations properly.
+2. **Resource Management with `fs.promises`:**
+    - In `logAttendance`, consider using the `stream` API for better performance, especially when dealing with numerous log entries. `fs.promises.appendFile` repeatedly opens and closes the file, which can be inefficient.
 
-4. **Missing Type Annotations:**
-   - The `createExternalData` mutation lacks a return type for the GraphQL mutation decorator. It should be `@Mutation(() => String)` instead of `@Mutation(String)`. This ensures the GraphQL schema is correctly generated.
+3. **User Invitation Duplication:**
+    - The invitation check in `inviteUser` has redundant logic. The `indexOf` check prevents adding a duplicate but is followed by a loop that logs duplicates with a delay. The loop can be eliminated.
 
-5. **Lack of Error Handling:**
-   - The code lacks error handling for HTTP requests. Consider implementing try-catch blocks or using RxJS operators to handle potential errors from external API calls gracefully.
+4. **Date Handling for `getUpcomingEvents`:**
+    - Current date comparison `new Date(event.date) > new Date()` can lead to incorrect results due to timezone discrepancies. Using libraries like `luxon` or `date-fns` can offer more reliable date operations.
 
-6. **Use of ES6+ Features:**
-   - The code uses CommonJS module syntax (`require` and `module.exports`). Consider using ES6+ import/export syntax for consistency and modern JavaScript practices.
+5. **Error Handling and Validation:**
+    - Methods like `updateEvent`, `acceptInvitation`, and `inviteUser` silently return if conditions aren't met, which can be confusing. Adding explicit error messages or exceptions would improve code robustness and debuggability.
 
-7. **Code Consistency and Conventions:**
-   - Ensure consistent use of decorators and proper naming conventions. For example, the `Resolver` class should be named more descriptively, like `MyResolver`, to reflect its purpose and follow NestJS conventions.
+6. **Concurrency Issues with setTimeout:**
+    - The `setTimeout` usage in `inviteUser` and `sendReminder` implies potential concurrency problems if the `pendingInvites` or `attendees` lists mutate during the timeout period. Consider alternatives like event-driven updates.
+
+7. **Security and Logging:**
+    - Ensure the `logAttendance` file path can't be exploited for path traversal. Validating and sanitizing the log location might be necessary, depending on the environment this is run in.
 ---
 
 Team Leader G:
-1. **Dependency Injection in `resolver.js`:** The `Resolver` class should utilize NestJS's dependency injection properly. The constructor should define a parameter with the `@Inject` decorator or use TypeScript's type inference. Currently, `myService` is injected without any type annotations or decorators, which might cause issues. Properly annotate it using `@Inject` or by specifying the type if using TypeScript.
+1. **Error Handling in Async Methods**: 
+    - **Issue**: Asynchronous methods like `createEvent` and `acceptInvitation` do not have proper error handling. While `logAttendance` uses a `.catch()` to handle promise rejections, other async methods lack this pattern which could lead to unhandled promise rejections.
+    - **Solution**: Ensure all asynchronous calls handle potential errors either with `try-catch` in async functions or using `.catch()` for Promises.
 
-2. **Use of `HttpService`:** In `my.service.js`, the `HttpService` from `@nestjs/common` is imported but not used. Instead, `axios` is used directly. This is inconsistent with NestJS practices. Consider using `HttpService` for making HTTP requests, which provides benefits like easier testing and configuration.
+2. **Inefficient Search in Arrays**:
+    - **Issue**: Both `inviteUser` and `declineInvitation` methods utilize operations like `indexOf` and `findIndex` in arrays, which have O(n) time complexity.
+    - **Solution**: Use a `Set` for `pendingInvites` instead of an array. This would allow for average O(1) operations for checks, insertions, and deletions.
 
-3. **Asynchronous Function Handling in `resolver.js`:** The `fetchExternalData` method in the `Resolver` class does not await the asynchronous `fetchData()` call. This will lead to the promise being returned instead of the actual data. Make sure to use `await` to resolve promises before returning the result.
+3. **Inconsistent Use of `async`**:
+    - **Issue**: The function `createEvent` is marked `async` but does not carry out any asynchronous operations. This might confuse developers into believing there are async operations happening inside.
+    - **Solution**: Remove the `async` keyword from `createEvent`, or if future async operations are planned, ensure they are implemented.
 
-4. **GraphQL Decorators in `resolver.js`:** The use of GraphQL decorators in the `Resolver` class is incorrect. The `@Mutation` decorator should specify a return type like `@Mutation(() => String)` instead of `@Mutation(String)`. This ensures that the GraphQL schema is correctly generated.
+4. **Polling Pattern**:
+    - **Issue**: The use of `setTimeout` within loops, as seen in `inviteUser` and `sendReminder`, can cause delays and is not an efficient way to monitor asynchronous operations or send reminders.
+    - **Solution**: Consider using event-driven or scheduling libraries like `node-schedule` or `cron` for these patterns.
 
-5. **Error Handling in Service Methods:** The methods in `MyService` make HTTP requests without any error handling. This can lead to unhandled promise rejections if the requests fail. Consider implementing try-catch blocks or using Axios interceptors to handle errors gracefully.
+5. **Lack of Input Validation**:
+    - **Issue**: Functions like `createEvent`, `inviteUser`, and `updateEvent` do not validate input parameters.
+    - **Solution**: Add validation checks to ensure that inputs are of expected type and format before processing them. This prevents potential errors and ensures data integrity.
 
-6. **`HttpModule` Import in `app.module.js`:** The `HttpModule` is imported but not configured or used in the application. If `HttpService` is intended to be used, it should be properly configured, or the import should be removed if not necessary.
+6. **Security Concerns - Log File Accessibility**:
+    - **Issue**: The `logAttendance` function writes logs to a file named `attendance.log` without handling permissions or managing sensitive data.
+    - **Solution**: Consider using environment variables or configuration files for log file paths and ensure permission settings are secure. Avoid storing sensitive information without encryption or necessary security measures.
+
+7. **Duplication of User Invitation**:
+    - **Issue**: The `inviteUser` method checks duplicity inefficiently with iteration and conditional logging.
+    - **Solution**: As mentioned earlier, using a `Set` for `pendingInvites` automatically avoids duplicates. Additionally, replace the loop and `setTimeout` with a direct check and informative message logging, if immediate feedback for duplicates is necessary. 
 
 ---
 
 Team Leader H:
-1. **Missing Decorators in `MyService`:** The `MyService` class is not marked with the `@Injectable()` decorator, which is necessary for dependency injection in NestJS. This could lead to errors when trying to inject dependencies into this service.
+Here is a concise code review for the provided JavaScript code:
 
-2. **Incorrect `HttpService` Usage:** The `fetchData` and `createData` methods in `MyService` are using `axios` directly, and `HttpService` is imported but not used. NestJS provides `HttpService` as a wrapper around Axios, which offers additional benefits such as interceptors and dependency injection. Replace `axios` with `HttpService` for consistency and better integration with NestJS features.
+1. **Use of `setTimeout` for Iteration**:
+   - **Issue**: The `inviteUser` and `sendReminder` methods use `setTimeout` within a loop, which can lead to inefficient and unpredictable behavior, especially with a high number of users.
+   - **Recommendation**: Consider using asynchronous patterns like `Promise.all` or `for...of` with `await` for better control over asynchronous operations.
 
-3. **Asynchronous Operation Handling in `Resolver`:** In the `fetchExternalData` method of the `Resolver` class, the call to `this.myService.fetchData()` is asynchronous, but it is not awaited. This will cause the method to return a Promise instead of the actual data. Use `await` to handle the promise correctly.
+2. **Lack of Validation**:
+   - **Issue**: There is no validation on inputs like `title`, `date`, `location` in `createEvent` or `userId` in `inviteUser`. This can lead to invalid data being processed.
+   - **Recommendation**: Implement validation checks to ensure that inputs are valid and meet expected formats.
 
-4. **Improper Use of Decorators in `Resolver`:** The decorators `@Query` and `@Mutation` are not used correctly. The `@Mutation` decorator should specify the return type using `() => String`, similar to how it's done for `@Query`. This ensures that the GraphQL schema is correctly generated.
+3. **Inefficient Search and Removal**:
+   - **Issue**: The `inviteUser` method uses `indexOf` and a loop to check for existing invites, which is inefficient for large arrays.
+   - **Recommendation**: Use a `Set` for `pendingInvites` to improve lookup and removal efficiency.
 
-5. **Hardcoded API Endpoints:** The API endpoints in `MyService` are hardcoded as strings. It's a good practice to extract these URLs into configuration files or environment variables to make the application more flexible and maintainable.
+4. **Potential Race Conditions**:
+   - **Issue**: The use of `setTimeout` for logging and reminders can lead to race conditions if events or users are modified concurrently.
+   - **Recommendation**: Consider using locks or atomic operations to ensure consistency when accessing shared resources.
 
-6. **Lack of Error Handling:** There is no error handling for HTTP requests in `MyService`. If an API request fails, it will throw an unhandled promise rejection. Consider wrapping HTTP calls in try-catch blocks and handle errors gracefully, possibly by returning meaningful error messages or codes.
+5. **Error Handling**:
+   - **Issue**: The code lacks comprehensive error handling, especially in asynchronous methods like `createEvent`, `acceptInvitation`, and `logAttendance`.
+   - **Recommendation**: Implement try-catch blocks and proper error propagation to handle potential errors gracefully.
+
+6. **Security Concerns with File System Operations**:
+   - **Issue**: The `logAttendance` method writes to a file without any sanitization, which could lead to injection vulnerabilities if input data is not controlled.
+   - **Recommendation**: Sanitize inputs before writing to files and consider using a more secure logging mechanism.
+
+7. **Use of `async` without `await`**:
+   - **Issue**: Methods like `createEvent` and `sendReminder` are marked `async` but do not use `await`, which is misleading and unnecessary.
+   - **Recommendation**: Remove the `async` keyword if `await` is not used, or refactor the methods to include asynchronous operations that justify its use.
 ---
 
 Team Leader I:
-1. **Use of `HttpService`**: In `my.service.js`, the `HttpService` from `@nestjs/common` is imported but not used. Instead, direct use of `axios` is made. It is recommended to utilize `HttpService` for HTTP requests in NestJS to take advantage of features like built-in observables, interceptors, and configuration options.
+1. **Security - Sensitive Information Logging**:
+   - **Issue**: The attendance log entries are written directly to a file and include user IDs. If these IDs are sensitive, logging them in plain text could present a security risk.
+   - **Recommendation**: Consider hashing user IDs or anonymizing logs if privacy is a concern.
 
-2. **Constructor Dependency Injection**: In `resolver.js`, the `Resolver` class does not follow NestJS’s typical dependency injection pattern. The `myService` should be injected using the constructor with `@Inject()` or through the parameter, especially since `myService` is a class-level member.
+2. **Concurrency Concerns with `setTimeout`**:
+   - **Issue**: The use of `setTimeout` in `inviteUser` and `sendReminder` functions can lead to asynchronous execution issues, especially if the events data changes after a timeout has been set but before it executes.
+   - **Recommendation**: Ensure that the state of `events` and `users` is managed properly to avoid inconsistencies (e.g., using locks or synchronization if needed).
 
-3. **Missing Await in Async Function**: In the `fetchExternalData` method of `resolver.js`, the call to `this.myService.fetchData()` is missing `await`. This could lead to unexpected behavior as the function returns a Promise instead of the resolved data.
+3. **Data Mutation**:
+   - **Issue**: Directly mutating objects like `this.events[eventId]` with `Object.assign` can lead to unintended side effects, especially in larger applications.
+   - **Recommendation**: Consider using immutable patterns, like creating a new object with updated properties.
 
-4. **Inconsistent Decorators and Return Types**: In `resolver.js`, the `@Mutation` decorator should specify the return type inside a function-like syntax (e.g., `() => String`) for consistency with `@Query`. The current usage, `@Mutation(String)`, is incorrect and might lead to runtime errors.
+4. **Inefficient Operations**:
+   - **Issue**: The use of `indexOf` and `findIndex` followed by `splice` or `filter` could be optimized.
+   - **Recommendation**: Use a `Set` for `pendingInvites` to streamline checks for existence and operations like remove (`delete`) and add.
 
-5. **Error Handling**: There is no error handling implemented for the HTTP requests in `my.service.js`. This can lead to unhandled promise rejections. Implementing try-catch blocks or using NestJS interceptors to handle errors is recommended.
+5. **Error Handling**:
+   - **Issue**: Some asynchronous operations, such as `logAttendance`, are using `catch`, but others do not handle errors robustly.
+   - **Recommendation**: Ensure consistent and comprehensive error handling, especially for all async operations to prevent unhandled promise rejections.
 
-6. **Auto Schema Generation**: The `GraphQLModule.forRoot` configuration uses `autoSchemaFile: 'schema.gql'`, which generates the schema file in the root directory. Consider placing it in a more organized location, such as a dedicated `schema` folder or inside `src`, for better project structure and maintainability.
+6. **Magic Numbers**:
+   - **Issue**: The numbers `1000` and `2000` used inside `setTimeout` are magic numbers that aren't self-explanatory.
+   - **Recommendation**: Store these numbers in well-named constants to convey their purpose and make the code more maintainable.
 
-7. **CommonJS Module System**: The application is using the CommonJS module system (`require` and `module.exports`). Consider using ES Modules (`import` and `export`) for consistency with modern JavaScript standards and to leverage tree-shaking in build tools.
+7. **Date Handling**:
+   - **Issue**: The `new Date()` usage for comparisons in `getUpcomingEvents` is not time-zone aware and could lead to issues.
+   - **Recommendation**: Use libraries like `date-fns` or `luxon` for more robust date-time handling, especially for internationalization and time-zone specific operations.
 ---
 
 Team Leader J:
-1. **Improper Dependency Injection**:
-   - In `resolver.js`, the `MyService` is not properly injected. NestJS uses dependency injection, and in this case, `myService` should be injected using the constructor's parameters, with proper type annotations to ensure compatibility with TypeScript and better integration with the NestJS framework.
+1. **Security Vulnerability: Use of `eval()`-like functionality**:
+   - The use of asynchronous operations with `setTimeout` to check for pending invites and reminders (lines 42-47 and 90-94) is not secure in highly concurrent environments or where precision is essential. Instead, consider using event-driven or promise-based solutions which are clearer and safer.
 
-2. **Lack of `await` in `fetchExternalData`**:
-   - The `fetchExternalData` function in `resolver.js` lacks the `await` keyword when calling `this.myService.fetchData()`. This will lead to returning a Promise object instead of the resolved data, causing unexpected behavior in your GraphQL queries.
+2. **Inefficiency: Time Complexity in `inviteUser`**:
+   - The `inviteUser` function uses a `for` loop with `setTimeout` to check if a user is already in `pendingInvites` (line 42). This can be simplified and optimized by directly checking using `indexOf` or `includes` method. The current approach introduces unnecessary complexity and delays, and the use of `setTimeout` for this purpose is not appropriate.
 
-3. **Use of `HttpService`**:
-   - The `MyService` class explicitly uses `axios` instead of NestJS's `HttpService`, which is imported but not used. `HttpService` is part of the NestJS ecosystem and provides additional features, such as interceptors, which can be leveraged for cleaner and more integrated HTTP requests.
+3. **Redundant Pending Invitation Check**:
+   - The `inviteUser` function (line 36) has a redundant check using `indexOf` (line 39) after having the same logic inside the loop (lines 42-47). This check should be handled once, and `indexOf()` provides a concise and efficient way to accomplish this.
 
-4. **Missing Decorators in `AppModule` and `ResolverModule`**:
-   - In both `app.module.js` and `resolver.module.js`, the `@Module()` decorator is used, but there's no corresponding `@Injectable()` decorator for the `MyService` class. This could potentially lead to issues with dependency injection with NestJS's IoC container.
+4. **Inefficient Use of Date Comparison**:
+   - In `getUpcomingEvents` (line 62), comparing dates by creating new `Date` objects for each event is inefficient. Consider parsing the event dates once during initialization and storing them as `Date` objects to avoid repeated parsing.
 
-5. **Missing Return Types**:
-   - The code is missing proper return type annotations in the resolver methods (`fetchExternalData` and `createExternalData`). Adding these types would improve code readability and help catch type-related errors during development.
+5. **Error Handling in File Operations**:
+   - In `logAttendance` (line 99), errors in `appendFile` are logged to the console but not acted upon. Consider adding retry logic, user notifications or propagate the error properly to ensure it doesn't go unnoticed.
 
-6. **Inconsistent Code Style and Imports**:
-   - Inconsistent use of imports and code style (e.g., mixing ES6 `import` statements with CommonJS `require`). It's advisable to stick to one module system, preferably the ES6 `import/export` syntax, for consistency and future-proofing the codebase.
+6. **Lack of Input Validation**:
+   - There is no validation for the inputs in functions such as `createEvent`, `updateEvent`, or `inviteUser`. Ensure that the inputs are validated to prevent incorrect or malicious data from being processed.
+
+7. **Potential Asynchronous Pitfall**:
+   - Both `createEvent` and `sendReminder` return a promise but don't actually perform any asynchronous operation apart from the timeout in reminders. Clarify the method signatures to properly reflect their synchronous or asynchronous nature.
 ---
