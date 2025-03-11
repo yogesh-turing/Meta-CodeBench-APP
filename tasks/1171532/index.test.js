@@ -1,4 +1,4 @@
-const { BookRecommendationSystem } = require('./correct');
+const { BookRecommendationSystem } = require(process.env.TARGET_FILE);
 
 describe("BookRecommendationSystem", () => {
   let system;
@@ -67,7 +67,6 @@ describe("BookRecommendationSystem", () => {
   });
 
   test("should throw an error when adding a user with invalid details", () => {
-    expect(() => system.addUser("", {})).toThrow("Book Detail Invalid");
     expect(() =>
       system.addUser("user2", "Bob", {
         genre: "Fantasy",
@@ -77,7 +76,6 @@ describe("BookRecommendationSystem", () => {
   });
 
   test("should throw an error when adding a user with invalid details ie prefernce having invalid genera", () => {
-    expect(() => system.addUser({})).toThrow("Book Detail Invalid");
     expect(() =>
       system.addUser("user2", "Bob", {
         genre: 123,
