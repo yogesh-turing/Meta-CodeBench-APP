@@ -1,238 +1,162 @@
-class EventManager {
-  #events = new Map();
-  #log = [];
-  #subscribers = new Map();
-  _eventIdCounter = 1;
+const S = require("sanctuary");
 
-  constructor() {}
+class BookRecommendationSystem {
+  constructor() {
+    this.books = [];
+    this.users = [];
+  }
 
-  createEvent(title, date, location) {
-    if (!title || !date || !location) {
-      throw new Error('Missing required parameters: title, date, and location are required.');
+  // Function to add a new book to the catalog
+  addBook(bookId, title, author, genre, length, description, rating) {
+    if (
+      !bookId ||
+      !title ||
+      !author ||
+      !genre ||
+      !description ||
+      typeof length !== "number" ||
+      typeof rating !== "number"
+    ) {
+      throw new Error("Book Detail Invalid");
     }
-    const eventDate = new Date(date);
-    if (isNaN(eventDate)) {
-      throw new Error('Invalid date format provided.');
-    }
-    const eventId = this._eventIdCounter++;
 
-    const event = {
-      id: eventId,
+    if (rating < 0 || rating > 5) throw new Error("Invalid rating");
+    if (length <= 0 || !Number.isInteger(length))
+      throw new Error("Invalid length");
+
+    this.books.push({
+      bookId,
       title,
-      date: eventDate,
-      location,
-      version: 1,
-      invitations: {},
-      remindersSent: 0,
-    };
-
-    this.#events.set(eventId, event);
-    this.#logEvent('createEvent', event);
-    this.#publish('EVENT_CREATED', event);
-    return event;
-  }
-
-  deleteEvent(eventId) {
-    if (!this.#events.has(eventId)) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    this.#events.delete(eventId);
-    this.#logEvent('deleteEvent', { id: eventId });
-    this.#publish('EVENT_DELETED', { id: eventId });
-    return true;
-  }
-
-  updateEvent(eventId, newDetails, expectedVersion) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    if (event.version !== expectedVersion) {
-      throw new Error('Version conflict');
-    }
-    Object.keys(newDetails).forEach((key) => {
-      if (newDetails[key] !== undefined) {
-        event[key] = newDetails[key];
-      }
+      author,
+      genre,
+      length,
+      description,
+      rating,
+      ratings: [],
     });
-    event.version++;
-    this.#logEvent('updateEvent', { id: eventId, newDetails });
-    this.#publish('EVENT_UPDATED', { id: eventId, newDetails });
-    return event;
   }
 
-  inviteUser(eventId, userId) {
-    if (!userId) {
-      throw new Error('User ID is required.');
+  // Function to add a new user to the system
+  addUser(userId, name, preferences = {}) {
+    if (!userId || !name || typeof preferences !== "object") {
+      throw new Error("Book Detail Invalid");
     }
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+
+    const validPreferences =
+      typeof preferences === "object" &&
+      (!preferences.genre || typeof preferences.genre === "string") &&
+      (!preferences.length ||
+        (typeof preferences.length === "object" &&
+          typeof preferences.length.min === "number" &&
+          typeof preferences.length.max === "number"));
+
+    if (!validPreferences) {
+      throw new Error("Book Detail Invalid");
     }
-    if (event.invitations[userId]) {
-      throw new Error(`User ${userId} has already been invited.`);
-    }
-    event.invitations[userId] = 'pending';
-    this.#logEvent('inviteUser', { eventId, userId });
-    this.#publish('USER_INVITED', { eventId, userId });
-    return true;
+
+    this.users.push({ userId, name, preferences, readingHistory: [] });
   }
 
-  acceptInvitation(eventId, userId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    if (!event.invitations[userId]) {
-      throw new Error(`User ${userId} was not invited to the event.`);
-    }
-    event.invitations[userId] = 'accepted';
-    this.#logEvent('acceptInvitation', { eventId, userId });
-    this.#publish('INVITATION_ACCEPTED', { eventId, userId });
-    return true;
-  }
+  // Function to mark a book as read by the user
+  markBookAsRead(userId, bookId) {
+    const user = this.users.find((u) => u.userId === userId);
+    if (!user) throw new Error("Book Detail Invalid");
 
-  declineInvitation(eventId, userId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    if (!event.invitations[userId]) {
-      throw new Error(`User ${userId} was not invited to the event.`);
-    }
-    event.invitations[userId] = 'declined';
-    this.#logEvent('declineInvitation', { eventId, userId });
-    this.#publish('INVITATION_DECLINED', { eventId, userId });
-    return true;
-  }
-
-  getUpcomingEvents() {
-    const now = new Date();
-    const upcoming = Array.from(this.#events.values()).filter((event) => event.date > now);
-    upcoming.sort((a, b) => a.date - b.date);
-    return upcoming;
-  }
-
-  getEventDetails(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    return JSON.parse(JSON.stringify(event));
-  }
-
-  async sendReminder(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    const acceptedUsers = this.getAttendeeList(eventId);
-    if (acceptedUsers.length === 0) {
-      console.log(`No accepted attendees to send reminders for event ${eventId}.`);
-      return false;
-    }
-
-    const sendEmail = (userId, event) => {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          console.log(`Reminder sent to user ${userId} for event "${event.title}" at ${event.date}`);
-          resolve(true);
-        }, 100);
-      });
-    };
-
-    await Promise.all(acceptedUsers.map((userId) => sendEmail(userId, event)));
-    event.remindersSent++;
-    this.#logEvent('sendReminder', { eventId });
-    this.#publish('REMINDER_SENT', { eventId });
-    return true;
-  }
-
-  getAttendeeList(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    const attendees = Object.entries(event.invitations)
-      .filter(([_, status]) => status === 'accepted')
-      .map(([userId, _]) => userId);
-    return attendees;
-  }
-
-  #logEvent(action, details) {
-    this.#log.push({ action, details, timestamp: new Date() });
-  }
-
-  #publish(eventType, data) {
-    if (this.#subscribers.has(eventType)) {
-      this.#subscribers.get(eventType).forEach((callback) => callback(data));
+    if (!user.readingHistory.includes(bookId)) {
+      user.readingHistory.push(bookId);
     }
   }
 
-  subscribe(eventType, callback) {
-    if (!this.#subscribers.has(eventType)) {
-      this.#subscribers.set(eventType, new Set());
+  // Function to get a user's reading history
+  getReadingHistory(userId) {
+    const user = this.users.find((u) => u.userId === userId);
+    if (!user) throw new Error("Book Detail Invalid");
+
+    if (user.readingHistory.length === 0) {
+      return "No books read yet";
     }
-    this.#subscribers.get(eventType).add(callback);
+
+    return user.readingHistory
+      .map((bookId) => this.books.find((b) => b.bookId === bookId).title)
+      .sort();
   }
 
-  replayEvents() {
-    this.#log.forEach((logEntry) => {
-      switch (logEntry.action) {
-        case 'createEvent':
-          this.createEvent(logEntry.details.title, logEntry.details.date, logEntry.details.location);
-          break;
-        case 'deleteEvent':
-          this.deleteEvent(logEntry.details.id);
-          break;
-        case 'updateEvent':
-          this.updateEvent(logEntry.details.id, logEntry.details.newDetails, logEntry.details.version);
-          break;
-        case 'inviteUser':
-          this.inviteUser(logEntry.details.eventId, logEntry.details.userId);
-          break;
-        case 'acceptInvitation':
-          this.acceptInvitation(logEntry.details.eventId, logEntry.details.userId);
-          break;
-        case 'declineInvitation':
-          this.declineInvitation(logEntry.details.eventId, logEntry.details.userId);
-          break;
-        case 'sendReminder':
-          this.sendReminder(logEntry.details.eventId);
-          break;
-      }
-    });
+  // Function to get books by genre
+  getBooksByGenre(genre) {
+    if (typeof genre !== "string") {
+      throw new Error("Book Detail Invalid");
+    }
+
+    const booksByGenre = this.books
+      .filter((b) => b.genre === genre)
+      .sort((a, b) => a.bookId.localeCompare(b.bookId));
+
+    if (booksByGenre.length === 0) {
+      return "No books found in this genre";
+    }
+
+    return booksByGenre;
+  }
+
+  // Function to get books within a specific length range
+  getBooksByLength(minLength, maxLength) {
+    if (typeof minLength !== "number" || typeof maxLength !== "number") {
+      throw new Error("Book Detail Invalid");
+    }
+
+    const booksByLength = this.books
+      .filter((b) => b.length >= minLength && b.length <= maxLength)
+      .sort((a, b) => a.length - b.length);
+
+    if (booksByLength.length === 0) {
+      return "No books found in the specified length range";
+    }
+
+    return booksByLength;
+  }
+
+  // Function to rate a book
+  rateBook(bookId, rating) {
+    if (typeof rating !== "number" || rating < 0 || rating > 5)
+      throw new Error("Invalid rating");
+
+    const book = this.books.find((b) => b.bookId === bookId);
+    if (!book) throw new Error("Book Detail Invalid");
+
+    book.ratings.push(rating);
+    book.rating =
+      book.ratings.reduce((acc, rate) => acc + rate, 0) / book.ratings.length;
+  }
+
+  // Function to get books based on author
+  getBooksByAuthor(author) {
+    if (typeof author !== "string") {
+      throw new Error("Book Detail Invalid");
+    }
+
+    const booksByAuthor = this.books
+      .filter((b) => b.author === author)
+      .sort((a, b) => a.bookId.localeCompare(b.bookId));
+
+    if (booksByAuthor.length === 0) {
+      return "No books found by this author";
+    }
+
+    return booksByAuthor;
+  }
+
+  // Function to get top-rated books
+  getTopRatedBooks() {
+    const ratedBooks = this.books
+      .filter((b) => b.ratings.length > 0)
+      .sort((a, b) => b.rating - a.rating);
+
+    if (ratedBooks.length === 0) {
+      return "No rated books available";
+    }
+
+    return ratedBooks;
   }
 }
 
-/* ==================== Usage Example ====================
-  
-  const manager = new EventManager();
-  
-  // Create an event
-  const event = manager.createEvent("Annual Meeting", "2025-06-15T09:00:00", "Conference Hall A");
-  console.log("Created Event:", event);
-  
-  // Invite users
-  manager.inviteUser(event.id, "user123");
-  manager.inviteUser(event.id, "user456");
-  
-  // Users respond to invitations
-  manager.acceptInvitation(event.id, "user123");
-  manager.declineInvitation(event.id, "user456");
-  
-  // Get upcoming events
-  console.log("Upcoming Events:", manager.getUpcomingEvents());
-  
-  // Send reminders (simulate async email sending)
-  manager.sendReminder(event.id).then(() => {
-    console.log("Reminders sent!");
-  });
-  
-  // Get event details and attendee list
-  console.log("Event Details:", manager.getEventDetails(event.id));
-  console.log("Attendee List:", manager.getAttendeeList(event.id));
-  
-  ========================================================== */
-
-module.exports = { EventManager };
+module.exports = { BookRecommendationSystem };
