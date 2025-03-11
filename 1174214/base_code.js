@@ -1,84 +1,190 @@
-// `app.module.js`
+function createQueryBuilder() {
+  // Internal state
+  let _selectColumns = null;
+  let _distinct = false;
+  let _fromTable = null;
+  let _alias = null;
+  let _whereClauses = [];
+  let _joins = [];
+  let _groupByColumns = [];
+  let _havingClause = [];
+  let _orderByClauses = [];
+  let _limit = null;
+  let _offset = null;
 
-const { Module, HttpModule } = require('@nestjs/common');
-const { GraphQLModule } = require('@nestjs/graphql');
-const { ResolverModule } = require('./resolver.module');
+  // Helper: Validate a single SQL identifier (no dots)
+  const isValidIdentifier = (str) => /^[A-Za-z][A-Za-z0-9_]*$/.test(str);
 
-@Module({
-  imports: [
-    GraphQLModule.forRoot({
-      autoSchemaFile: 'schema.gql',
-    }),
-    HttpModule,
-    ResolverModule,
-  ],
-})
-class AppModule {}
+  // Helper: Validate qualified identifiers (e.g., "u.id")
+  const isValidQualifiedIdentifier = (str) => {
+    return str.split('.').every(part => isValidIdentifier(part));
+  };
 
-module.exports = { AppModule };
-```
-```javascript
-// `resolver.module.js`
+  // Helper: Count placeholders ("?") in a string
+  const countPlaceholders = (str) => (str.match(/\?/g) || []).length;
 
-const { Module } = require('@nestjs/common');
-const { Resolver } = require('./resolver');
-const { MyService } = require('./my.service');
+  const builder = {
+    select(columns) {
+      if (columns) {
+        columns.forEach((col) => {
+          if (typeof col === "string" && !col.includes("(")) {
+            // Check if an alias is provided in the form "col AS alias"
+            const parts = col.split(/\s+AS\s+/i);
+            const identifier = parts[0].trim();
+            // Use qualified identifier validation if the identifier contains a dot
+            if (!isValidQualifiedIdentifier(identifier)) {
+              throw new Error(`Invalid SQL identifier: ${identifier}`);
+            }
+          }
+        });
+        _selectColumns = columns;
+      }
+      return builder;
+    },
+    distinct() {
+      _distinct = true;
+      return builder;
+    },
+    from(tableName) {
+      if (!tableName) {
+        throw new Error("Table name not specified");
+      }
+      // If tableName contains spaces, assume the first token is the actual table name.
+      const mainTable = tableName.split(/\s+/)[0];
+      if (!isValidIdentifier(mainTable)) {
+        throw new Error(`Invalid SQL identifier: ${mainTable}`);
+      }
+      _fromTable = tableName;
+      return builder;
+    },
+    alias(aliasName) {
+      if (!aliasName || !isValidIdentifier(aliasName)) {
+        throw new Error("Invalid table alias");
+      }
+      _alias = aliasName;
+      return builder;
+    },
+    where(condition, ...params) {
+      const placeholders = countPlaceholders(condition);
+      if (placeholders !== params.length) {
+        throw new Error("Parameter count mismatch in WHERE clause");
+      }
+      _whereClauses.push({ condition, params });
+      return builder;
+    },
+    join(type, table, alias, onCondition, ...params) {
+      const validJoinTypes = ["INNER", "LEFT", "RIGHT", "FULL"];
+      if (!validJoinTypes.includes(type.toUpperCase())) {
+        throw new Error("Invalid join type");
+      }
+      if (!isValidIdentifier(table)) {
+        throw new Error("Invalid table name");
+      }
+      if (!isValidIdentifier(alias)) {
+        throw new Error("Invalid join alias");
+      }
+      const placeholders = countPlaceholders(onCondition);
+      if (placeholders !== params.length) {
+        throw new Error("Parameter count mismatch in WHERE clause");
+      }
+      _joins.push({ type: type.toUpperCase(), table, alias, onCondition, params });
+      return builder;
+    },
+    groupBy(columns) {
+      _groupByColumns = columns;
+      return builder;
+    },
+    having(condition, ...params) {
+      if (typeof condition !== "string") {
+        throw new Error("Invalid HAVING condition");
+      }
+      const placeholders = countPlaceholders(condition);
+      if (placeholders !== params.length) {
+        throw new Error("Parameter count mismatch in HAVING clause");
+      }
+      _havingClause.push({ condition, params });
+      return builder;
+    },
+    orderBy(column, direction = "ASC") {
+      const dir = direction.toUpperCase();
+      _orderByClauses.push({ column, direction: dir });
+      return builder;
+    },
+    limit(n) {
+      if (typeof n !== "number" || n <= 0) {
+        throw new Error("Invalid LIMIT value");
+      }
+      _limit = n;
+      return builder;
+    },
+    offset(n) {
+      if (typeof n !== "number" || n < 0) {
+        throw new Error("Invalid OFFSET value");
+      }
+      _offset = n;
+      return builder;
+    },
+    build() {
+      if (!_fromTable) {
+        throw new Error("Table name not specified");
+      }
+      let selectClause = "";
+      if (_selectColumns && _selectColumns.length > 0) {
+        selectClause = _selectColumns.join(", ");
+      } else {
+        selectClause = "*";
+      }
+      let query = `SELECT${_distinct ? " DISTINCT " : " "}${selectClause} FROM ${_fromTable}`;
+      const finalParams = [];
 
-@Module({
-  providers: [Resolver, MyService],
-})
-class ResolverModule {}
+      if (_alias) {
+        query += ` AS ${_alias}`;
+      }
 
-module.exports = { ResolverModule };
-```
+      if (_joins.length > 0) {
+        _joins.forEach(j => {
+          query += ` ${j.type} JOIN ${j.table} ${j.alias} ON ${j.onCondition}`;
+          finalParams.push(...j.params);
+        });
+      }
 
-```javascript
-// `my.service.js`
+      if (_whereClauses.length > 0) {
+        const whereConditions = _whereClauses.map(w => w.condition).join(" AND ");
+        query += ` WHERE ${whereConditions}`;
+        _whereClauses.forEach(w => {
+          finalParams.push(...w.params);
+        });
+      }
 
-const { Injectable, HttpService } = require('@nestjs/common');
+      if (_groupByColumns.length > 0) {
+        query += ` GROUP BY ${_groupByColumns.join(", ")}`;
+      }
 
-class MyService {
- 
-  async fetchData() {
-    const firstApiResponse = await axios.get('https://example.com/api/first');
-    const secondApiResponse = await axios.get('https://example.com/api/second');
-    return {
-      firstData: firstApiResponse.data,
-      secondData: secondApiResponse.data,
-    };
-  }
+      if (_havingClause.length > 0) {
+        const havingConditions = _havingClause.map(h => h.condition).join(" AND ");
+        query += ` HAVING ${havingConditions}`;
+        _havingClause.forEach(h => {
+          finalParams.push(...h.params);
+        });
+      }
 
-  async createData(data) {
-    const response = await axios.post('https://example.com/api/create', data);
-    return response.data;
-  }
+      if (_orderByClauses.length > 0) {
+        const orders = _orderByClauses.map(o => `${o.column} ${o.direction}`).join(", ");
+        query += ` ORDER BY ${orders}`;
+      }
+
+      if (_limit !== null) {
+        query += ` LIMIT ${_limit}`;
+      }
+      if (_offset !== null) {
+        query += ` OFFSET ${_offset}`;
+      }
+
+      return { query, params: finalParams };
+    }
+  };
+
+  return builder;
 }
 
-module.exports = { MyService };
-```
-
-
-```javascript
-// `resolver.js`
-
-const { Resolver, Query, Mutation, Args } = require('@nestjs/graphql');
-const { MyService } = require('./my.service');
-
-@Resolver()
-class Resolver {
-  constructor(myService) {
-    this.myService = myService;
-  }
-
-  @Query(() => String)
-  async fetchExternalData() {
-    const data = this.myService.fetchData();
-    return JSON.stringify(data);
-  }
-
-  @Mutation(String)
-  async createExternalData(@Args('data') data) {
-    const createdData = await this.myService.createData(data);
-    return JSON.stringify(createdData);
-  }
-}
+module.exports = { createQueryBuilder };
