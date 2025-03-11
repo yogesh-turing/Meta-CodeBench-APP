@@ -1,4 +1,4 @@
-const { BookRecommendationSystem } = require(process.env.TARGET_FILE);
+const { BookRecommendationSystem } = require('./correct');
 
 describe("BookRecommendationSystem", () => {
   let system;

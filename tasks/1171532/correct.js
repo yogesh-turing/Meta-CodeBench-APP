@@ -45,29 +45,26 @@ class BookRecommendationSystem {
   }
 
   addUser(userId, name, preferences = {}) {
-    if (
-      typeof userId !== "string" ||
-      typeof name !== "string" ||
-      typeof preferences !== "object" ||
-      !userId ||
-      !name
-    ) {
+    const validUserId = S.test(/^\w+$/)(userId); // Ensure userId is a non-empty string of word characters (letters, numbers, underscores)
+    const validName = S.test(/^\w+$/)(name); // Ensure name is a non-empty string of word characters
+    const validPreferences = S.test(/^\{.*\}$/)(JSON.stringify(preferences)); // Ensure preferences is an object
+    if (!validUserId || !validName || !validPreferences || !userId || !name) {
       throw new Error("Book Detail Invalid");
     }
 
     if (Object.keys(preferences).length > 0) {
-      if (
-        preferences.genre &&
-        (typeof preferences.genre !== "string" || !preferences.genre)
-      ) {
+      const genre = S.show(preferences.genre);
+      const min_length = S.show(preferences.length.min);
+      const max_length = S.show(preferences.length.max);
+      if (preferences.genre && (S.test(/^\w+$/)(genre) || !preferences.genre)) {
         throw new Error("Book Detail Invalid");
       }
 
       if (preferences.length) {
         if (
           typeof preferences.length !== "object" ||
-          typeof preferences.length.min !== "number" ||
-          typeof preferences.length.max !== "number" ||
+          !S.test(/^\d+$/)(min_length) ||
+          !S.test(/^\d+$/)(min_length) ||
           preferences.length.min < 0 ||
           preferences.length.max < preferences.length.min
         ) {
