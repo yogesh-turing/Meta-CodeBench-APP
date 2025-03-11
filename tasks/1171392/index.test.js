@@ -1,4 +1,4 @@
-const { processLogs } = require("./model_a");
+const { processLogs } = require(process.env.TARGET_FILE);
 
 describe("processLogs - Advanced Redaction Tests", () => {
   test("redacts error keywords with complex punctuation", () => {
