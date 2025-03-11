@@ -1,265 +1,297 @@
-const { RecipeManagementSystem } = require(process.env.TARGET_FILE);
+const { EventManager } = require(process.env.TARGET_FILE);
+// const { EventManager } = require('./model_a');
 
-describe("RecipeManagementSystem", () => {
-  let recipeSystem;
+describe('EventManager', () => {
+  let manager;
 
   beforeEach(() => {
-    recipeSystem = new RecipeManagementSystem();
+    manager = new EventManager();
   });
 
-  test("should add a new recipe", () => {
-    recipeSystem.addRecipe(
-      "1",
-      "Vegetarian Tacos",
-      [
-        { name: "Taco Shell", amount: 4 },
-        { name: "Lettuce", amount: "1 cup" },
-      ],
-      "Stuff taco shells with lettuce.",
-      15,
-      10
-    );
-
-    const recipe = recipeSystem.getRecipeById("1");
-    expect(recipe.name).toBe("Vegetarian Tacos");
-    expect(recipe.ingredients.length).toBe(2);
-    expect(recipe.prepTime).toBe(15);
-    expect(recipe.cookTime).toBe(10);
-  });
-
-  test("should throw error if adding recipe with negative time", () => {
-    expect(() => {
-      recipeSystem.addRecipe(
-        "2",
-        "Vegan Burger",
-        [{ name: "Bun", amount: 2 }],
-        "Grill the buns.",
-        -10,
-        20
+  describe('createEvent', () => {
+    it('should create an event with valid parameters', () => {
+      const event = manager.createEvent(
+        'Test Event',
+        '2030-01-01T10:00:00',
+        'Test Location'
       );
-    }).toThrowError("Time must be a non-negative number");
+      expect(event).toHaveProperty('id');
+      expect(event.title).toBe('Test Event');
+      expect(new Date(event.date)).toEqual(new Date('2030-01-01T10:00:00'));
+      expect(event.location).toBe('Test Location');
+      expect(event.version).toBe(1);
+      expect(event.invitations).toEqual({});
+      expect(event.remindersSent).toBe(0);
+    });
+
+    it('should throw an error if any required parameter is missing', () => {
+      expect(() =>
+        manager.createEvent('Test Event', '2030-01-01T10:00:00', null)
+      ).toThrow();
+      expect(() =>
+        manager.createEvent('Test Event', null, 'Test Location')
+      ).toThrow();
+      expect(() =>
+        manager.createEvent(null, '2030-01-01T10:00:00', 'Test Location')
+      ).toThrow();
+    });
+
+    it('should throw an error for an invalid date format', () => {
+      expect(() =>
+        manager.createEvent('Test Event', 'invalid date', 'Test Location')
+      ).toThrow('Invalid date format provided.');
+    });
   });
 
-  test("should throw error if adding recipe with empty description", () => {
-    expect(() => {
-      recipeSystem.addRecipe(
-        "2",
-        "Vegan Burger",
-        [{ name: "Bun", amount: 2 }],
-        "",
-        10,
-        20
+  describe('deleteEvent', () => {
+    it('should delete an existing event', () => {
+      const event = manager.createEvent(
+        'Delete Event',
+        '2030-01-01T10:00:00',
+        'Delete Location'
       );
-    }).toThrowError("Instructions cannot be empty");
+      expect(manager.deleteEvent(event.id)).toBe(true);
+      expect(() => manager.getEventDetails(event.id)).toThrow();
+    });
+
+    it('should throw an error when attempting to delete a non-existent event', () => {
+      expect(() => manager.deleteEvent(999)).toThrow();
+    });
   });
 
-  test("should throw error if adding recipe with invalid ingredients", () => {
-    expect(() => {
-      recipeSystem.addRecipe(
-        "3",
-        "Cheese Pizza",
-        [{ name: "Cheese", amount: 1 }, { name: "Dough" }],
-        "Bake the pizza.",
-        10,
-        15
+  describe('updateEvent', () => {
+    it('should update event details successfully', () => {
+      const event = manager.createEvent(
+        'Update Event',
+        '2030-01-01T10:00:00',
+        'Old Location'
       );
-    }).toThrowError("Invalid ingredients");
+      const updated = manager.updateEvent(
+        event.id,
+        { location: 'New Location' },
+        event.version
+      );
+      expect(updated.location).toBe('New Location');
+      expect(updated.version).toBe(event.version + 1);
+    });
+
+    it('should throw an error if the expected version does not match (optimistic concurrency)', () => {
+      const event = manager.createEvent(
+        'Conflict Event',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      expect(() =>
+        manager.updateEvent(
+          event.id,
+          { location: 'New Location' },
+          event.version + 1
+        )
+      ).toThrow(/Version conflict/);
+    });
+
+    it('should throw an error when updating a non-existent event', () => {
+      expect(() => manager.updateEvent(999, { location: 'Nowhere' })).toThrow();
+    });
+
+    it('should throw an error for an invalid date format on update', () => {
+      const event = manager.createEvent(
+        'Invalid Date Update',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      expect(() =>
+        manager.updateEvent(event.id, { date: 'invalid date' }, event.version)
+      ).toThrow('Invalid date format provided.');
+    });
   });
 
-  test("should throw error if recipeId not found in getRecipeById", () => {
-    expect(() => {
-      recipeSystem.getRecipeById("nonexistent");
-    }).toThrowError("Recipe not found");
+  describe('inviteUser', () => {
+    it('should successfully invite a user', () => {
+      const event = manager.createEvent(
+        'Invite Event',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      expect(manager.inviteUser(event.id, 'user1')).toBe(true);
+      const details = manager.getEventDetails(event.id);
+      expect(details.invitations['user1']).toBe('pending');
+    });
+
+    it('should throw an error when inviting a user to a non-existent event', () => {
+      expect(() => manager.inviteUser(999, 'user1')).toThrow();
+    });
+
+    it('should throw an error if the same user is invited twice', () => {
+      const event = manager.createEvent(
+        'Double Invite',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.inviteUser(event.id, 'user1');
+      expect(() => manager.inviteUser(event.id, 'user1')).toThrow();
+    });
+
+    it('should throw an error if userId is missing', () => {
+      const event = manager.createEvent(
+        'No userId Invite',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      expect(() => manager.inviteUser(event.id, null)).toThrow();
+    });
   });
 
-  test("should update a recipe", () => {
-    recipeSystem.addRecipe(
-      "4",
-      "Spaghetti",
-      [
-        { name: "Pasta", amount: "200g" },
-        { name: "Tomato Sauce", amount: "1 cup" },
-      ],
-      "Cook the pasta, then add sauce.",
-      10,
-      15
-    );
+  describe('acceptInvitation', () => {
+    it('should mark a user invitation as accepted', () => {
+      const event = manager.createEvent(
+        'Accept Invitation',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.inviteUser(event.id, 'user1');
+      expect(manager.acceptInvitation(event.id, 'user1')).toBe(true);
+      const details = manager.getEventDetails(event.id);
+      expect(details.invitations['user1']).toBe('accepted');
+    });
 
-    recipeSystem.updateRecipe("4", { prepTime: 12, cookTime: 18 });
-
-    const updatedRecipe = recipeSystem.getRecipeById("4");
-    expect(updatedRecipe.prepTime).toBe(12);
-    expect(updatedRecipe.cookTime).toBe(18);
+    it('should throw an error if a non-invited user attempts to accept', () => {
+      const event = manager.createEvent(
+        'Accept without Invite',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      expect(() => manager.acceptInvitation(event.id, 'user1')).toThrow();
+    });
   });
 
-  test("should throw error of updating recipe with same reciepe details", () => {
-    recipeSystem.addRecipe(
-      "4",
-      "Spaghetti",
-      [
-        { name: "Pasta", amount: "200g" },
-        { name: "Tomato Sauce", amount: "1 cup" },
-      ],
-      "Cook the pasta, then add sauce.",
-      10,
-      15
-    );
-    expect(() => {
-      recipeSystem.updateRecipe("4", {
-        name: "Spaghetti",
-        ingredients: [
-          { name: "Pasta", amount: "200g" },
-          { name: "Tomato Sauce", amount: "1 cup" },
-        ],
-        prepTime: 10,
-        cookTime: 15,
-      });
-    }).toThrowError("Same recipe object");
+  describe('declineInvitation', () => {
+    it('should mark a user invitation as declined', () => {
+      const event = manager.createEvent(
+        'Decline Invitation',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.inviteUser(event.id, 'user1');
+      expect(manager.declineInvitation(event.id, 'user1')).toBe(true);
+      const details = manager.getEventDetails(event.id);
+      expect(details.invitations['user1']).toBe('declined');
+    });
+
+    it('should throw an error if a non-invited user attempts to decline', () => {
+      const event = manager.createEvent(
+        'Decline without Invite',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      expect(() => manager.declineInvitation(event.id, 'user1')).toThrow();
+    });
   });
 
-  test("should throw error if updating recipe not found", () => {
-    expect(() => {
-      recipeSystem.updateRecipe("nonexistent", { prepTime: 10 });
-    }).toThrowError("Recipe not found");
+  describe('getUpcomingEvents', () => {
+    it('should return only future events sorted by date', () => {
+      const pastEvent = manager.createEvent(
+        'Past Event',
+        '2000-01-01T10:00:00',
+        'Past Location'
+      );
+      const futureEvent1 = manager.createEvent(
+        'Future Event 1',
+        '2030-01-01T10:00:00',
+        'Location 1'
+      );
+      const futureEvent2 = manager.createEvent(
+        'Future Event 2',
+        '2040-01-01T10:00:00',
+        'Location 2'
+      );
+      const upcoming = manager.getUpcomingEvents();
+      expect(upcoming.find((ev) => ev.id === pastEvent.id)).toBeUndefined();
+      expect(upcoming[0].id).toBe(futureEvent1.id);
+      expect(upcoming[1].id).toBe(futureEvent2.id);
+    });
   });
 
-  test("should throw error if updating recipe but reciepe ID parameter is missing", () => {
-    expect(() => {
-      recipeSystem.updateRecipe({ prepTime: 10 });
-    }).toThrowError("Invalid recipe details");
+  describe('getEventDetails', () => {
+    it('should throw an error if the event does not exist', () => {
+      expect(() => manager.getEventDetails(999)).toThrow();
+    });
   });
 
-  test("should throw error if updating recipe but updatedDetails object is missing", () => {
-    recipeSystem.addRecipe(
-      "4",
-      "Spaghetti",
-      [
-        { name: "Pasta", amount: "200g" },
-        { name: "Tomato Sauce", amount: "1 cup" },
-      ],
-      "Cook the pasta, then add sauce.",
-      10,
-      15
-    );
-    expect(() => {
-      recipeSystem.updateRecipe("4");
-    }).toThrowError("Invalid recipe details");
+  describe('getAttendeeList', () => {
+    it('should return a list of users who accepted invitations', () => {
+      const event = manager.createEvent(
+        'Attendee List',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.inviteUser(event.id, 'user1');
+      manager.inviteUser(event.id, 'user2');
+      manager.acceptInvitation(event.id, 'user1');
+      manager.declineInvitation(event.id, 'user2');
+      const attendees = manager.getAttendeeList(event.id);
+      expect(attendees).toEqual(['user1']);
+    });
   });
 
-  test("should throw error if updating recipe but updatedDetails object has invalid ingredients", () => {
-    recipeSystem.addRecipe(
-      "4",
-      "Spaghetti",
-      [
-        { name: "Pasta", amount: "200g" },
-        { name: "Tomato Sauce", amount: "1 cup" },
-      ],
-      "Cook the pasta, then add sauce.",
-      10,
-      15
-    );
-    expect(() => {
-      recipeSystem.updateRecipe("4", { ingredients: [{ name: "Past" }] });
-    }).toThrowError("Invalid ingredients");
+  describe('sendReminder', () => {
+    it('should resolve false if no accepted attendees exist', async () => {
+      const event = manager.createEvent(
+        'Reminder Event',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      await expect(manager.sendReminder(event.id)).resolves.toBe(false);
+    });
+
+    it('should send reminders to accepted attendees and update remindersSent count', async () => {
+      const event = manager.createEvent(
+        'Reminder Event',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.inviteUser(event.id, 'user1');
+      manager.acceptInvitation(event.id, 'user1');
+      await expect(manager.sendReminder(event.id)).resolves.toBe(true);
+      const details = manager.getEventDetails(event.id);
+      expect(details.remindersSent).toBe(1);
+    });
   });
 
-  test("should throw error if updating recipe but updatedDetails object preptime cannot be negative", () => {
-    recipeSystem.addRecipe(
-      "4",
-      "Spaghetti",
-      [
-        { name: "Pasta", amount: "200g" },
-        { name: "Tomato Sauce", amount: "1 cup" },
-      ],
-      "Cook the pasta, then add sauce.",
-      10,
-      15
-    );
-    expect(() => {
-      recipeSystem.updateRecipe("4", { prepTime: -12 });
-    }).toThrowError("Time must be a non-negative number");
+  describe('replayEvents', () => {
+    it('should rebuild the aggregate state from the event store', () => {
+      const event = manager.createEvent(
+        'Replay Event',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.inviteUser(event.id, 'user1');
+      manager.acceptInvitation(event.id, 'user1');
+      const stateBeforeReplay = manager.getEventDetails(event.id);
+      manager.deleteEvent(event.id);
+      expect(() => manager.getEventDetails(event.id)).toThrow();
+      manager.replayEvents();
+      const stateAfterReplay = manager.getEventDetails(event.id);
+      expect(stateAfterReplay.id).toBe(event.id);
+      expect(stateAfterReplay.invitations['user1']).toBe('accepted');
+    });
   });
 
-  test("should throw error if updating recipe but updatedDetails object cooktime cannot be negative", () => {
-    recipeSystem.addRecipe(
-      "4",
-      "Spaghetti",
-      [
-        { name: "Pasta", amount: "200g" },
-        { name: "Tomato Sauce", amount: "1 cup" },
-      ],
-      "Cook the pasta, then add sauce.",
-      10,
-      15
-    );
-    expect(() => {
-      recipeSystem.updateRecipe("4", { cookTime: -12 });
-    }).toThrowError("Time must be a non-negative number");
+  describe('subscribe', () => {
+    it('should notify subscribers on event creation', () => {
+      const callback = jest.fn();
+      manager.subscribe('EVENT_CREATED', callback);
+      const event = manager.createEvent(
+        'Subscribe Event',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      expect(callback).toHaveBeenCalledWith(
+        expect.objectContaining({
+          type: 'EVENT_CREATED',
+          payload: expect.objectContaining({ id: event.id }),
+        })
+      );
+    });
   });
-
-  test("should throw error if updating recipe but updatedDetails object description is empty", () => {
-    recipeSystem.addRecipe(
-      "4",
-      "Spaghetti",
-      [
-        { name: "Pasta", amount: "200g" },
-        { name: "Tomato Sauce", amount: "1 cup" },
-      ],
-      "Cook the pasta, then add sauce.",
-      10,
-      15
-    );
-    expect(() => {
-      recipeSystem.updateRecipe("4", { instructions: "" });
-    }).toThrowError("Instructions cannot be empty");
-  });
-
-  test("should generate recipe report", () => {
-    recipeSystem.addRecipe(
-      "5",
-      "Fried Rice",
-      [{ name: "Rice", amount: "2 cups" }],
-      "Fry rice with vegetables.",
-      5,
-      15
-    );
-    recipeSystem.addRecipe(
-      "6",
-      "Omelette",
-      [{ name: "Eggs", amount: 3 }],
-      "Beat eggs and cook.",
-      5,
-      5
-    );
-
-    const report = recipeSystem.generateRecipeReport();
-    expect(report.length).toBe(2);
-    expect(report[0].prepTime).toBe(5);
-    expect(report[1].prepTime).toBe(5);
-  });
-
-  test("should throw error if deleting recipe that does not exist", () => {
-    expect(() => {
-      recipeSystem.deleteRecipe("nonexistent");
-    }).toThrowError("Recipe not found");
-  });
-
-  test("should delete a recipe", () => {
-    recipeSystem.addRecipe(
-      "7",
-      "Pancakes",
-      [{ name: "Flour", amount: "1 cup" }],
-      "Mix ingredients and cook.",
-      10,
-      5
-    );
-
-    recipeSystem.deleteRecipe("7");
-
-    expect(() => {
-      recipeSystem.getRecipeById("7");
-    }).toThrowError("Recipe not found");
-  });
-
- 
 });

@@ -1,148 +1,238 @@
-const { List, Map } = require("immutable");
+class EventManager {
+  #events = new Map();
+  #log = [];
+  #subscribers = new Map();
+  _eventIdCounter = 1;
 
-class RecipeManagementSystem {
-  constructor() {
-    this.recipes = List();
+  constructor() {}
+
+  createEvent(title, date, location) {
+    if (!title || !date || !location) {
+      throw new Error('Missing required parameters: title, date, and location are required.');
+    }
+    const eventDate = new Date(date);
+    if (isNaN(eventDate)) {
+      throw new Error('Invalid date format provided.');
+    }
+    const eventId = this._eventIdCounter++;
+
+    const event = {
+      id: eventId,
+      title,
+      date: eventDate,
+      location,
+      version: 1,
+      invitations: {},
+      remindersSent: 0,
+    };
+
+    this.#events.set(eventId, event);
+    this.#logEvent('createEvent', event);
+    this.#publish('EVENT_CREATED', event);
+    return event;
   }
 
-  addRecipe(recipeId, name, ingredients, instructions, prepTime, cookTime) {
-    // Validate inputs
-    if (typeof recipeId !== "string" || recipeId.trim() === "") {
-      throw new Error("Invalid recipe details");
+  deleteEvent(eventId) {
+    if (!this.#events.has(eventId)) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
     }
+    this.#events.delete(eventId);
+    this.#logEvent('deleteEvent', { id: eventId });
+    this.#publish('EVENT_DELETED', { id: eventId });
+    return true;
+  }
 
-    if (typeof name !== "string" || name.trim() === "") {
-      throw new Error("Invalid recipe details");
+  updateEvent(eventId, newDetails, expectedVersion) {
+    const event = this.#events.get(eventId);
+    if (!event) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
     }
-
-    if (
-      !Array.isArray(ingredients) ||
-      !ingredients.every(
-        (ing) =>
-          typeof ing.name === "string" &&
-          (typeof ing.amount === "string" || typeof ing.amount === "number")
-      )
-    ) {
-      throw new Error("Invalid ingredients");
+    if (event.version !== expectedVersion) {
+      throw new Error('Version conflict');
     }
-
-    if (typeof instructions !== "string" || instructions.trim() === "") {
-      throw new Error("Instructions cannot be empty");
-    }
-
-    if (
-      !Number.isInteger(prepTime) ||
-      prepTime < 0 ||
-      !Number.isInteger(cookTime) ||
-      cookTime < 0
-    ) {
-      throw new Error("Time must be a non-negative number");
-    }
-
-    const newRecipe = Map({
-      recipeId,
-      name,
-      ingredients: List(ingredients),
-      instructions,
-      prepTime,
-      cookTime,
+    Object.keys(newDetails).forEach((key) => {
+      if (newDetails[key] !== undefined) {
+        event[key] = newDetails[key];
+      }
     });
-
-    this.recipes = this.recipes.push(newRecipe);
+    event.version++;
+    this.#logEvent('updateEvent', { id: eventId, newDetails });
+    this.#publish('EVENT_UPDATED', { id: eventId, newDetails });
+    return event;
   }
 
-  updateRecipe(recipeId, updatedDetails) {
-    // Validate inputs
-    if (!recipeId || typeof recipeId !== "string" || !updatedDetails || typeof updatedDetails !== "object") {
-      throw new Error("Invalid recipe details");
+  inviteUser(eventId, userId) {
+    if (!userId) {
+      throw new Error('User ID is required.');
     }
-
-    const recipeIndex = this.recipes.findIndex(
-      (recipe) => recipe.get("recipeId") === recipeId
-    );
-
-    if (recipeIndex === -1) {
-      throw new Error("Recipe not found");
+    const event = this.#events.get(eventId);
+    if (!event) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
     }
-
-    const originalRecipe = this.recipes.get(recipeIndex);
-
-    const updatedRecipe = originalRecipe.merge(updatedDetails);
-
-    if (originalRecipe.equals(updatedRecipe)) {
-      throw new Error("Same recipe object");
+    if (event.invitations[userId]) {
+      throw new Error(`User ${userId} has already been invited.`);
     }
-
-    const { ingredients, instructions, prepTime, cookTime } = updatedRecipe.toObject();
-
-    // Validate updated details
-    if (
-      (prepTime !== undefined && (!Number.isInteger(prepTime) || prepTime < 0)) ||
-      (cookTime !== undefined && (!Number.isInteger(cookTime) || cookTime < 0))
-    ) {
-      throw new Error("Time must be a non-negative number");
-    }
-
-    if (
-      ingredients &&
-      (!Array.isArray(ingredients) ||
-        !ingredients.every(
-          (ing) =>
-            typeof ing.name === "string" &&
-            (typeof ing.amount === "string" || typeof ing.amount === "number")
-        ))
-    ) {
-      throw new Error("Invalid ingredients");
-    }
-
-    if (
-      instructions !== undefined &&
-      (typeof instructions !== "string" || instructions.trim() === "")
-    ) {
-      throw new Error("Instructions cannot be empty");
-    }
-
-    this.recipes = this.recipes.set(recipeIndex, updatedRecipe);
+    event.invitations[userId] = 'pending';
+    this.#logEvent('inviteUser', { eventId, userId });
+    this.#publish('USER_INVITED', { eventId, userId });
+    return true;
   }
 
-  getRecipeById(recipeId) {
-    if (typeof recipeId !== "string" || recipeId.trim() === "") {
-      throw new Error("Invalid recipe details");
+  acceptInvitation(eventId, userId) {
+    const event = this.#events.get(eventId);
+    if (!event) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
     }
-
-    const recipe = this.recipes.find(
-      (recipe) => recipe.get("recipeId") === recipeId
-    );
-
-    if (!recipe) {
-      throw new Error("Recipe not found");
+    if (!event.invitations[userId]) {
+      throw new Error(`User ${userId} was not invited to the event.`);
     }
-
-    return recipe.toObject();
+    event.invitations[userId] = 'accepted';
+    this.#logEvent('acceptInvitation', { eventId, userId });
+    this.#publish('INVITATION_ACCEPTED', { eventId, userId });
+    return true;
   }
 
-  generateRecipeReport() {
-    return this.recipes
-      .map((recipe) => ({
-        recipeId: recipe.get("recipeId"),
-        name: recipe.get("name"),
-        prepTime: recipe.get("prepTime"),
-      }))
-      .sort((a, b) => a.prepTime - b.prepTime)
-      .toArray();
+  declineInvitation(eventId, userId) {
+    const event = this.#events.get(eventId);
+    if (!event) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
+    }
+    if (!event.invitations[userId]) {
+      throw new Error(`User ${userId} was not invited to the event.`);
+    }
+    event.invitations[userId] = 'declined';
+    this.#logEvent('declineInvitation', { eventId, userId });
+    this.#publish('INVITATION_DECLINED', { eventId, userId });
+    return true;
   }
 
-  deleteRecipe(recipeId) {
-    const recipeIndex = this.recipes.findIndex(
-      (recipe) => recipe.get("recipeId") === recipeId
-    );
+  getUpcomingEvents() {
+    const now = new Date();
+    const upcoming = Array.from(this.#events.values()).filter((event) => event.date > now);
+    upcoming.sort((a, b) => a.date - b.date);
+    return upcoming;
+  }
 
-    if (recipeIndex === -1) {
-      throw new Error("Recipe not found");
+  getEventDetails(eventId) {
+    const event = this.#events.get(eventId);
+    if (!event) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
+    }
+    return JSON.parse(JSON.stringify(event));
+  }
+
+  async sendReminder(eventId) {
+    const event = this.#events.get(eventId);
+    if (!event) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
+    }
+    const acceptedUsers = this.getAttendeeList(eventId);
+    if (acceptedUsers.length === 0) {
+      console.log(`No accepted attendees to send reminders for event ${eventId}.`);
+      return false;
     }
 
-    this.recipes = this.recipes.delete(recipeIndex);
+    const sendEmail = (userId, event) => {
+      return new Promise((resolve) => {
+        setTimeout(() => {
+          console.log(`Reminder sent to user ${userId} for event "${event.title}" at ${event.date}`);
+          resolve(true);
+        }, 100);
+      });
+    };
+
+    await Promise.all(acceptedUsers.map((userId) => sendEmail(userId, event)));
+    event.remindersSent++;
+    this.#logEvent('sendReminder', { eventId });
+    this.#publish('REMINDER_SENT', { eventId });
+    return true;
+  }
+
+  getAttendeeList(eventId) {
+    const event = this.#events.get(eventId);
+    if (!event) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
+    }
+    const attendees = Object.entries(event.invitations)
+      .filter(([_, status]) => status === 'accepted')
+      .map(([userId, _]) => userId);
+    return attendees;
+  }
+
+  #logEvent(action, details) {
+    this.#log.push({ action, details, timestamp: new Date() });
+  }
+
+  #publish(eventType, data) {
+    if (this.#subscribers.has(eventType)) {
+      this.#subscribers.get(eventType).forEach((callback) => callback(data));
+    }
+  }
+
+  subscribe(eventType, callback) {
+    if (!this.#subscribers.has(eventType)) {
+      this.#subscribers.set(eventType, new Set());
+    }
+    this.#subscribers.get(eventType).add(callback);
+  }
+
+  replayEvents() {
+    this.#log.forEach((logEntry) => {
+      switch (logEntry.action) {
+        case 'createEvent':
+          this.createEvent(logEntry.details.title, logEntry.details.date, logEntry.details.location);
+          break;
+        case 'deleteEvent':
+          this.deleteEvent(logEntry.details.id);
+          break;
+        case 'updateEvent':
+          this.updateEvent(logEntry.details.id, logEntry.details.newDetails, logEntry.details.version);
+          break;
+        case 'inviteUser':
+          this.inviteUser(logEntry.details.eventId, logEntry.details.userId);
+          break;
+        case 'acceptInvitation':
+          this.acceptInvitation(logEntry.details.eventId, logEntry.details.userId);
+          break;
+        case 'declineInvitation':
+          this.declineInvitation(logEntry.details.eventId, logEntry.details.userId);
+          break;
+        case 'sendReminder':
+          this.sendReminder(logEntry.details.eventId);
+          break;
+      }
+    });
   }
 }
 
-module.exports = { RecipeManagementSystem };
+/* ==================== Usage Example ====================
+  
+  const manager = new EventManager();
+  
+  // Create an event
+  const event = manager.createEvent("Annual Meeting", "2025-06-15T09:00:00", "Conference Hall A");
+  console.log("Created Event:", event);
+  
+  // Invite users
+  manager.inviteUser(event.id, "user123");
+  manager.inviteUser(event.id, "user456");
+  
+  // Users respond to invitations
+  manager.acceptInvitation(event.id, "user123");
+  manager.declineInvitation(event.id, "user456");
+  
+  // Get upcoming events
+  console.log("Upcoming Events:", manager.getUpcomingEvents());
+  
+  // Send reminders (simulate async email sending)
+  manager.sendReminder(event.id).then(() => {
+    console.log("Reminders sent!");
+  });
+  
+  // Get event details and attendee list
+  console.log("Event Details:", manager.getEventDetails(event.id));
+  console.log("Attendee List:", manager.getAttendeeList(event.id));
+  
+  ========================================================== */
+
+module.exports = { EventManager };
