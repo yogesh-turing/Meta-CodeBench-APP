@@ -1,5 +1,3 @@
-Base Code:
-```javascript
 const async_hooks = require('async_hooks');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -161,13 +159,3 @@ class FlightBookingSystem {
 }
 
 module.exports = FlightBookingSystem;
-```
-
-Prompt:
-
-Please do a code review for the above code. Please look especially for things like this:
- - Bad practices
- - Security vulnerabilities
- - Clear inefficiencies
- - Bugs
-Please mention only the 1-7 most obvious and clearest points that would always be mentioned in a good code review. Please make your code review accurate and clear while also being concise also please don't include code snippets .
