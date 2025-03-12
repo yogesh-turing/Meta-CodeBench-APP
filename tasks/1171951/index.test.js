@@ -1,339 +1,796 @@
-const { BookRecommendationSystem } = require(process.env.TARGET_FILE);
+const { FeedbackAnalysisSystem } = require(process.env.TARGET_FILE);
+// const { FeedbackAnalysisSystem } = require('./model_e');
 
-describe("BookRecommendationSystem", () => {
+describe("FeedbackAnalysisSystem", () => {
   let system;
 
   beforeEach(() => {
-    system = new BookRecommendationSystem();
+    system = new FeedbackAnalysisSystem();
   });
 
-  // Test: Add Book
-  test("should add a new book to the catalog", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    expect(system.books.length).toBe(1);
-    expect(system.books[0].title).toBe("Harry Potter");
-  });
+  describe("aggregateFeedback", () => {
+    it("should correctly aggregate feedback by customer", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Good service",
+          rating: 4,
+          sentimentScore: 0.6,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
 
-  test("should throw an error when adding a book with invalid details", () => {
-    expect(() => system.addBook("", "", "", 1, "", 6)).toThrow(
-      "Book Detail Invalid"
-    );
-  });
+      const result = system.aggregateFeedback(feedbackData);
 
-  test("should throw an error when adding a book with invalid rating", () => {
-    expect(() =>
-      system.addBook(
-        "1",
-        "Harry Potter",
-        "J.K. Rowling",
-        "Fantasy",
-        500,
-        "A young wizard story.",
-        -1
-      )
-    ).toThrow("Invalid rating");
-  });
-
-  test("should throw an error when adding a book with invalid rating", () => {
-    expect(() =>
-      system.addBook(
-        "1",
-        "Harry Potter",
-        "J.K. Rowling",
-        "Fantasy",
-        -1,
-        "A young wizard story.",
-        1
-      )
-    ).toThrow("Invalid length");
-  });
-
-  // Test: Add User
-  test("should add a new user to the system", () => {
-    system.addUser("user1", "Alice", {
-      genre: "Fantasy",
-      length: { min: 100, max: 500 },
+      expect(result).toEqual([
+        {
+          customerId: "123",
+          averageRating: 4.5,
+          averageSentimentScore: 0.75,
+          feedbacks: feedbackData.filter((f) => f.customerId === "123"),
+        },
+        {
+          customerId: "124",
+          averageRating: 1,
+          averageSentimentScore: -0.8,
+          feedbacks: feedbackData.filter((f) => f.customerId === "124"),
+        },
+      ]);
     });
-    expect(system.users.length).toBe(1);
-    expect(system.users[0].name).toBe("Alice");
+
+    it("should throw error if feedbackData is not an array", () => {
+      expect(() => system.aggregateFeedback("invalid data")).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData has customerId not as string", () => {
+      const feedbackData = [
+        {
+          customerId: 123,
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Good service",
+          rating: 4,
+          sentimentScore: 0.6,
+          date: "2025-03-11",
+        },
+        {
+          customerId: 124,
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.aggregateFeedback(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData has rating not in range of 1 to 5", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5.7,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Good service",
+          rating: 4,
+          sentimentScore: 0.6,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.aggregateFeedback(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData has sentiment not in range of -1 to 1", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5.7,
+          sentimentScore: 1.1,
+          date: "2025-03-10",
+        },
+      ];
+      expect(() => system.aggregateFeedback(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData has date not in correct format", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5.7,
+          sentimentScore: 1.1,
+          date: "03-10-2025",
+        },
+      ];
+      expect(() => system.aggregateFeedback(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
   });
 
-  test("should throw an error when adding a user with invalid details", () => {
-    expect(() =>
-      system.addUser("user2", "Bob", {
-        genre: "Fantasy",
-        length: { min: "a", max: 500 },
-      })
-    ).toThrow("Book Detail Invalid");
+  describe("filterFeedbackByDate", () => {
+    it("should filter feedback within the specified date range", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Good service",
+          rating: 4,
+          sentimentScore: 0.6,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+
+      const result = system.filterFeedbackByDate(
+        feedbackData,
+        "2025-03-10",
+        "2025-03-11"
+      );
+
+      expect(result).toEqual([
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Good service",
+          rating: 4,
+          sentimentScore: 0.6,
+          date: "2025-03-11",
+        },
+      ]);
+    });
+
+    it("should return empty array if no feedback in the date range", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ];
+
+      const result = system.filterFeedbackByDate(
+        feedbackData,
+        "2025-03-11",
+        "2025-03-12"
+      );
+      expect(result).toEqual([]);
+    });
+
+    it("should throw error if feedbackData is not an array", () => {
+      expect(() =>
+        system.filterFeedbackByDate("invalid data", "2025-03-10", "2025-03-11")
+      ).toThrow("Invalid Feedback Details");
+    });
+
+    it("should throw error when start date is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ];
+      expect(() =>
+        system.filterFeedbackByDate(feedbackData, "03-11-2025", "2025-03-12")
+      ).toThrow("Invalid Feedback Details");
+    });
+
+    it("should throw error when end date is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ];
+      expect(() =>
+        system.filterFeedbackByDate(feedbackData, "2025-03-12", "03-12-2025")
+      ).toThrow("Invalid Feedback Details");
+    });
+
+    it("should throw error when end date is not a valid date", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ];
+      expect(() =>
+        system.filterFeedbackByDate(feedbackData, "2025-03-12", "2025-13-12")
+      ).toThrow("Invalid Feedback Details");
+    });
   });
 
-  test("should throw an error when adding a user with invalid details ie prefernce having invalid genera", () => {
-    expect(() =>
-      system.addUser("user2", "Bob", {
-        genre: 123,
-        length: { min: 1, max: 500 },
-      })
-    ).toThrow("Book Detail Invalid");
+  describe("generateSentimentReport", () => {
+    it("should generate a sentiment report categorizing feedback as positive, neutral, or negative", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+
+      const result = system.generateSentimentReport(feedbackData);
+
+      expect(result).toEqual({
+        positive: 1,
+        neutral: 1,
+        negative: 1,
+      });
+    });
+
+    it("should throw error if feedbackData is not an array", () => {
+      expect(() => system.generateSentimentReport("invalid data")).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.generateSentimentReport(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-14-12",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "03-11-2025",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.generateSentimentReport(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-14-12",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "03-11-2025",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 12,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.generateSentimentReport(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
+
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-14-12",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "03-11-2025",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 12,
+          sentimentScore: -1.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.generateSentimentReport(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
   });
 
-  // Test: Mark Book as Read
-  test("should mark a book as read for a user", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    system.addUser("user1", "Alice");
-    system.markBookAsRead("user1", "1");
-    expect(system.users[0].readingHistory).toContain("1");
+  describe("sortFeedbackByRating", () => {
+    it("should sort feedback by rating in descending order by default", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+
+      const result = system.sortFeedbackByRating(feedbackData);
+
+      expect(result).toEqual([
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ]);
+    });
+
+    it("should sort feedback by rating in ascending order if specified", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+
+      const result = system.sortFeedbackByRating(feedbackData, "asc");
+
+      expect(result).toEqual([
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ]);
+    });
+
+    it("should throw error if feedbackData is not an array", () => {
+      expect(() => system.sortFeedbackByRating("invalid data")).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
   });
 
-  test("should throw an error if the user or book does not exist", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    system.addUser("user1", "Alice");
-    expect(() => system.markBookAsRead("user1", "2")).toThrow(
-      "Book Detail Invalid"
-    );
-    expect(() => system.markBookAsRead("nonExistentUser", "1")).toThrow(
-      "Book Detail Invalid"
-    );
+  describe("getCustomerFeedbackSummary", () => {
+    it("should return a customer feedback summary", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "123",
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+      ];
+
+      const result = system.getCustomerFeedbackSummary(feedbackData, "123");
+
+      expect(result).toEqual({
+        customerId: "123",
+        totalFeedbacks: 2,
+        averageRating: 4,
+        averageSentimentScore: 0.45,
+      });
+    });
+
+    it("should return summary feebdback object for the customer", () => {
+      const feedbackData = [
+        {
+          customerId: "999",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ];
+
+      const result = system.getCustomerFeedbackSummary(feedbackData, "999");
+
+      expect(result).toEqual({
+        customerId: "999",
+        totalFeedbacks: 1,
+        averageRating: 5,
+        averageSentimentScore: 0.9,
+      });
+    });
+
+    it("should throw error if no customer found", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ];
+
+      expect(() =>
+        system.getCustomerFeedbackSummary(feedbackData, "999")
+      ).toThrow("No customer found");
+    });
+
+    it("should throw error when passed customer id is invalid type", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+      ];
+
+      expect(() =>
+        system.getCustomerFeedbackSummary(feedbackData, 123)
+      ).toThrow("Invalid Feedback Details");
+    });
+
+    it("should throw error if feedbackData is not an array", () => {
+      expect(() =>
+        system.getCustomerFeedbackSummary("invalid data", "123")
+      ).toThrow("Invalid Feedback Details");
+    });
   });
 
-  // Test: Get Reading History
-  test("should get reading history for a user", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    system.addUser("user1", "Alice");
-    system.markBookAsRead("user1", "1");
-    const history = system.getReadingHistory("user1");
-    expect(history).toEqual(["Harry Potter"]);
-  });
+  describe("getSameReportOfCustomer", () => {
+    it("should club customers based on rating and sentiment", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Okay",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "125",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+        {
+          customerId: "126",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
 
-  test('should return "No books read yet" if the user has no books in history', () => {
-    system.addUser("user1", "Alice");
-    const history = system.getReadingHistory("user1");
-    expect(history).toBe("No books read yet");
-  });
+      const result = system.getSameReportOfCustomer(feedbackData);
 
-  test("should throw error if the user provided is invalid type", () => {
-    system.addUser("user1", "Alice");
-    expect(() => system.getReadingHistory(123)).toThrow("Book Detail Invalid");
-  });
-  // Test: Get Books by Genre
-  test("should get books by genre", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    system.addBook(
-      "2",
-      "The Hobbit",
-      "J.R.R. Tolkien",
-      "Fantasy",
-      300,
-      "A hobbit adventure.",
-      4.8
-    );
-    const books = system.getBooksByGenre("Fantasy");
-    expect(books.length).toBe(2);
-    expect(books[0].bookId).toBe("1");
-    expect(books[1].bookId).toBe("2");
-  });
+      expect(result).toEqual([
+        { customerId: "123", rating: 10, sentimentScore: 0.9 },
+        { customerId: "124", rating: 10, sentimentScore: 0.9 },
+        {
+          customerId: "125",
+          rating: 2,
+          sentimentScore: -0.9,
+        },
+        {
+          customerId: "126",
+          rating: 2,
+          sentimentScore: -0.9,
+        },
+      ]);
+    });
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-03-10",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "2025-03-11",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.getSameReportOfCustomer(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
 
-  test('should return "No books found in this genre" when no books match the genre', () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    const books = system.getBooksByGenre("Mystery");
-    expect(books).toBe("No books found in this genre");
-  });
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-14-12",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "03-11-2025",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 1,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.getSameReportOfCustomer(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
 
-  test("should throw error if genre is of invalid type in getBookByGenre", () => {
-    expect(() => system.getBooksByGenre(123)).toThrow("Book Detail Invalid");
-  });
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-14-12",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "03-11-2025",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 12,
+          sentimentScore: -0.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.getSameReportOfCustomer(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
 
-  // Test: Get Books by Length
-  test("should get books within a specific length range", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    system.addBook(
-      "2",
-      "The Hobbit",
-      "J.R.R. Tolkien",
-      "Fantasy",
-      300,
-      "A hobbit adventure.",
-      4.8
-    );
-    const books = system.getBooksByLength(100, 400);
-    expect(books.length).toBe(1);
-    expect(books[0].bookId).toBe("2");
-  });
-
-  test('should return "No books found in the specified length range" when no books match the length range', () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    const books = system.getBooksByLength(600, 800);
-    expect(books).toBe("No books found in the specified length range");
-  });
-
-  // Test: Rate Book
-  test("should rate a book", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story."
-    );
-    system.rateBook("1", 5);
-    expect(system.books[0].rating).toBe(5);
-  });
-
-  test("should throw an error when rating a book with invalid rating", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    expect(() => system.rateBook("1", 6)).toThrow("Book Detail Invalid");
-    expect(() => system.rateBook("1", -1)).toThrow("Book Detail Invalid");
-  });
-
-  // Test: Get Books by Author
-  test("should get books by author", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    system.addBook(
-      "2",
-      "Fantastic Beasts",
-      "J.K. Rowling",
-      "Fantasy",
-      300,
-      "A wizard story.",
-      4.7
-    );
-    const books = system.getBooksByAuthor("J.K. Rowling");
-    expect(books.length).toBe(2);
-    expect(books[0].bookId).toBe("1");
-    expect(books[1].bookId).toBe("2");
-  });
-
-  test('should return "No books found by this author" when no books match the author', () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    const books = system.getBooksByAuthor("George R. R. Martin");
-    expect(books).toBe("No books found by this author");
-  });
-
-  // Test: Get Top Rated Books
-  test("should get top-rated books", () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      4.5
-    );
-    system.addBook(
-      "2",
-      "The Hobbit",
-      "J.R.R. Tolkien",
-      "Fantasy",
-      300,
-      "A hobbit adventure.",
-      4.8
-    );
-    const topBooks = system.getTopRatedBooks();
-    console.log(topBooks, "top");
-    expect(topBooks.length).toBe(2);
-    expect(topBooks[0].rating).toBe(4.8);
-  });
-
-  test('should return "No rated books available" when no books have a rating', () => {
-    system.addBook(
-      "1",
-      "Harry Potter",
-      "J.K. Rowling",
-      "Fantasy",
-      500,
-      "A young wizard story.",
-      undefined
-    );
-    const topBooks = system.getTopRatedBooks();
-    expect(topBooks).toBe("No rated books available");
+    it("should throw error if feedbackData is invalid", () => {
+      const feedbackData = [
+        {
+          customerId: "123",
+          feedbackText: "Great!",
+          rating: 5,
+          sentimentScore: 0.9,
+          date: "2025-14-12",
+        },
+        {
+          customerId: 123,
+          feedbackText: "Okay",
+          rating: 3,
+          sentimentScore: 0,
+          date: "03-11-2025",
+        },
+        {
+          customerId: "124",
+          feedbackText: "Bad experience",
+          rating: 12,
+          sentimentScore: -1.8,
+          date: "2025-03-12",
+        },
+      ];
+      expect(() => system.getSameReportOfCustomer(feedbackData)).toThrow(
+        "Invalid Feedback Details"
+      );
+    });
   });
 });

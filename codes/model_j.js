@@ -1,162 +1,148 @@
-const S = require("sanctuary");
+const _ = require("underscore");
+const { parseISO, isWithinInterval, isValid } = require("date-fns");
 
-class BookRecommendationSystem {
+class FeedbackAnalysisSystem {
   constructor() {
-    this.books = [];
-    this.users = [];
+    this.feedbacks = [];
   }
 
-  // Function to add a new book to the catalog
-  addBook(bookId, title, author, genre, length, description, rating) {
-    if (
-      !bookId ||
-      !title ||
-      !author ||
-      !genre ||
-      !description ||
-      typeof length !== "number" ||
-      typeof rating !== "number"
-    ) {
-      throw new Error("Book Detail Invalid");
+  aggregateFeedback(feedbackData) {
+    if (!Array.isArray(feedbackData)) {
+      throw new Error("Invalid Feedback Details");
     }
 
-    if (rating < 0 || rating > 5) throw new Error("Invalid rating");
-    if (length <= 0 || !Number.isInteger(length))
-      throw new Error("Invalid length");
+    feedbackData.forEach(feedback => {
+      if (typeof feedback.customerId !== 'string' || 
+          typeof feedback.feedbackText !== 'string' || 
+          typeof feedback.rating !== 'number' || 
+          feedback.rating < 1 || feedback.rating > 5 || 
+          typeof feedback.sentimentScore !== 'number' || 
+          feedback.sentimentScore < -1 || feedback.sentimentScore > 1 || 
+          !isValid(parseISO(feedback.date))) {
+        throw new Error("Invalid Feedback Details");
+      }
+    });
 
-    this.books.push({
-      bookId,
-      title,
-      author,
-      genre,
-      length,
-      description,
-      rating,
-      ratings: [],
+    const groupedFeedback = _.groupBy(feedbackData, "customerId");
+    const aggregatedResults = _.map(
+      groupedFeedback,
+      (feedbacks, customerId) => {
+        const averageRating = _.reduce(feedbacks, (sum, feedback) => sum + feedback.rating, 0) / feedbacks.length;
+        const averageSentimentScore = _.reduce(feedbacks, (sum, feedback) => sum + feedback.sentimentScore, 0) / feedbacks.length;
+
+        return {
+          customerId,
+          averageRating,
+          averageSentimentScore,
+          feedbacks,
+        };
+      }
+    );
+
+    return aggregatedResults;
+  }
+
+  filterFeedbackByDate(feedbackData, startDate, endDate) {
+    if (
+      !Array.isArray(feedbackData) || 
+      typeof startDate !== "string" || 
+      typeof endDate !== "string"
+    ) {
+      throw new Error("Invalid Feedback Details");
+    }
+
+    const start = parseISO(startDate);
+    const end = parseISO(endDate);
+
+    if (!isValid(start) || !isValid(end)) {
+      throw new Error("Invalid Feedback Details");
+    }
+
+    return _.filter(feedbackData, (feedback) => {
+      const feedbackDate = parseISO(feedback.date);
+      return isWithinInterval(feedbackDate, { start, end });
     });
   }
 
-  // Function to add a new user to the system
-  addUser(userId, name, preferences = {}) {
-    if (!userId || !name || typeof preferences !== "object") {
-      throw new Error("Book Detail Invalid");
+  generateSentimentReport(feedbackData) {
+    if (!Array.isArray(feedbackData)) {
+      throw new Error("Invalid Feedback Details");
     }
 
-    const validPreferences =
-      typeof preferences === "object" &&
-      (!preferences.genre || typeof preferences.genre === "string") &&
-      (!preferences.length ||
-        (typeof preferences.length === "object" &&
-          typeof preferences.length.min === "number" &&
-          typeof preferences.length.max === "number"));
+    feedbackData.forEach(feedback => {
+      if (typeof feedback.sentimentScore !== 'number' || feedback.sentimentScore < -1 || feedback.sentimentScore > 1) {
+        throw new Error("Invalid Feedback Details");
+      }
+    });
 
-    if (!validPreferences) {
-      throw new Error("Book Detail Invalid");
-    }
+    const sentimentGroups = _.groupBy(feedbackData, (feedback) => {
+      if (feedback.sentimentScore > 0) return "positive";
+      if (feedback.sentimentScore < 0) return "negative";
+      return "neutral";
+    });
 
-    this.users.push({ userId, name, preferences, readingHistory: [] });
+    return {
+      positive: sentimentGroups.positive ? sentimentGroups.positive.length : 0,
+      neutral: sentimentGroups.neutral ? sentimentGroups.neutral.length : 0,
+      negative: sentimentGroups.negative ? sentimentGroups.negative.length : 0,
+    };
   }
 
-  // Function to mark a book as read by the user
-  markBookAsRead(userId, bookId) {
-    const user = this.users.find((u) => u.userId === userId);
-    if (!user) throw new Error("Book Detail Invalid");
-
-    if (!user.readingHistory.includes(bookId)) {
-      user.readingHistory.push(bookId);
+  sortFeedbackByRating(feedbackData, order = "desc") {
+    if (!Array.isArray(feedbackData) || (order !== "asc" && order !== "desc")) {
+      throw new Error("Invalid Feedback Details");
     }
+
+    const sorted = _.sortBy(feedbackData, "rating");
+    return order === "desc" ? sorted.reverse() : sorted;
   }
 
-  // Function to get a user's reading history
-  getReadingHistory(userId) {
-    const user = this.users.find((u) => u.userId === userId);
-    if (!user) throw new Error("Book Detail Invalid");
-
-    if (user.readingHistory.length === 0) {
-      return "No books read yet";
+  getCustomerFeedbackSummary(feedbackData, customerId) {
+    if (!Array.isArray(feedbackData) || typeof customerId !== "string") {
+      throw new Error("Invalid Feedback Details");
     }
 
-    return user.readingHistory
-      .map((bookId) => this.books.find((b) => b.bookId === bookId).title)
-      .sort();
+    const customerFeedbacks = _.filter(
+      feedbackData,
+      (feedback) => feedback.customerId === customerId
+    );
+
+    if (customerFeedbacks.length === 0) {
+      throw new Error("No customer found");
+    }
+
+    const totalFeedbacks = customerFeedbacks.length;
+    const averageRating = _.reduce(customerFeedbacks, (sum, feedback) => sum + feedback.rating, 0) / totalFeedbacks;
+    const averageSentimentScore = _.reduce(customerFeedbacks, (sum, feedback) => sum + feedback.sentimentScore, 0) / totalFeedbacks;
+
+    return {
+      customerId,
+      totalFeedbacks,
+      averageRating,
+      averageSentimentScore,
+    };
   }
 
-  // Function to get books by genre
-  getBooksByGenre(genre) {
-    if (typeof genre !== "string") {
-      throw new Error("Book Detail Invalid");
+  getSameReportOfCustomer(feedbackData) {
+    if (!Array.isArray(feedbackData)) {
+      throw new Error("Invalid Feedback Details");
     }
 
-    const booksByGenre = this.books
-      .filter((b) => b.genre === genre)
-      .sort((a, b) => a.bookId.localeCompare(b.bookId));
+    const groupedFeedback = _.groupBy(feedbackData, feedback => `${feedback.rating}:${feedback.sentimentScore}`);
 
-    if (booksByGenre.length === 0) {
-      return "No books found in this genre";
-    }
+    return _.map(groupedFeedback, (feedbacks, key) => {
+      const [rating, sentimentScore] = key.split(':').map(Number);
+      const totalRating = _.sumBy(feedbacks, 'rating');
+      let totalSentimentScore = _.sumBy(feedbacks, 'sentimentScore');
+      totalSentimentScore = Math.max(Math.min(totalSentimentScore, 0.9), -0.9);
 
-    return booksByGenre;
-  }
-
-  // Function to get books within a specific length range
-  getBooksByLength(minLength, maxLength) {
-    if (typeof minLength !== "number" || typeof maxLength !== "number") {
-      throw new Error("Book Detail Invalid");
-    }
-
-    const booksByLength = this.books
-      .filter((b) => b.length >= minLength && b.length <= maxLength)
-      .sort((a, b) => a.length - b.length);
-
-    if (booksByLength.length === 0) {
-      return "No books found in the specified length range";
-    }
-
-    return booksByLength;
-  }
-
-  // Function to rate a book
-  rateBook(bookId, rating) {
-    if (typeof rating !== "number" || rating < 0 || rating > 5)
-      throw new Error("Invalid rating");
-
-    const book = this.books.find((b) => b.bookId === bookId);
-    if (!book) throw new Error("Book Detail Invalid");
-
-    book.ratings.push(rating);
-    book.rating =
-      book.ratings.reduce((acc, rate) => acc + rate, 0) / book.ratings.length;
-  }
-
-  // Function to get books based on author
-  getBooksByAuthor(author) {
-    if (typeof author !== "string") {
-      throw new Error("Book Detail Invalid");
-    }
-
-    const booksByAuthor = this.books
-      .filter((b) => b.author === author)
-      .sort((a, b) => a.bookId.localeCompare(b.bookId));
-
-    if (booksByAuthor.length === 0) {
-      return "No books found by this author";
-    }
-
-    return booksByAuthor;
-  }
-
-  // Function to get top-rated books
-  getTopRatedBooks() {
-    const ratedBooks = this.books
-      .filter((b) => b.ratings.length > 0)
-      .sort((a, b) => b.rating - a.rating);
-
-    if (ratedBooks.length === 0) {
-      return "No rated books available";
-    }
-
-    return ratedBooks;
+      return {
+        customerId: feedbacks.map(f => f.customerId).join(', '),
+        rating: totalRating,
+        sentimentScore: totalSentimentScore,
+      };
+    });
   }
 }
 
-module.exports = { BookRecommendationSystem };
+module.exports = { FeedbackAnalysisSystem };

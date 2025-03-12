@@ -1,7 +1,16 @@
-The user prompt used `sanctuary` library.
+Unit test:
+    There are multiple test cases with the same description
+        - generateSentimentReport -> "should throw error if feedbackData is invalid"
+        - getSameReportOfCustomer -> "should throw error if feedbackData is invalid"
+    Please add some more details to the description.
 
-In incorrect solution explanation, it should include that code did not use `sanctuary` library features.
+Model A, B, H: 
+    Both models are penalized for incorrectly implementing the function `getSameReportOfCustomer`.
+    From prompt the implementation of the function is unclear, whether it should return all customers or not.
+    We can include failed test cases in the prompt.
 
-The ideal solution should use `sanctuary` library feature wherever possible. After updating ideal response update the explanation as well and make sure unit test coverage is above 90%.
+Model F, G, J:
+    Both the models are penalized for implementing the function `generateSentimentReport` incorrectly.
+    From prompt the implementation of the function is unclear, whether it should return all customers or not.
+    We can include failed test cases in the prompt.
 
-One thing I notices in explanations that not all explnanations are ending with fullstop. Please make sure that sentences are punctually correct.
