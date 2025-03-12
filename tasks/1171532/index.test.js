@@ -337,3 +337,4 @@ describe("BookRecommendationSystem", () => {
     expect(topBooks).toBe("No rated books available");
   });
 });
+
