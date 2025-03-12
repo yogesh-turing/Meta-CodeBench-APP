@@ -10,9 +10,6 @@ class EventManager {
     if (!title || !date || !location) {
       throw new Error('Missing required parameters: title, date, and location are required.');
     }
-    if (typeof title !== 'string' || typeof location !== 'string') {
-      throw new Error('Title and location must be strings.');
-    }
 
     const eventDate = new Date(date);
     if (isNaN(eventDate)) {
@@ -25,19 +22,15 @@ class EventManager {
       title,
       date: eventDate,
       location,
-      version: 1,
       invitations: {},
       remindersSent: 0,
+      version: 1
     };
 
     this.#events.set(eventId, event);
     this.#logEvent('createEvent', event);
-    this.#publish('EVENT_CREATED', {
-      type: 'EVENT_CREATED',
-      payload: { ...event, date: event.date.toISOString() }
-    });
-
-    return this.#serializeEvent(event);
+    this.#publish('EVENT_CREATED', { type: 'EVENT_CREATED', payload: { ...event } });
+    return { ...event };
   }
 
   updateEvent(eventId, newDetails, expectedVersion) {
@@ -46,8 +39,8 @@ class EventManager {
       throw new Error(`Event with id ${eventId} does not exist.`);
     }
 
-    if (expectedVersion !== undefined && event.version !== expectedVersion) {
-      throw new Error('Version conflict: Event has been modified by another user.');
+    if (expectedVersion !== event.version) {
+      throw new Error('Version conflict');
     }
 
     if (newDetails.date) {
@@ -66,30 +59,24 @@ class EventManager {
 
     this.#events.set(eventId, updatedEvent);
     this.#logEvent('updateEvent', { id: eventId, newDetails, version: updatedEvent.version });
-    this.#publish('EVENT_UPDATED', {
-      type: 'EVENT_UPDATED',
-      payload: { id: eventId, ...newDetails, version: updatedEvent.version }
-    });
-
-    return this.#serializeEvent(updatedEvent);
+    this.#publish('EVENT_UPDATED', { type: 'EVENT_UPDATED', payload: { ...updatedEvent } });
+    return { ...updatedEvent };
   }
 
   deleteEvent(eventId) {
     if (!this.#events.has(eventId)) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
+    const event = this.#events.get(eventId);
     this.#events.delete(eventId);
     this.#logEvent('deleteEvent', { id: eventId });
-    this.#publish('EVENT_DELETED', {
-      type: 'EVENT_DELETED',
-      payload: { id: eventId }
-    });
+    this.#publish('EVENT_DELETED', { type: 'EVENT_DELETED', payload: { ...event } });
     return true;
   }
 
   inviteUser(eventId, userId) {
     if (!userId) {
-      throw new Error('UserId is required.');
+      throw new Error('User ID is required');
     }
 
     const event = this.#events.get(eventId);
@@ -103,10 +90,7 @@ class EventManager {
 
     event.invitations[userId] = 'pending';
     this.#logEvent('inviteUser', { eventId, userId });
-    this.#publish('USER_INVITED', {
-      type: 'USER_INVITED',
-      payload: { eventId, userId }
-    });
+    this.#publish('USER_INVITED', { type: 'USER_INVITED', payload: { eventId, userId } });
     return true;
   }
 
@@ -115,17 +99,13 @@ class EventManager {
     if (!event) {
       throw new Error(`Event with id ${eventId} does not exist.`);
     }
-
     if (!event.invitations[userId]) {
       throw new Error(`User ${userId} was not invited to the event.`);
     }
 
     event.invitations[userId] = 'accepted';
     this.#logEvent('acceptInvitation', { eventId, userId });
-    this.#publish('INVITATION_ACCEPTED', {
-      type: 'INVITATION_ACCEPTED',
-      payload: { eventId, userId }
-    });
+    this.#publish('INVITATION_ACCEPTED', { type: 'INVITATION_ACCEPTED', payload: { eventId, userId } });
     return true;
   }
 
@@ -134,26 +114,22 @@ class EventManager {
     if (!event) {
       throw new Error(`Event with id ${eventId} does not exist.`);
     }
-
     if (!event.invitations[userId]) {
       throw new Error(`User ${userId} was not invited to the event.`);
     }
 
     event.invitations[userId] = 'declined';
     this.#logEvent('declineInvitation', { eventId, userId });
-    this.#publish('INVITATION_DECLINED', {
-      type: 'INVITATION_DECLINED',
-      payload: { eventId, userId }
-    });
+    this.#publish('INVITATION_DECLINED', { type: 'INVITATION_DECLINED', payload: { eventId, userId } });
     return true;
   }
 
   getUpcomingEvents() {
     const now = new Date();
-    return Array.from(this.#events.values())
+    const upcoming = Array.from(this.#events.values())
       .filter(event => event.date > now)
-      .sort((a, b) => a.date - b.date)
-      .map(event => this.#serializeEvent(event));
+      .sort((a, b) => a.date - b.date);
+    return upcoming.map(event => ({ ...event }));
   }
 
   getEventDetails(eventId) {
@@ -161,7 +137,7 @@ class EventManager {
     if (!event) {
       throw new Error(`Event with id ${eventId} does not exist.`);
     }
-    return this.#serializeEvent(event);
+    return { ...event };
   }
 
   async sendReminder(eventId) {
@@ -170,11 +146,9 @@ class EventManager {
       throw new Error(`Event with id ${eventId} does not exist.`);
     }
 
-    const acceptedUsers = Object.entries(event.invitations)
-      .filter(([_, status]) => status === 'accepted')
-      .map(([userId]) => userId);
-
+    const acceptedUsers = this.getAttendeeList(eventId);
     if (acceptedUsers.length === 0) {
+      console.log(`No accepted attendees to send reminders for event ${eventId}.`);
       return false;
     }
 
@@ -190,10 +164,7 @@ class EventManager {
     await Promise.all(acceptedUsers.map(userId => sendEmail(userId, event)));
     event.remindersSent++;
     this.#logEvent('sendReminder', { eventId });
-    this.#publish('REMINDER_SENT', {
-      type: 'REMINDER_SENT',
-      payload: { eventId }
-    });
+    this.#publish('REMINDER_SENT', { type: 'REMINDER_SENT', payload: { eventId, remindersSent: event.remindersSent } });
     return true;
   }
 
@@ -204,7 +175,17 @@ class EventManager {
     }
     return Object.entries(event.invitations)
       .filter(([_, status]) => status === 'accepted')
-      .map(([userId]) => userId);
+      .map(([userId, _]) => userId);
+  }
+
+  #logEvent(action, details) {
+    this.#log.push({ action, details, timestamp: new Date() });
+  }
+
+  #publish(eventType, data) {
+    if (this.#subscribers.has(eventType)) {
+      this.#subscribers.get(eventType).forEach(callback => callback(data));
+    }
   }
 
   subscribe(eventType, callback) {
@@ -214,65 +195,54 @@ class EventManager {
     this.#subscribers.get(eventType).add(callback);
   }
 
-  #logEvent(action, details) {
-    this.#log.push({
-      action,
-      details,
-      timestamp: new Date()
-    });
-  }
-
-  #publish(eventType, data) {
-    if (this.#subscribers.has(eventType)) {
-      this.#subscribers.get(eventType).forEach(callback => callback(data));
-    }
-  }
-
-  #serializeEvent(event) {
-    return {
-      ...event,
-      invitations: { ...event.invitations }
-    };
-  }
-
   replayEvents() {
-    const tempEvents = new Map(this.#events);
     this.#events.clear();
     this._eventIdCounter = 1;
-
+    
     this.#log.forEach(logEntry => {
-      try {
-        switch (logEntry.action) {
-          case 'createEvent':
-            this.createEvent(
-              logEntry.details.title,
-              logEntry.details.date,
-              logEntry.details.location
-            );
-            break;
-          case 'updateEvent':
-            this.updateEvent(
-              logEntry.details.id,
-              logEntry.details.newDetails,
-              logEntry.details.version - 1
-            );
-            break;
-          case 'deleteEvent':
+      switch (logEntry.action) {
+        case 'createEvent':
+          const event = this.createEvent(
+            logEntry.details.title,
+            logEntry.details.date,
+            logEntry.details.location
+          );
+          event.version = logEntry.details.version;
+          event.invitations = { ...logEntry.details.invitations };
+          event.remindersSent = logEntry.details.remindersSent;
+          this.#events.set(event.id, event);
+          break;
+        case 'deleteEvent':
+          if (this.#events.has(logEntry.details.id)) {
             this.deleteEvent(logEntry.details.id);
-            break;
-          case 'inviteUser':
+          }
+          break;
+        case 'updateEvent':
+          if (this.#events.has(logEntry.details.id)) {
+            const event = this.#events.get(logEntry.details.id);
+            this.updateEvent(logEntry.details.id, logEntry.details.newDetails, event.version);
+          }
+          break;
+        case 'inviteUser':
+          if (this.#events.has(logEntry.details.eventId)) {
             this.inviteUser(logEntry.details.eventId, logEntry.details.userId);
-            break;
-          case 'acceptInvitation':
+          }
+          break;
+        case 'acceptInvitation':
+          if (this.#events.has(logEntry.details.eventId)) {
             this.acceptInvitation(logEntry.details.eventId, logEntry.details.userId);
-            break;
-          case 'declineInvitation':
+          }
+          break;
+        case 'declineInvitation':
+          if (this.#events.has(logEntry.details.eventId)) {
             this.declineInvitation(logEntry.details.eventId, logEntry.details.userId);
-            break;
-        }
-      } catch (error) {
-        this.#events = tempEvents;
-        throw new Error(`Failed to replay events: ${error.message}`);
+          }
+          break;
+        case 'sendReminder':
+          if (this.#events.has(logEntry.details.eventId)) {
+            this.sendReminder(logEntry.details.eventId);
+          }
+          break;
       }
     });
   }

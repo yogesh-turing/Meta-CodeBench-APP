@@ -484,35 +484,39 @@ Time:        0.851 s
 Ran all test suites matching /1171523/i.
 ```
 Prompt:
-I'm working on an EventManager class designed to handle event creation, modification, deletion, and notification processes. During testing, several issues have surfaced.
-- Event object to include properties such as id, title, date, location, and a version number (When an event is created, it should return an event object that includes a version property initialized to 1)
-- Add version control and If the event version at update time does not match the expected version, throw a version conflict error.
-- The invitations are managed with a Map, I think it complicates JSON serialization.
-- Ensure the sendReminder function correctly handles cases where there are no attendees to receive reminders, and it should return a clear message or boolean status indicating the operation's outcome.
+I'm building EventManager class and is experiencing several functional issues that are impacting its performance and reliability. Detailed below are the problems currently identified and expected outcomes 
 
-Failed Test Cases and Expected Behavior:
-```javascript
-// Create Event Test
-manager.createEvent('Test Event', '2030-01-01T10:00:00', 'Test Location')
-// Expected: Event object with properties {id, title, date, location, version: 1, invitations: {}}
+Identified Issues and Expected Outcomes:
+- createEvent(title, date, location)
+Issue: Currently, events are created without an initial version number, essential for tracking changes through updates.
+Expected Outcome: Each event should be created with a version property initialized at 1. This should be explicitly verified during event creation to facilitate change management.
 
-// Update Event Test
-manager.updateEvent(1, { location: 'New Location' }, 1)
-// Expected: Updated event with new location and incremented version
+- updateEvent(eventId, newDetails, expectedVersion)
+Issue: Event updates do not verify version consistency prior to application, leading to potential overwrites or conflicts.
+Expected Outcome: The update process must include a version check: it should compare the provided expectedVersion with the event's stored version. If the versions do not match, the update should be aborted, and a specific error message, "Version conflict," should be returned.
 
-// Delete Event Test
-manager.deleteEvent(1)
-// Expected: True, confirming the event is deleted
+- deleteEvent(eventId)
+Issue: Deletions are attempted without checking if the event actually exists, resulting in misleading successes.
+Expected Outcome: Implement a pre-deletion check to confirm the event's existence. If the event is not found, the method should return a clear error message, "Event not found," to prevent confusion.
 
-// Send Reminder Test
-console.log("Upcoming Events:", manager.getUpcomingEvents());
-// Expected: Output of upcoming events sorted by date
+- inviteUser(eventId, userId)
+Issue: The system allows multiple invitations to be sent to the same user for an event, which can lead to redundant data.
+Expected Outcome: Before adding a user to the event’s invitations, verify that the user has not already been invited. If already invited, the system should return an error, "User already invited."
 
-// Invite User Test
-manager.inviteUser(1, 'user123')
-// Expected: Event's invitations map updated to include 'user123' with status 'pending'
-```
-- Ensure that all new changes are backward compatible with the existing methods' functionalities.
-- Consider edge cases in event management such as date validation, user duplication in invitations, and deletion of non-existent events.
-- Ensure you gave me a complete class not code snippets. 
-Could you help me to fix those issues?
+- sendReminder(eventId)
+Issue: It's unclear what happens when there are no attendees to remind, which can lead to ambiguous outcomes.
+Expected Outcome: Modify the sendReminder function to check the number of attendees who accepted the invitation. If no attendees are available, the function should return false and a clear message, "No attendees to remind."
+
+- serialization of invitations
+Issue: Invitations are stored in a Map, which cannot be directly serialized into JSON, complicating data handling and storage.
+Expected Outcome: Change the storage of invitations from a Map to an object, which should be implemented before any operation requiring serialization, ensuring compatibility with JSON formats.
+
+- Replay Events Functionality
+Issue: The replayEvents method fails to restore event details accurately after deletions, indicating issues in logging or reconstructing events.
+Expected Outcome: Modify the replayEvents method to ensure it can fully reconstruct an event’s details (ID, title, location, invitations) exactly as they were before deletion.
+
+Revise the notification dispatch system in the EventManager to ensure that all notifications, regardless of the event action type, are sent with a consistent structure:
+type: A string indicating the notification type, corresponding to the event action (e.g., "EVENT_CREATED", "EVENT_UPDATED", "EVENT_DELETED").
+payload: An object containing the full details of the event involved in the action.
+
+- please give me full fixed code not snippets of the fix.

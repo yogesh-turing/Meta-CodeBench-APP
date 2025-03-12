@@ -1,5 +1,5 @@
-const { EventManager } = require(process.env.TARGET_FILE);
-// const { EventManager } = require('./model_a');
+// const { EventManager } = require(process.env.TARGET_FILE);
+const { EventManager } = require('./correct');
 
 describe('EventManager', () => {
   let manager;
@@ -275,22 +275,22 @@ describe('EventManager', () => {
       expect(stateAfterReplay.id).toBe(event.id);
       expect(stateAfterReplay.invitations['user1']).toBe('accepted');
     });
+
+    
   });
 
   describe('subscribe', () => {
     it('should notify subscribers on event creation', () => {
       const callback = jest.fn();
       manager.subscribe('EVENT_CREATED', callback);
-      const event = manager.createEvent(
-        'Subscribe Event',
-        '2030-01-01T10:00:00',
-        'Location'
-      );
-      expect(callback).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'EVENT_CREATED',
-          payload: expect.objectContaining({ id: event.id }),
-        })
+      manager.createEvent('Subscribe Event', '2030-01-01T10:00:00', 'Location');
+      expect(callback).toHaveBeenCalled();
+      expect(callback.mock.calls[0][0]).toHaveProperty('type', 'EVENT_CREATED');
+      expect(callback.mock.calls[0][0]).toHaveProperty('payload');
+      expect(callback.mock.calls[0][0].payload).toHaveProperty('id');
+      expect(callback.mock.calls[0][0].payload).toHaveProperty(
+        'title',
+        'Subscribe Event'
       );
     });
   });

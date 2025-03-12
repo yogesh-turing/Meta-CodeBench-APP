@@ -215,34 +215,4 @@ class EventManager {
   }
 }
 
-/* ==================== Usage Example ====================
-  
-  const manager = new EventManager();
-  
-  // Create an event
-  const event = manager.createEvent("Annual Meeting", "2025-06-15T09:00:00", "Conference Hall A");
-  console.log("Created Event:", event);
-  
-  // Invite users
-  manager.inviteUser(event.id, "user123");
-  manager.inviteUser(event.id, "user456");
-  
-  // Users respond to invitations
-  manager.acceptInvitation(event.id, "user123");
-  manager.declineInvitation(event.id, "user456");
-  
-  // Get upcoming events
-  console.log("Upcoming Events:", manager.getUpcomingEvents());
-  
-  // Send reminders (simulate async email sending)
-  manager.sendReminder(event.id).then(() => {
-    console.log("Reminders sent!");
-  });
-  
-  // Get event details and attendee list
-  console.log("Event Details:", manager.getEventDetails(event.id));
-  console.log("Attendee List:", manager.getAttendeeList(event.id));
-  
-  ========================================================== */
-
 module.exports = { EventManager };
