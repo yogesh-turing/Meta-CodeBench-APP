@@ -1,251 +1,74 @@
-class EventManager {
-  #events = new Map();
-  #log = [];
-  #subscribers = new Map();
-  _eventIdCounter = 1;
-
-  constructor() {}
-
-  createEvent(title, date, location) {
-    if (!title || !date || !location) {
-      throw new Error('Missing required parameters: title, date, and location are required.');
-    }
-
-    const eventDate = new Date(date);
-    if (isNaN(eventDate)) {
-      throw new Error('Invalid date format provided.');
-    }
-
-    const eventId = this._eventIdCounter++;
-    const event = {
-      id: eventId,
-      title,
-      date: eventDate,
-      location,
-      invitations: {},
-      remindersSent: 0,
-      version: 1
-    };
-
-    this.#events.set(eventId, event);
-    this.#logEvent('createEvent', event);
-    this.#publish('EVENT_CREATED', { type: 'EVENT_CREATED', payload: { ...event } });
-    return { ...event };
+function getWordCloud(hashtags, JsonStructure) {
+  if (!/^#[A-Za-z0-9]+(#[A-Za-z0-9]+)*$/.test(hashtags)) {
+      throw new Error("Not a hashtags string");
   }
 
-  updateEvent(eventId, newDetails, expectedVersion) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
+  const transformedStructure = transformStructure(JsonStructure);
+  const hashtagList = hashtags.slice(1).split('#');
+  const result = [];
 
-    if (expectedVersion !== event.version) {
-      throw new Error('Version conflict');
-    }
-
-    if (newDetails.date) {
-      const newDate = new Date(newDetails.date);
-      if (isNaN(newDate)) {
-        throw new Error('Invalid date format provided.');
-      }
-      newDetails.date = newDate;
-    }
-
-    const updatedEvent = {
-      ...event,
-      ...newDetails,
-      version: event.version + 1
-    };
-
-    this.#events.set(eventId, updatedEvent);
-    this.#logEvent('updateEvent', { id: eventId, newDetails, version: updatedEvent.version });
-    this.#publish('EVENT_UPDATED', { type: 'EVENT_UPDATED', payload: { ...updatedEvent } });
-    return { ...updatedEvent };
-  }
-
-  deleteEvent(eventId) {
-    if (!this.#events.has(eventId)) {
-      throw new Error('Event not found');
-    }
-    const event = this.#events.get(eventId);
-    this.#events.delete(eventId);
-    this.#logEvent('deleteEvent', { id: eventId });
-    this.#publish('EVENT_DELETED', { type: 'EVENT_DELETED', payload: { ...event } });
-    return true;
-  }
-
-  inviteUser(eventId, userId) {
-    if (!userId) {
-      throw new Error('User ID is required');
-    }
-
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-
-    if (event.invitations[userId]) {
-      throw new Error(`User ${userId} has already been invited.`);
-    }
-
-    event.invitations[userId] = 'pending';
-    this.#logEvent('inviteUser', { eventId, userId });
-    this.#publish('USER_INVITED', { type: 'USER_INVITED', payload: { eventId, userId } });
-    return true;
-  }
-
-  acceptInvitation(eventId, userId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    if (!event.invitations[userId]) {
-      throw new Error(`User ${userId} was not invited to the event.`);
-    }
-
-    event.invitations[userId] = 'accepted';
-    this.#logEvent('acceptInvitation', { eventId, userId });
-    this.#publish('INVITATION_ACCEPTED', { type: 'INVITATION_ACCEPTED', payload: { eventId, userId } });
-    return true;
-  }
-
-  declineInvitation(eventId, userId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    if (!event.invitations[userId]) {
-      throw new Error(`User ${userId} was not invited to the event.`);
-    }
-
-    event.invitations[userId] = 'declined';
-    this.#logEvent('declineInvitation', { eventId, userId });
-    this.#publish('INVITATION_DECLINED', { type: 'INVITATION_DECLINED', payload: { eventId, userId } });
-    return true;
-  }
-
-  getUpcomingEvents() {
-    const now = new Date();
-    const upcoming = Array.from(this.#events.values())
-      .filter(event => event.date > now)
-      .sort((a, b) => a.date - b.date);
-    return upcoming.map(event => ({ ...event }));
-  }
-
-  getEventDetails(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    return { ...event };
-  }
-
-  async sendReminder(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-
-    const acceptedUsers = this.getAttendeeList(eventId);
-    if (acceptedUsers.length === 0) {
-      console.log(`No accepted attendees to send reminders for event ${eventId}.`);
-      return false;
-    }
-
-    const sendEmail = (userId, event) => {
-      return new Promise((resolve) => {
-        setTimeout(() => {
-          console.log(`Reminder sent to user ${userId} for event "${event.title}" at ${event.date}`);
-          resolve(true);
-        }, 100);
+  hashtagList.forEach((hashtag) => {
+      let count = 0;
+      transformedStructure.forEach((record) => {
+          count += record.hashtags.filter((h) => h === hashtag).length;
       });
-    };
+      result.push([hashtag, count]);
+  });
 
-    await Promise.all(acceptedUsers.map(userId => sendEmail(userId, event)));
-    event.remindersSent++;
-    this.#logEvent('sendReminder', { eventId });
-    this.#publish('REMINDER_SENT', { type: 'REMINDER_SENT', payload: { eventId, remindersSent: event.remindersSent } });
-    return true;
-  }
-
-  getAttendeeList(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    }
-    return Object.entries(event.invitations)
-      .filter(([_, status]) => status === 'accepted')
-      .map(([userId, _]) => userId);
-  }
-
-  #logEvent(action, details) {
-    this.#log.push({ action, details, timestamp: new Date() });
-  }
-
-  #publish(eventType, data) {
-    if (this.#subscribers.has(eventType)) {
-      this.#subscribers.get(eventType).forEach(callback => callback(data));
-    }
-  }
-
-  subscribe(eventType, callback) {
-    if (!this.#subscribers.has(eventType)) {
-      this.#subscribers.set(eventType, new Set());
-    }
-    this.#subscribers.get(eventType).add(callback);
-  }
-
-  replayEvents() {
-    this.#events.clear();
-    this._eventIdCounter = 1;
-    
-    this.#log.forEach(logEntry => {
-      switch (logEntry.action) {
-        case 'createEvent':
-          const event = this.createEvent(
-            logEntry.details.title,
-            logEntry.details.date,
-            logEntry.details.location
-          );
-          event.version = logEntry.details.version;
-          event.invitations = { ...logEntry.details.invitations };
-          event.remindersSent = logEntry.details.remindersSent;
-          this.#events.set(event.id, event);
-          break;
-        case 'deleteEvent':
-          if (this.#events.has(logEntry.details.id)) {
-            this.deleteEvent(logEntry.details.id);
-          }
-          break;
-        case 'updateEvent':
-          if (this.#events.has(logEntry.details.id)) {
-            const event = this.#events.get(logEntry.details.id);
-            this.updateEvent(logEntry.details.id, logEntry.details.newDetails, event.version);
-          }
-          break;
-        case 'inviteUser':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.inviteUser(logEntry.details.eventId, logEntry.details.userId);
-          }
-          break;
-        case 'acceptInvitation':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.acceptInvitation(logEntry.details.eventId, logEntry.details.userId);
-          }
-          break;
-        case 'declineInvitation':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.declineInvitation(logEntry.details.eventId, logEntry.details.userId);
-          }
-          break;
-        case 'sendReminder':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.sendReminder(logEntry.details.eventId);
-          }
-          break;
-      }
-    });
-  }
+  result.sort((a, b) => a[0].localeCompare(b[0]));
+  return result;
 }
 
-module.exports = { EventManager };
+function transformStructure(structure) {
+  if (!Array.isArray(structure) || structure.length === 0) {
+      throw new Error("Invalid Json Structure");
+  }
+
+  if (structure.length !== new Set(structure.map((record) => record.id)).size) {
+      throw new Error("Multiple Records with same id");
+  }
+
+  structure.forEach((record, index) => {
+      if (!Number.isInteger(record.id) || record.id !== index + 1) {
+          throw new Error("Invalid Json Structure");
+      }
+
+      if (!Array.isArray(record.hashtags) || 
+          record.hashtags.some((hashtag) => typeof hashtag !== 'string')) {
+          throw new Error("Invalid Json Structure");
+      }
+  });
+
+  const transformed = structure.map(record => {
+      const uniqueHashtags = [...new Set(record.hashtags)];
+      return {
+          id: record.id,
+          hashtags: uniqueHashtags.sort()
+      };
+  });
+
+  const repeatedHashtags = [];
+  structure.forEach(record => {
+      const counts = {};
+      record.hashtags.forEach(tag => {
+          counts[tag] = (counts[tag] || 0) + 1;
+          if (counts[tag] > 1) {
+              repeatedHashtags.push(tag);
+          }
+      });
+  });
+
+  if (repeatedHashtags.length > 0) {
+      transformed.push({
+          id: structure.length + 1,
+          hashtags: repeatedHashtags.sort()
+      });
+  }
+
+  return transformed;
+}
+
+module.exports = {
+  getWordCloud,
+  transformStructure
+};

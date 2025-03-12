@@ -1,211 +1,97 @@
-class EventManager {
-  #events = new Map();
-  #log = [];
-  #subscribers = new Map();
-  _eventIdCounter = 1;
-
-  constructor() {
-    [
-      'EVENT_CREATED',
-      'EVENT_DELETED',
-      'EVENT_UPDATED',
-      'USER_INVITED',
-      'INVITATION_ACCEPTED',
-      'INVITATION_DECLINED',
-      'REMINDER_SENT',
-    ].forEach((type) => this.#subscribers.set(type, new Set()));
+function getWordCloud(hashtags, JsonStructure) {
+  if (!/^#[A-Za-z0-9]+(#[A-Za-z0-9]+)*$/.test(hashtags)) {
+      throw new Error("Not a hashtags string");
   }
 
-  createEvent(title, date, location) {
-    if (!title || !date || !location)
-      throw new Error(
-        'Missing required parameters: title, date, and location are required.'
-      );
-    const eventDate = new Date(date);
-    if (isNaN(eventDate)) throw new Error('Invalid date format provided.');
-    const eventId = this._eventIdCounter++;
-    const event = {
-      id: eventId,
-      title,
-      date: eventDate,
-      location,
-      version: 1,
-      invitations: {},
-      remindersSent: 0,
-    };
-    this.#events.set(eventId, event);
-    this.#logEvent('createEvent', event);
-    this.#publish('EVENT_CREATED', {
-      type: 'EVENT_CREATED',
-      payload: this.#copyEvent(event),
-    });
-    return this.#copyEvent(event);
-  }
+  const transformedStructure = transformStructure(JsonStructure);
+  const hashtagList = hashtags.split('#').filter(Boolean);
+  const result = [];
 
-  deleteEvent(eventId) {
-    if (!this.#events.delete(eventId))
-      throw new Error(`Event with id ${eventId} does not exist.`);
-    this.#logEvent('deleteEvent', { id: eventId });
-    this.#publish('EVENT_DELETED', {
-      type: 'EVENT_DELETED',
-      payload: { id: eventId },
-    });
-    return true;
-  }
+  hashtagList.forEach((hashtag) => {
+      let count = 0;
+      transformedStructure.forEach((record) => {
+          count += record.hashtags.filter((h) => h === hashtag).length;
+      });
+      result.push([hashtag, count]);
+  });
 
-  updateEvent(eventId, newDetails, expectedVersion) {
-    const event = this.#events.get(eventId);
-    if (
-      !event ||
-      (expectedVersion !== undefined && event.version !== expectedVersion)
-    )
-      throw new Error(
-        !event ? `Event with id ${eventId} does not exist.` : 'Version conflict'
-      );
-    if (newDetails.date) {
-      const newDate = new Date(newDetails.date);
-      if (isNaN(newDate)) throw new Error('Invalid date format provided.');
-      event.date = newDate;
-    }
-    Object.assign(event, newDetails);
-    event.version++;
-    this.#logEvent('updateEvent', {
-      id: eventId,
-      newDetails,
-      version: event.version,
-    });
-    this.#publish('EVENT_UPDATED', {
-      type: 'EVENT_UPDATED',
-      payload: this.#copyEvent(event),
-    });
-    return this.#copyEvent(event);
-  }
-
-  inviteUser(eventId, userId) {
-    if (!userId) throw new Error('userId is required.');
-    const event = this.#events.get(eventId);
-    if (!event || event.invitations[userId])
-      throw new Error(
-        !event
-          ? `Event with id ${eventId} does not exist.`
-          : `User ${userId} has already been invited.`
-      );
-    event.invitations[userId] = 'pending';
-    this.#logEvent('inviteUser', { eventId, userId });
-    this.#publish('USER_INVITED', {
-      type: 'USER_INVITED',
-      payload: { eventId, userId },
-    });
-    return true;
-  }
-
-  acceptInvitation(eventId, userId) {
-    const event = this.#events.get(eventId);
-    if (!event || !event.invitations[userId])
-      throw new Error(
-        !event
-          ? `Event with id ${eventId} does not exist.`
-          : `User ${userId} was not invited to the event.`
-      );
-    event.invitations[userId] = 'accepted';
-    this.#logEvent('acceptInvitation', { eventId, userId });
-    this.#publish('INVITATION_ACCEPTED', {
-      type: 'INVITATION_ACCEPTED',
-      payload: { eventId, userId },
-    });
-    return true;
-  }
-
-  declineInvitation(eventId, userId) {
-    const event = this.#events.get(eventId);
-    if (!event || !event.invitations[userId])
-      throw new Error(
-        !event
-          ? `Event with id ${eventId} does not exist.`
-          : `User ${userId} was not invited to the event.`
-      );
-    event.invitations[userId] = 'declined';
-    this.#logEvent('declineInvitation', { eventId, userId });
-    this.#publish('INVITATION_DECLINED', {
-      type: 'INVITATION_DECLINED',
-      payload: { eventId, userId },
-    });
-    return true;
-  }
-
-  getUpcomingEvents() {
-    const now = new Date();
-    return Array.from(this.#events.values())
-      .filter((event) => event.date > now)
-      .sort((a, b) => a.date - b.date)
-      .map((event) => this.#copyEvent(event));
-  }
-
-  getEventDetails(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) throw new Error(`Event with id ${eventId} does not exist.`);
-    return this.#copyEvent(event);
-  }
-
-  async sendReminder(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) throw new Error(`Event with id ${eventId} does not exist.`);
-    const acceptedUsers = this.getAttendeeList(eventId);
-    if (!acceptedUsers.length) return false;
-    await Promise.all(
-      acceptedUsers.map((userId) => this.#simulateEmail(userId, event))
-    );
-    event.remindersSent++;
-    this.#logEvent('sendReminder', { eventId });
-    this.#publish('REMINDER_SENT', {
-      type: 'REMINDER_SENT',
-      payload: { eventId, remindersSent: event.remindersSent },
-    });
-    return true;
-  }
-
-  getAttendeeList(eventId) {
-    const event = this.#events.get(eventId);
-    if (!event) throw new Error(`Event with id ${eventId} does not exist.`);
-    return Object.entries(event.invitations)
-      .filter(([, status]) => status === 'accepted')
-      .map(([userId]) => userId);
-  }
-
-  subscribe(eventType, callback) {
-    this.#subscribers.get(eventType).add(callback);
-  }
-
-  replayEvents() {
-    const actions = {
-      createEvent: (d) => this.createEvent(d.title, d.date, d.location),
-      updateEvent: (d) => this.updateEvent(d.id, d.newDetails, d.version),
-      inviteUser: (d) => this.inviteUser(d.eventId, d.userId),
-      acceptInvitation: (d) => this.acceptInvitation(d.eventId, d.userId),
-      declineInvitation: (d) => this.declineInvitation(d.eventId, d.userId),
-    };
-    this.#events.clear();
-    this._eventIdCounter = 1;
-    this.#log.forEach(({ action, details }) => {
-      actions[action]?.(details);
-    });
-  }
-
-  #copyEvent(event) {
-    return { ...event, date: event.date.toISOString() };
-  }
-
-  #logEvent(action, details) {
-    this.#log.push({ action, details, timestamp: new Date() });
-  }
-
-  #publish(eventType, data) {
-    this.#subscribers.get(eventType)?.forEach((callback) => callback(data));
-  }
-
-  async #simulateEmail(userId, event) {
-    return new Promise((resolve) => setTimeout(resolve, 100));
-  }
+  return result.sort((a, b) => a[0].localeCompare(b[0]));
 }
 
-module.exports = { EventManager };
+function transformStructure(structure) {
+  if (!Array.isArray(structure) || structure.length === 0) {
+      throw new Error("Invalid Json Structure");
+  }
+
+  const idSet = new Set(structure.map(record => record.id));
+  if (structure.length !== idSet.size) {
+      throw new Error("Multiple Records with same id");
+  }
+
+  // Validate structure and check for sequential IDs
+  for (let i = 0; i < structure.length; i++) {
+      const record = structure[i];
+      if (!Number.isInteger(record.id) || record.id !== i + 1 ||
+          !Array.isArray(record.hashtags) ||
+          record.hashtags.some(hashtag => typeof hashtag !== 'string')) {
+          throw new Error("Invalid Json Structure");
+      }
+  }
+
+  const transformed = structure.map(record => {
+      const hashtagCount = {};
+      record.hashtags.forEach(hashtag => {
+          hashtagCount[hashtag] = (hashtagCount[hashtag] || 0) + 1;
+      });
+
+      const uniqueHashtags = [];
+      const repeatedHashtags = [];
+
+      Object.entries(hashtagCount).forEach(([hashtag, count]) => {
+          if (count === 1) {
+              uniqueHashtags.push(hashtag);
+          } else {
+              for (let i = 0; i < count; i++) {
+                  repeatedHashtags.push(hashtag);
+              }
+          }
+      });
+
+      return {
+          id: record.id,
+          hashtags: uniqueHashtags.sort()
+      };
+  });
+
+  if (transformed.length > 0) {
+      const allRepeatedHashtags = [];
+      structure.forEach(record => {
+          const hashtagCount = {};
+          record.hashtags.forEach(hashtag => {
+              hashtagCount[hashtag] = (hashtagCount[hashtag] || 0) + 1;
+          });
+
+          Object.entries(hashtagCount).forEach(([hashtag, count]) => {
+              if (count > 1) {
+                  for (let i = 0; i < count; i++) {
+                      allRepeatedHashtags.push(hashtag);
+                  }
+              }
+          });
+      });
+
+      if (allRepeatedHashtags.length > 0) {
+          transformed.push({
+              id: structure.length + 1,
+              hashtags: allRepeatedHashtags.sort()
+          });
+      }
+  }
+
+  return transformed;
+}
+
+module.exports = {
+  getWordCloud,
+  transformStructure
+};

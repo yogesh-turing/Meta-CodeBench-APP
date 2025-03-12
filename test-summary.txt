@@ -1,10 +1,6 @@
 TEST SUMMARY
 ============
 
-1171523:
-model_f    : 20/24 tests passed [FAILED]
-model_g    : 20/24 tests passed [FAILED]
-model_h    : 20/24 tests passed [FAILED]
-model_i    : 20/24 tests passed [FAILED]
-model_j    : 20/24 tests passed [FAILED]
+1171952:
+correct    : 15/15 tests passed [PASSED]
 
