@@ -1,191 +1,158 @@
 Team Leader A:
 
+Code Review for getQueryWithSynonyms:
 
-1. SQL Injection Risk:
-The validation only checks identifier format but doesn't escape or sanitize the actual column names, table names, or SQL fragments. Malicious SQL could be injected through column names in `select()` or through raw SQL conditions in `where()` and `having()`.
+1. Global Dependency: The code relies on an undefined global `synonyms` array. This is a major anti-pattern that makes the code untestable, unpredictable, and harder to maintain. The synonyms should be passed as a parameter.
 
-2. Insufficient Parameter Type Checking:
-The code only checks for parameter count matches but doesn't validate the parameter types or values. This could lead to unexpected SQL errors or security issues if invalid data types are passed.
+2. Regular Expression Vulnerability: The regex pattern `/\(|\)|"[^"]*"|'[^']*'|\b\w[\w.-]*\b|AND|OR|NOT|-/gi` could be susceptible to catastrophic backtracking with certain input patterns. Consider using a more precise pattern or breaking it into smaller parts.
 
-3. State Management Issue:
-The builder maintains mutable state but doesn't provide a reset mechanism. Multiple calls to `build()` with partial modifications could lead to accumulated, unexpected state. Consider adding a `reset()` method or creating a new builder instance for each query.
+3. String Injection Risk: The code directly interpolates user input into quoted strings without proper escaping. If a synonym contains quotes, it could break the query syntax. Input sanitization should be implemented.
 
-4. Inconsistent Error Handling:
-Some methods throw errors for invalid inputs (e.g., `limit()`, `offset()`), while others silently accept potentially problematic inputs (e.g., empty arrays in `select()`). This inconsistency could lead to runtime errors.
+4. Redundant Code: The quote-checking logic is repeated in multiple places. This could be extracted into a helper function to improve maintainability and reduce the chance of inconsistencies.
 
-5. Memory Leak Potential:
-The arrays (`_whereClauses`, `_joins`, etc.) grow without bounds. For long-lived applications or repeated usage, this could lead to memory issues. Consider clearing these arrays after `build()` is called.
+5. Missing Input Validation: The function doesn't validate the `synonyms` array structure. If the expected properties (`name`, `aliases`) are missing or malformed, it could cause runtime errors.
 
+6. Memory Inefficiency: The code creates multiple intermediate arrays and strings through repeated concatenation and mapping. Consider using a more efficient approach, such as StringBuilder pattern or reducing the number of array operations.
 ---
 
 Team Leader B:
+Code Review for getQueryWithSynonyms:
 
-1. SQL Injection Risk: The validation only checks identifier format but doesn't escape or sanitize column names, table names, or SQL fragments. Functions like `select()` accept raw strings that could contain malicious SQL, especially when accepting expressions with parentheses (currently allowed when `col.includes("(")` is true).
+1. CRITICAL: The code assumes a global `synonyms` array exists without any validation. This is a major security and reliability issue. The function should receive the synonyms as a parameter or validate its existence.
 
-2. Inconsistent Parameter Validation: While `where()` and `join()` validate parameter counts against placeholders, the actual SQL fragments themselves aren't validated. This could lead to malformed SQL if the condition strings contain syntax errors or malicious code.
+2. SECURITY: The regex pattern `/\(|\)|"[^"]*"|'[^']*'|\b\w[\w.-]*\b|AND|OR|NOT|-/gi` is vulnerable to catastrophic backtracking with certain inputs, which could lead to DoS attacks. Consider using multiple simpler regex patterns or a tokenizer library.
 
-3. State Management Weakness: The internal state variables are mutable and persist between queries. There's no reset mechanism, which means consecutive builds could contaminate each other's results if the builder instance is reused without recreating it.
+3. BUG: The function doesn't properly handle nested parentheses or unmatched quotes, which could lead to incorrect query transformations. For example, `"a (b c) d"` or `"test'quote"` would produce invalid results.
 
-4. Missing Input Type Validation: Several methods don't validate input types. For example, `select()` doesn't verify if `columns` is an array, and `orderBy()` doesn't validate if the direction is specifically "ASC" or "DESC", allowing any string that can be uppercased.
+4. EFFICIENCY: The `synonymMap` is rebuilt on every function call. If this function is called frequently with the same synonyms, this map should be built once and cached.
 
-5. Error Handling Gaps: Error messages are generic and don't provide enough context for debugging. For example, "Parameter count mismatch in WHERE clause" appears in both `where()` and `join()` methods, making it unclear which operation actually failed.
+5. MAINTAINABILITY: The function is doing too many things (tokenizing, mapping synonyms, transforming tokens) in a single function. Consider breaking it into smaller, focused functions for better maintainability and testing.
 
+6. ERROR HANDLING: The function silently returns the original query on invalid input instead of throwing errors or providing meaningful feedback. This could mask issues and make debugging difficult.
 ---
 
 Team Leader C:
+Code Review for getQueryWithSynonyms:
 
-1. SQL Injection Risk:
-The validation only checks identifier format but doesn't sanitize or escape values in column names, table names, or conditions. While parameters are handled safely through placeholders, raw SQL fragments in conditions (e.g., in WHERE clauses) could still contain malicious SQL.
+1. Global Dependency: The code relies on an undefined global `synonyms` array. This is a major anti-pattern that makes the function unpredictable and hard to test. The synonyms should be passed as a parameter.
 
-2. Mutable State:
-The builder uses multiple mutable state variables (_selectColumns, _whereClauses, etc.). This makes the code harder to reason about and could lead to unexpected behavior if the builder is reused. Consider making the state immutable and returning new instances for each modification.
+2. Input Validation: There's no validation for the `synonyms` array structure or format. If the array is malformed or contains objects without the expected `name` and `aliases` properties, it will cause runtime errors.
 
-3. Inconsistent Parameter Validation:
-While some methods have thorough parameter validation (like `limit()` and `offset()`), others lack comprehensive checks. For example, `orderBy()` doesn't validate the direction parameter against allowed values ("ASC"/"DESC"), and `groupBy()` doesn't validate its input at all.
+3. Regular Expression Security: The regex pattern `/\(|\)|"[^"]*"|'[^']*'|\b\w[\w.-]*\b|AND|OR|NOT|-/gi` could be vulnerable to catastrophic backtracking with certain inputs. Consider using a more restrictive pattern or implementing timeout protection.
 
-4. Memory Leak Potential:
-The builder accumulates state in arrays (_whereClauses, _joins, etc.) but provides no way to reset or clear this state. Long-lived instances could accumulate memory, especially if used in a loop or repeatedly.
+4. Memory Efficiency: The `synonymMap` is rebuilt on every function call. If this function is called frequently with the same synonyms, consider caching the map or building it once outside the function.
 
-5. Lack of Type Checking:
-The code doesn't verify that input parameters are of the correct type before using them. For example, `select()` assumes columns is an array but doesn't verify this, which could lead to runtime errors.
+5. Nested Quotes Handling: The code doesn't properly handle cases where quoted strings contain quotes (e.g., `"phrase with "nested" quotes"`). This could lead to incorrect parsing of complex queries.
 
+6. Error Handling: The function silently returns the original query when tokens are null, but doesn't handle other potential error cases (like unmatched parentheses or invalid operator sequences) which could lead to malformed output.
 ---
 
 Team Leader D:
+Code Review for getQueryWithSynonyms:
 
-1. SQL Injection Risk: 
-The validation only checks identifier format but doesn't escape or sanitize column names, table names, or SQL fragments. For example, in the `select()` method, raw column names with functions (e.g., "COUNT(*)") bypass validation entirely, potentially allowing SQL injection.
+1. Global Dependency: The code relies on an undefined global `synonyms` array. This is a major anti-pattern that makes the function unpredictable and untestable. The synonyms should be passed as a parameter.
 
-2. Mutable State:
-The builder uses multiple mutable state variables (_selectColumns, _whereClauses, etc.). This makes the builder vulnerable to side effects and harder to debug. Consider making these immutable by returning new instances with updated states.
+2. Input Validation: There's no validation for the `synonyms` array structure or existence. If `synonyms` is undefined or malformed, the code will crash. Additionally, the query parameter isn't validated for type.
 
-3. Incomplete Validation:
-The `orderBy()` method accepts any string for direction but doesn't validate it against allowed values ("ASC"/"DESC"). Similarly, column names in `groupBy()` and `orderBy()` aren't validated at all.
+3. Regular Expression Security: The regex pattern `/\(|\)|"[^"]*"|'[^']*'|\b\w[\w.-]*\b|AND|OR|NOT|-/gi` could be vulnerable to catastrophic backtracking with certain inputs. Consider adding input length limits and optimizing the regex.
 
-4. Parameter Tracking Issue:
-The placeholder counting logic (`countPlaceholders()`) is simplistic and could be fooled by question marks appearing in string literals or comments within SQL conditions. A more robust parsing approach is needed.
+4. Memory Efficiency: The code creates multiple intermediate arrays and strings (transformedTokens, phraseTokens, synonymMap). For large synonym sets or queries, this could be memory-intensive. Consider streaming the tokens or processing them in chunks.
 
-5. Memory Leak Potential:
-The builder accumulates state but doesn't provide a reset mechanism. In long-running applications where many queries are built, this could lead to memory issues if the same builder instance is reused extensively.
+5. Error Handling: The function silently returns the original query on invalid input instead of throwing an error or providing feedback. This could mask issues and make debugging difficult.
+
+6. Inconsistent Quote Handling: The code handles both single and double quotes but ultimately converts everything to double quotes in the output. This behavior should either be documented or standardized to use one quote type throughout.
+
 ---
 
 Team Leader E:
+Code Review for getQueryWithSynonyms:
 
-1. SQL Injection Vulnerability:
-   The validation only checks identifier format but doesn't escape or sanitize column names, table names, or SQL fragments. Functions like `select()` and `orderBy()` accept raw strings that could contain malicious SQL, especially when handling column names with expressions or aliases.
+1. Undefined Dependencies: The code relies on a global `synonyms` array without proper dependency injection or validation. This makes the code brittle and hard to test. The `synonyms` array should be passed as a parameter.
 
-2. Incomplete Parameter Type Validation:
-   The code doesn't validate the types or contents of parameters passed to prepared statements. While it counts placeholders, it doesn't ensure that the parameters are safe for database operations (e.g., could contain objects or functions that might cause unexpected behavior).
+2. Missing Input Validation: The function doesn't validate the structure of the input query or the synonyms array. This could lead to runtime errors if either is malformed. Basic validation should be added for both.
 
-3. State Management Issue:
-   The builder maintains mutable state but doesn't provide a reset mechanism. Multiple calls to build() with partial changes could lead to unexpected query construction. Additionally, there's no way to clear specific clauses (like WHERE conditions) without creating a new builder instance.
+3. Regular Expression Security Risk: The regex pattern uses the 'g' flag which maintains state between executions. This can lead to unexpected behavior if the same regex object is reused. Consider creating a new RegExp instance each time.
 
-4. Inconsistent Error Handling:
-   Some methods throw errors for invalid inputs (e.g., `limit()`, `offset()`), while others silently accept potentially problematic inputs (e.g., `select()` with invalid SQL expressions). This inconsistency could lead to runtime errors or security issues.
+4. Inefficient Data Structure: The `synonymMap` is rebuilt for every function call, which is inefficient for repeated usage. Consider memoizing this map or building it once outside the function.
 
-5. Memory Inefficiency:
-   The builder accumulates all parameters and conditions in arrays without bounds. For complex queries with many conditions or in a loop, this could lead to memory issues. Consider implementing limits or cleanup mechanisms.
+5. Inconsistent Quote Handling: The code handles both single and double quotes but converts everything to double quotes in the output. This inconsistency could cause issues when parsing the returned query. Consider standardizing on one quote type throughout.
+
+6. Potential Memory Leak: Large queries could create many intermediate arrays (tokens, phraseTokens, transformedTokens) which aren't cleared except when the function ends. For very large queries, consider using generators or streaming approaches.
+
 ---
 
 Team Leader F:
-1. **SQL Injection Vulnerability**:
-   - The `where` and `join` methods accept SQL fragments directly, which can lead to SQL injection if user input is not sanitized properly. Although the code ensures that parameter placeholders (`?`) match provided parameters, there is no mechanism validating or sanitizing dynamic SQL strings passed to these methods.
-   - **Recommendation**: Implement parameterized queries consistently and avoid constructing SQL using direct string interpolation.
+1. **Security Vulnerability - Regex for Tokenization**: The regular expression used for tokenizing the query (`/\(|\)|"[^"]*"|'[^']*'|\b\w[\w.-]*\b|AND|OR|NOT|-/gi`) could potentially be exploited for denial of service (ReDoS) attacks if the input is excessively large or complex. Consider limiting the input size or improving the regex to avoid catastrophic backtracking.
 
-2. **Identifier Validation**:
-   - Currently, the code uses a regular expression to validate identifiers, which could lead to security issues if not comprehensive. SQL standards allow for more complex identifiers (e.g., identifiers with special characters enclosed in quotes).
-   - **Recommendation**: Refine the validation regex to cover more cases or trust sanitized inputs from application layers or frameworks that handle SQL safely.
+2. **Global Dependency on `synonyms`**: The function relies on a global `synonyms` array, which is not passed as a parameter. This makes the function less portable and harder to test. It would be better to pass `synonyms` as an argument to the function.
 
-3. **Error Handling**:
-   - Errors are thrown without much context, which can make debugging and logging difficult when used in larger applications. Simple error messages like "Invalid SQL identifier" might not provide enough information about the issue.
-   - **Recommendation**: Include more context in error messages, such as what specifically was invalid. This can significantly aid diagnostics.
+3. **Inefficient Synonym Mapping**: The synonym mapping logic generates a new array for each term when it could be optimized. Using a `Map` instead of an object for `synonymMap` might provide better performance and clarity, especially with large datasets.
 
-4. **Code Duplication and Maintainability**:
-   - The logic for counting placeholders and appending parameters is repeated in multiple methods (`where`, `join`, `having`). This is prone to errors and increases maintenance overhead.
-   - **Recommendation**: Refactor common logic into reusable helper functions to enhance maintainability and reduce potential errors.
+4. **Redundant Quotation Handling**: The code handles quotes redundantly. After checking for quotes, it removes them and adds them back later. This can be streamlined by maintaining quotes consistently or only manipulating them when necessary.
 
-5. **Consistency in Method Design**:
-   - The `select` method expects an array of columns, while `groupBy` expects a similar array without validation or transformation to ensure the columns are in the correct format.
-   - **Recommendation**: Apply consistent validation and transformation across methods dealing with SQL fragments or lists to prevent subtle bugs and ensure consistency.
+5. **Inefficient Phrase Handling**: The `flushPhrase` function is called multiple times, which could be optimized by managing the state more effectively. Consider refactoring to reduce the number of transformations and string operations.
 
+6. **Lack of Input Validation**: There is no validation for the input `query`. Adding checks to ensure it is a string and within a reasonable length could prevent potential errors or misuse.
 ---
 
 Team Leader G:
-1. **SQL Injection Risk**:
-   - The use of template literals in the `build` function for constructing SQL queries with user-provided values (e.g., table names, columns) can lead to SQL injection vulnerabilities, especially if any user input is not properly validated. Consider using parameterized queries for all dynamic SQL parts.
+1. **Global Dependency on `synonyms`**: The code relies on a global `synonyms` array, which is not a good practice as it creates implicit dependencies. A better approach would be to pass the `synonyms` array as a parameter to the `getQueryWithSynonyms` function, making the function more modular and testable.
 
-2. **Identifier Validation**:
-   - While the code checks for valid SQL identifiers, the current regex pattern for identifiers (`isValidIdentifier`) may not cover all cases, including reserved SQL keywords. Consider using a more robust validation library or method that includes checking against SQL reserved keywords.
+2. **Regular Expression Complexity**: The regular expression used for tokenization is complex and could potentially match unintended patterns. It's important to test thoroughly with various edge cases to ensure it behaves as expected. Additionally, using named capturing groups (if supported by the environment) might improve readability.
 
-3. **Error Handling**:
-   - The errors thrown in methods like `where`, `join`, `having`, etc., use generic error messages. While they point out the issues, it might be beneficial to include the actual values that caused the errors to aid debugging.
+3. **Case Sensitivity**: The function uses `.toLowerCase()` on tokens and synonym terms to ensure case-insensitive matching. However, this should be explicitly documented as it might not be obvious to users of the function. Additionally, this normalization assumes the query language is purely case-insensitive, which may not always be the case.
 
-4. **Magic Strings**:
-   - The join types and SQL direction strings ("INNER", "LEFT", "ASC", etc.) are hardcoded, leading to potential typos or inconsistencies. Consider defining these as constants or enums to improve maintainability and reduce the risk of errors.
+4. **Use of `join` with Hardcoded Separator**: The code uses `.join(' OR ')` to construct synonym groups. While this works, it assumes that synonyms are always combined with `OR`, which may not be flexible enough if other logical constructs are needed in the future.
 
-5. **Placeholder Counting**:
-   - The `countPlaceholders` method works only for the `?` placeholder. If the SQL dialect or use case changes, this will need adjusting. A more flexible approach would involve supporting named placeholders or explicit parameter indices.
+5. **Handling of Quoted Phrases**: The code removes quotes for matching but doesn't handle cases where quotes are used for escaping purposes within a phrase, which could lead to incorrect parsing or logic errors.
 
-6. **Immutable State**:
-   - The builder modifies internal state directly, which can lead to issues if the builder is reused improperly. Consider making the state immutable or ensuring a new builder instance is created for each query to prevent accidental reuse.
+6. **Lack of Error Handling**: The function lacks robust error handling for unexpected inputs or malformed queries. Consider adding error handling or validation mechanisms to deal with such cases gracefully.
 ---
 
 Team Leader H:
-1. **SQL Injection Concerns**: 
-   - While the code uses placeholders (`?`) for parameters, which is a good practice to prevent SQL injection, the `build()` function directly concatenates strings for the SQL query. If any part of the query can be influenced by user input and is not properly parameterized (e.g., column names, table names), it could lead to SQL injection vulnerabilities. Always ensure that dynamic SQL components cannot be influenced by untrusted sources.
+1. **Global Variable Dependency**: The function relies on a global `synonyms` array, which is not passed as a parameter. This is a bad practice as it creates an implicit dependency on external state, making the function less reusable and harder to test. Consider passing the `synonyms` array as a parameter to the function.
 
-2. **Validation of Identifiers**:
-   - The identifier validation is limited to a specific regex that might not cover all valid SQL identifiers, particularly those that might include special characters or need quoting (e.g., backticks in MySQL). Consider expanding this validation or documenting limitations clearly.
+2. **Lack of Input Validation**: The `query` parameter is used directly without any validation. This can lead to potential issues if unexpected input types are passed, such as non-string values, which could cause runtime errors. Consider validating the input to ensure it is a string.
 
-3. **Error Handling and Messaging**:
-   - The error messages in the code are generic and might not provide enough context for debugging. For example, the `Error` thrown for an invalid SQL identifier does not specify which part of the query is causing the issue. Improving error messages can make debugging and maintenance easier.
+3. **Regular Expression Complexity**: The regular expression used to tokenize the query (`/\(|\)|"[^"]*"|'[^']*'|\b\w[\w.-]*\b|AND|OR|NOT|-/gi`) is quite complex and may be difficult to maintain or modify. Consider breaking it down or documenting its intent more explicitly to improve readability and maintainability.
 
-4. **Inefficient Array Handling**:
-   - The `build()` function uses `forEach` to iterate over `_joins`, `_whereClauses`, `_havingClause`, etc., to build parts of the query string and collect parameters. While this is functional, it can be inefficient and difficult to read. Consider using `map()` combined with `join()` for more concise and potentially more performant code, especially for constructing the conditions and clauses.
+4. **Case Sensitivity of Synonyms**: The function converts terms to lowercase for matching with synonyms. However, if synonyms have case-sensitive matches, this approach might miss some mappings. Ensure that the synonym logic aligns with the intended case sensitivity of the synonym data.
 
-5. **Lack of Type Checking**:
-   - The code assumes that input types are correct (e.g., arrays for columns in `select()`, numbers for `limit()` and `offset()`). Adding type checks or using TypeScript for type safety could prevent runtime errors due to incorrect usage.
+5. **Potential for Quoted Phrase Misinterpretation**: When handling quoted phrases, the function does not account for possible escaped quotes within quotes. This could lead to incorrect tokenization or transformation of complex queries. Consider enhancing the logic to correctly handle escaped quotes within quoted strings.
 
-6. **Hardcoded Join Types**:
-   - The join types are hardcoded as `["INNER", "LEFT", "RIGHT", "FULL"]`. While these are common, some databases support additional types (e.g., "CROSS JOIN"). Consider allowing for more flexibility or documenting the supported join types clearly.
+6. **Operator Normalization**: The normalization of boolean operators (AND, OR, NOT) to uppercase is performed using a simple check and conversion. If the query language supports other operators or different case variations, this logic might be insufficient. Consider making the normalization logic more robust to accommodate different operator formats.
 ---
 
 Team Leader I:
-1. **SQL Injection Risk**: 
-   - The current implementation directly concatenates SQL parts, which can lead to SQL injection vulnerabilities. Although parameters are handled with placeholders, the table names, column names, and other SQL components are not parameterized. Consider using a library or ORM that safely constructs queries or ensure all inputs are sanitized.
+1. **Global Dependency on `synonyms` Array**: The function relies on a globally defined `synonyms` array, which is not passed as a parameter. This makes the function less modular and harder to test. It would be better to pass `synonyms` as an argument to the function.
 
-2. **Identifier Validation**:
-   - The function `isValidIdentifier` and `isValidQualifiedIdentifier` are used to validate SQL identifiers. However, these functions do not account for SQL reserved keywords, which could cause issues if an identifier matches a keyword. Implement additional checks or use a library to ensure identifiers do not conflict with SQL syntax.
+2. **Regular Expression for Tokenization**: The regular expression used for tokenization does not account for cases where terms might be followed by punctuation, potentially causing incorrect tokenization. It may also not handle edge cases like nested quotes properly.
 
-3. **Error Handling**:
-   - The error messages thrown in the builder methods are generic and could be enhanced with more descriptive messages. This will provide better context when debugging issues. Consider including method names or more specific details in the error messages.
+3. **Inefficient Synonym Mapping**: The current implementation creates a `synonymMap` by iterating over the `synonyms` array. This could be inefficient if `synonyms` is large, especially given that the map is rebuilt every time the function is called. Consider building the map once and caching it if the `synonyms` data does not change frequently.
 
-4. **Method Chaining Consistency**:
-   - While method chaining is supported, consistency can be improved. For example, `groupBy` does not validate column names, unlike `select`. Consider adding validation to `groupBy` and `orderBy` methods to ensure consistency and avoid potential SQL errors.
+4. **Handling of Quoted Phrases**: The function removes quotes from phrases for matching but re-wraps them in quotes when adding them to `transformedTokens`. This process is somewhat redundant and can be optimized.
 
-5. **Default Values**:
-   - In the `select` method, when no columns are provided, `_selectColumns` is set to `null`, but this is handled in the `build` method by defaulting to `*`. Consider initializing `_selectColumns` to an empty array to avoid null checks and improve clarity.
+5. **Error Handling**: The function does not handle potential errors, such as malformed queries or invalid input types. Adding input validation and error handling would improve robustness.
 
-6. **Code Duplication**:
-   - The logic for counting and checking placeholders is duplicated across `where`, `join`, and `having` methods. Consider refactoring this logic into a shared utility function to reduce duplication and improve maintainability.
+6. **Lack of Input Validation**: There is no validation for the `query` input, which could lead to unexpected behavior if a non-string input is provided. Consider adding a check to ensure `query` is a string before processing.
 ---
 
 Team Leader J:
-1. **SQL Injection Vulnerability**:
-   - The code currently does not adequately protect against SQL injection. While it attempts to validate identifiers, it directly concatenates SQL strings, which is risky. Using parameterized queries or an ORM that handles SQL safely is recommended.
+1. **Global Dependency on `synonyms`:**  
+   The function relies on a global `synonyms` array, which is not passed as a parameter or defined within the function. This makes the function less modular and harder to test in isolation. Consider passing `synonyms` as a parameter to the function.
 
-2. **Validation of SQL Identifiers**:
-   - The `isValidIdentifier` function only allows alphanumeric characters and underscores, which is good, but it misses other valid SQL identifier structures (e.g., those with special characters like backticks or quotes). This could lead to false negatives when using database-specific features.
+2. **Regular Expression Complexity:**  
+   The regex used for tokenization is complex and may not handle all edge cases robustly, especially with mixed operators and nested quotes. Ensure that it meets all requirements for the input domain, and consider simplifying or breaking it down for maintainability.
 
-3. **Lack of SQL Keyword Case Handling**:
-   - The code does not enforce SQL keyword case consistency (e.g., `SELECT`, `FROM`, `WHERE` are sometimes lowercase and sometimes uppercase). This can make the code harder to read and maintain. It's a best practice to keep SQL keywords in a consistent case, typically uppercase.
+3. **Case Sensitivity in Mapping:**  
+   The function converts all terms to lowercase when creating the synonym map and when looking up terms. This approach might lead to issues if case sensitivity is required elsewhere. Confirm the case requirements for synonyms.
 
-4. **Inefficient String Concatenation**:
-   - The code uses concatenation for building SQL strings. In high-performance applications, this can be suboptimal. Using template literals or array joins could make the code more efficient and readable.
+4. **Inefficient String Operations:**  
+   The manipulation of strings, especially using `substring` and `join` repeatedly, can be inefficient, especially for large queries. Consider optimizing by reducing string concatenations or using more efficient data structures.
 
-5. **Error Handling & User Feedback**:
-   - The error messages thrown (e.g., "Invalid SQL identifier") could be more descriptive by including the actual invalid input, which would aid debugging. For example, include the offending identifier or provide suggestions for correction.
+5. **Potential Quote Handling Bug:**  
+   The logic for removing quotes assumes that if a phrase starts and ends with quotes, the entire string should be unquoted. This might not handle cases where quotes are used within a phrase correctly, e.g., mismatched quotes or escaped quotes.
 
-6. **Inconsistent Parameter Handling**:
-   - The `join` method validates join types and identifiers, but it does not check the validity of the `onCondition` string for SQL syntax completeness. Ensuring all inputs are validated and sanitized is crucial for robust code.
+6. **Lack of Error Handling:**  
+   There is minimal error handling within the function. Consider adding checks for unexpected input types or values, and handle them gracefully to prevent runtime errors.
 ---
