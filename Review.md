@@ -1,3 +1,9 @@
+Hasnat:
+-> Model F in Point No. 5, the review states that certain aspects were not mentioned, yet a perfect score of 2/2 was given. This creates a contradiction we can give 1/2 here.
+
+-> In model G,H,I the review mentioned that ""Instead, axios is used directly"". So the last score should be given a 1/2 instead of 0/2. which means it has identified that axios was not imported and can be given 1/2 instead of 0/2
+
+---
 Estimated skill requirements:
     Add "Library features" and "Knowledge of a specialized software area"
 
