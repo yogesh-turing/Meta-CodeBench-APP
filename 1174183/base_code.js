@@ -1,63 +1,69 @@
-// ChartComponent.jsx
-import React, { useState, useEffect } from 'react';
-import { Line } from 'react-chartjs-2';
-import Chart from 'chart.js/auto';
-
-function ChartComponent() {
-  const [chartData, setChartData] = useState([]);
-  const [userInput, setUserInput] = useState('');
-
-  useEffect(() => {
-    if (userInput) {
-      fetch(`https://api.example.com/data?q=${userInput}`)
-        .then((response) => response.json())
-        .then((data) => {
-          const chartDataProcessed = data.map((item) => item.value);
-          setChartData(chartDataProcessed);
-        })
-        .catch((error) => console.error('Error fetching chart data:', error));
+function buildElasticQuery(conditions) {
+  // Initialize the base query structure
+  const query = {
+    query: {
+      bool: {
+        must: [],
+        should: [],
+        must_not: []
+      }
     }
-  }, [userInput]);
+  };
 
+  // Define synonyms array
+  const synonyms = [
+    { name: "python", aliases: ["py", "cpython", "pytorch"] },
+    { name: "typescript", aliases: ["ts", "tsx", "typed javascript"] },
+    { name: "react", aliases: ["reactjs", "react.js", "react native"] },
+    { name: "angular", aliases: ["angularjs", "angular.js"] }
+  ];
 
-  useEffect(() => {
-    const chart = new Chart('myChart', {
-      type: 'line',
-      data: {
-        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
-        datasets: [
-          {
-            label: 'My Dataset',
-            data: chartData,
-            fill: false,
-            borderColor: 'rgb(75, 192, 192)',
-            tension: 0.1,
-          },
-        ],
-      },
-      options: {
-        responsive: true,
-        title: {
-          display: true,
-          text: 'Chart.js Example',
-        },
-      },
-    });
+  // Process each condition
+  conditions.forEach(condition => {
+    const { operator, keyword } = condition;
+    
+    // Find synonym group for the keyword
+    const synonymGroup = synonyms.find(syn => 
+      syn.name.toLowerCase() === keyword.toLowerCase() ||
+      syn.aliases.some(alias => alias.toLowerCase() === keyword.toLowerCase())
+    );
 
+    let queryClause;
+    
+    if (synonymGroup) {
+      // Create a bool query with synonyms
+      queryClause = {
+        bool: {
+          should: [
+            { match: { field: synonymGroup.name } },
+            ...synonymGroup.aliases.map(alias => ({
+              match: { field: alias }
+            }))
+          ]
+        }
+      };
+    } else {
+      // Create a simple match query
+      queryClause = {
+        match: { field: keyword }
+      };
+    }
 
-    return () => chart.destroy();
-  }, [chartData]);
+    // Add the query clause to the appropriate operator array
+    switch (operator) {
+      case 'must':
+        query.query.bool.must.push(queryClause);
+        break;
+      case 'should':
+        query.query.bool.should.push(queryClause);
+        break;
+      case 'must_not':
+        query.query.bool.must_not.push(queryClause);
+        break;
+    }
+  });
 
-  return (
-    <div>
-      <h1>Chart Example</h1>
-      <input
-        type="text"
-        placeholder="Enter query"
-        value={userInput}
-        onChange={(e) => setUserInput(e.target.value)} 
-      />
-      <canvas id="myChart"></canvas>
-    </div>
-  );
+  return query;
 }
+
+module.exports = { buildElasticQuery };
