@@ -1,190 +1,67 @@
-function createQueryBuilder() {
-  // Internal state
-  let _selectColumns = null;
-  let _distinct = false;
-  let _fromTable = null;
-  let _alias = null;
-  let _whereClauses = [];
-  let _joins = [];
-  let _groupByColumns = [];
-  let _havingClause = [];
-  let _orderByClauses = [];
-  let _limit = null;
-  let _offset = null;
+function getQueryWithSynonyms(query) {
+  // Tokenize the query into terms, quoted phrases (double or single), and operators.
+  const tokens = query.match(/\(|\)|"[^"]*"|'[^']*'|\b\w[\w.-]*\b|AND|OR|NOT|-/gi);
+  if (!tokens) return query; // Return unchanged if the query is empty or invalid
 
-  // Helper: Validate a single SQL identifier (no dots)
-  const isValidIdentifier = (str) => /^[A-Za-z][A-Za-z0-9_]*$/.test(str);
+  // Build synonym mapping (assumes a global synonyms array exists)
+  const synonymMap = {};
+  synonyms.forEach(({ name, aliases }) => {
+    const group = [name, ...aliases];
+    group.forEach(term => {
+      synonymMap[term.toLowerCase()] = group;
+    });
+  });
 
-  // Helper: Validate qualified identifiers (e.g., "u.id")
-  const isValidQualifiedIdentifier = (str) => {
-    return str.split('.').every(part => isValidIdentifier(part));
-  };
+  const transformedTokens = [];
+  let phraseTokens = []; // accumulate non-operator tokens
 
-  // Helper: Count placeholders ("?") in a string
-  const countPlaceholders = (str) => (str.match(/\?/g) || []).length;
-
-  const builder = {
-    select(columns) {
-      if (columns) {
-        columns.forEach((col) => {
-          if (typeof col === "string" && !col.includes("(")) {
-            // Check if an alias is provided in the form "col AS alias"
-            const parts = col.split(/\s+AS\s+/i);
-            const identifier = parts[0].trim();
-            // Use qualified identifier validation if the identifier contains a dot
-            if (!isValidQualifiedIdentifier(identifier)) {
-              throw new Error(`Invalid SQL identifier: ${identifier}`);
-            }
-          }
-        });
-        _selectColumns = columns;
+  // Flush accumulated phrase tokens into the transformedTokens array
+  const flushPhrase = () => {
+    if (phraseTokens.length > 0) {
+      const phrase = phraseTokens.join(' ').trim();
+      // If the phrase is quoted, remove quotes for matching
+      let unquoted = phrase;
+      if ((phrase.startsWith('"') && phrase.endsWith('"')) || (phrase.startsWith("'") && phrase.endsWith("'"))) {
+        unquoted = phrase.substring(1, phrase.length - 1);
       }
-      return builder;
-    },
-    distinct() {
-      _distinct = true;
-      return builder;
-    },
-    from(tableName) {
-      if (!tableName) {
-        throw new Error("Table name not specified");
-      }
-      // If tableName contains spaces, assume the first token is the actual table name.
-      const mainTable = tableName.split(/\s+/)[0];
-      if (!isValidIdentifier(mainTable)) {
-        throw new Error(`Invalid SQL identifier: ${mainTable}`);
-      }
-      _fromTable = tableName;
-      return builder;
-    },
-    alias(aliasName) {
-      if (!aliasName || !isValidIdentifier(aliasName)) {
-        throw new Error("Invalid table alias");
-      }
-      _alias = aliasName;
-      return builder;
-    },
-    where(condition, ...params) {
-      const placeholders = countPlaceholders(condition);
-      if (placeholders !== params.length) {
-        throw new Error("Parameter count mismatch in WHERE clause");
-      }
-      _whereClauses.push({ condition, params });
-      return builder;
-    },
-    join(type, table, alias, onCondition, ...params) {
-      const validJoinTypes = ["INNER", "LEFT", "RIGHT", "FULL"];
-      if (!validJoinTypes.includes(type.toUpperCase())) {
-        throw new Error("Invalid join type");
-      }
-      if (!isValidIdentifier(table)) {
-        throw new Error("Invalid table name");
-      }
-      if (!isValidIdentifier(alias)) {
-        throw new Error("Invalid join alias");
-      }
-      const placeholders = countPlaceholders(onCondition);
-      if (placeholders !== params.length) {
-        throw new Error("Parameter count mismatch in WHERE clause");
-      }
-      _joins.push({ type: type.toUpperCase(), table, alias, onCondition, params });
-      return builder;
-    },
-    groupBy(columns) {
-      _groupByColumns = columns;
-      return builder;
-    },
-    having(condition, ...params) {
-      if (typeof condition !== "string") {
-        throw new Error("Invalid HAVING condition");
-      }
-      const placeholders = countPlaceholders(condition);
-      if (placeholders !== params.length) {
-        throw new Error("Parameter count mismatch in HAVING clause");
-      }
-      _havingClause.push({ condition, params });
-      return builder;
-    },
-    orderBy(column, direction = "ASC") {
-      const dir = direction.toUpperCase();
-      _orderByClauses.push({ column, direction: dir });
-      return builder;
-    },
-    limit(n) {
-      if (typeof n !== "number" || n <= 0) {
-        throw new Error("Invalid LIMIT value");
-      }
-      _limit = n;
-      return builder;
-    },
-    offset(n) {
-      if (typeof n !== "number" || n < 0) {
-        throw new Error("Invalid OFFSET value");
-      }
-      _offset = n;
-      return builder;
-    },
-    build() {
-      if (!_fromTable) {
-        throw new Error("Table name not specified");
-      }
-      let selectClause = "";
-      if (_selectColumns && _selectColumns.length > 0) {
-        selectClause = _selectColumns.join(", ");
+      // If an exact match exists in the synonyms mapping, replace it with the synonym group
+      if (synonymMap[unquoted.toLowerCase()]) {
+        transformedTokens.push(`(${synonymMap[unquoted.toLowerCase()].map(syn => `"${syn}"`).join(' OR ')})`);
       } else {
-        selectClause = "*";
+        // Otherwise, preserve the whole phrase as-is (wrapped in double quotes)
+        transformedTokens.push(`"${unquoted}"`);
       }
-      let query = `SELECT${_distinct ? " DISTINCT " : " "}${selectClause} FROM ${_fromTable}`;
-      const finalParams = [];
-
-      if (_alias) {
-        query += ` AS ${_alias}`;
-      }
-
-      if (_joins.length > 0) {
-        _joins.forEach(j => {
-          query += ` ${j.type} JOIN ${j.table} ${j.alias} ON ${j.onCondition}`;
-          finalParams.push(...j.params);
-        });
-      }
-
-      if (_whereClauses.length > 0) {
-        const whereConditions = _whereClauses.map(w => w.condition).join(" AND ");
-        query += ` WHERE ${whereConditions}`;
-        _whereClauses.forEach(w => {
-          finalParams.push(...w.params);
-        });
-      }
-
-      if (_groupByColumns.length > 0) {
-        query += ` GROUP BY ${_groupByColumns.join(", ")}`;
-      }
-
-      if (_havingClause.length > 0) {
-        const havingConditions = _havingClause.map(h => h.condition).join(" AND ");
-        query += ` HAVING ${havingConditions}`;
-        _havingClause.forEach(h => {
-          finalParams.push(...h.params);
-        });
-      }
-
-      if (_orderByClauses.length > 0) {
-        const orders = _orderByClauses.map(o => `${o.column} ${o.direction}`).join(", ");
-        query += ` ORDER BY ${orders}`;
-      }
-
-      if (_limit !== null) {
-        query += ` LIMIT ${_limit}`;
-      }
-      if (_offset !== null) {
-        query += ` OFFSET ${_offset}`;
-      }
-
-      return { query, params: finalParams };
+      phraseTokens = [];
     }
   };
 
-  return builder;
+  // Process each token
+  tokens.forEach(token => {
+    // Normalize boolean operators to uppercase
+    if (['and', 'or', 'not'].includes(token.toLowerCase())) {
+      token = token.toUpperCase();
+    }
+
+    // If token is an operator, parenthesis, or minus, flush any accumulated phrase tokens first
+    if (['AND', 'OR', 'NOT', '(', ')', '-'].includes(token)) {
+      flushPhrase();
+      transformedTokens.push(token);
+    } else {
+      // If token is a quoted string, flush current phrase and then add the quoted phrase as-is (without further splitting)
+      if ((token.startsWith('"') && token.endsWith('"')) || (token.startsWith("'") && token.endsWith("'"))) {
+        flushPhrase();
+        const inner = token.substring(1, token.length - 1);
+        transformedTokens.push(`"${inner}"`);
+      } else {
+        // Otherwise, accumulate token into phraseTokens
+        phraseTokens.push(token);
+      }
+    }
+  });
+  // Flush any remaining phrase tokens
+  flushPhrase();
+
+  return transformedTokens.join(' ');
 }
 
-module.exports = { createQueryBuilder };
+module.exports = { getQueryWithSynonyms };
