@@ -1,62 +1,63 @@
-//data-reader.service.js
-import fs from 'fs';
+// ChartComponent.jsx
+import React, { useState, useEffect } from 'react';
+import { Line } from 'react-chartjs-2';
+import Chart from 'chart.js/auto';
 
-class DataReaderService {
-  constructor() { }
+function ChartComponent() {
+  const [chartData, setChartData] = useState([]);
+  const [userInput, setUserInput] = useState('');
 
-  async readData() {
-    const data1 = await fs.promises.readFile('./data1.json', 'utf-8');
-    const data2 = await fs.promises.readFile('./data2.json', 'utf-8');
-    const data3 = await fs.promises.readFile('./data3.json', 'utf-8');
-
-
-    const parsedData1 = JSON.parse(data1);
-    const parsedData2 = JSON.parse(data2);
-    const parsedData3 = JSON.parse(data3);
-
-
-    const concatenatedData = [...parsedData1, ...parsedData2, ...parsedData3];
-
-
-    return concatenatedData;
-  }
-}
-
-//data-processor.service.js
-import crypto from 'crypto';
-import DataReaderService from './data-reader.service.js';
-class DataProcessorService {
-  constructor() {
-    this.dataReader = new DataReaderService();
-  }
+  useEffect(() => {
+    if (userInput) {
+      fetch(`https://api.example.com/data?q=${userInput}`)
+        .then((response) => response.json())
+        .then((data) => {
+          const chartDataProcessed = data.map((item) => item.value);
+          setChartData(chartDataProcessed);
+        })
+        .catch((error) => console.error('Error fetching chart data:', error));
+    }
+  }, [userInput]);
 
 
-  async processData() {
-    let concatenatedData = await this.dataReader.readData();
-    let results = [];
-
-
-    concatenatedData.forEach(item) => {
-      const name = item.name ? item.name.toUpperCase() : '';
-      const age = item.age;
-
-      if (age > 30) {
-        results.push({ ...item, processed: true });
-      } else {
-        results.push(item);
-      }
+  useEffect(() => {
+    const chart = new Chart('myChart', {
+      type: 'line',
+      data: {
+        labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May'],
+        datasets: [
+          {
+            label: 'My Dataset',
+            data: chartData,
+            fill: false,
+            borderColor: 'rgb(75, 192, 192)',
+            tension: 0.1,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        title: {
+          display: true,
+          text: 'Chart.js Example',
+        },
+      },
     });
 
 
-    results.forEach((result) => {
-      if (result.password) {
-        result.passwordHash = crypto.createHash('md5').update(result.password).digest('hex');
-      }
-    });
+    return () => chart.destroy();
+  }, [chartData]);
 
-
-    return [...results];
-  }
+  return (
+    <div>
+      <h1>Chart Example</h1>
+      <input
+        type="text"
+        placeholder="Enter query"
+        value={userInput}
+        onChange={(e) => setUserInput(e.target.value)} 
+      />
+      <canvas id="myChart"></canvas>
+    </div>
+  );
 }
-
-export default DataProcessorService;
