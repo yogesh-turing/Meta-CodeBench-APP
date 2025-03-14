@@ -1,5 +1,3 @@
-/* RewardCalculator.js */
-
 const fs = require('fs');
 const path = require('path');
 
@@ -23,100 +21,62 @@ class RewardCalculator {
     ) {
       throw new Error('Invalid transaction data');
     }
-
-    // Validate the date
-    const dateObj = new Date(transaction.date);
-    if (isNaN(dateObj.getTime())) {
-      // Skip adding if date is invalid (test expects graceful handling).
-      return false;
-    }
-
-    // Create a transaction object with the Date instance
     const txnObj = {
       amount: transaction.amount,
-      date: dateObj,
+      date: new Date(transaction.date),
       type: transaction.type || 'purchase',
     };
-
-    // Initialize user transactions array if needed
     if (!this.userTransactions.has(userId)) {
       this.userTransactions.set(userId, []);
     }
     const transactions = this.userTransactions.get(userId);
     transactions.push(txnObj);
-
-    // Sort transactions by date
-    transactions.sort((a, b) =>
-      a.date.toISOString().localeCompare(b.date.toISOString())
-    );
-
-    return true;
+    transactions.sort((a, b) => a.date - b.date);
   }
 
-  /**
-   * Calculates reward points for a single transaction. 
-   * Rules: 
-   *   - <= 50 => 0 points
-   *   - (50,100] => (amount-50)*1
-   *   - >100 => 50 + (amount-100)*2
-   * For refunds, this value is negated.
-   */
   calculateTransactionPoints(transaction) {
     const { amount, type } = transaction;
-    const { lowerThreshold, upperThreshold, lowerMultiplier, upperMultiplier } =
-      this.config;
-
+    const { lowerThreshold, upperThreshold, lowerMultiplier, upperMultiplier } = this.config;
     let points = 0;
-    if (amount <= lowerThreshold) {
-      points = 0;
-    } else if (amount <= upperThreshold) {
+    if (amount > lowerThreshold && amount <= upperThreshold) {
       points = Math.floor((amount - lowerThreshold) * lowerMultiplier);
-    } else {
-      // For amounts above upperThreshold:
-      // points = floor((upperThreshold - lowerThreshold) * lowerMultiplier)
-      //        + floor((amount - upperThreshold) * upperMultiplier)
-      points =
-        Math.floor((upperThreshold - lowerThreshold) * lowerMultiplier) +
-        Math.floor((amount - upperThreshold) * upperMultiplier);
+    } else if (amount > upperThreshold) {
+      points = Math.floor((upperThreshold - lowerThreshold) * lowerMultiplier) +
+               Math.floor((amount - upperThreshold) * upperMultiplier);
     }
-
-    // Refund transactions are negative
     if (type === 'refund') {
       points = -points;
     }
     return points;
   }
 
-  // Calculates total reward points for a user across all transactions
   calculateUserRewards(userId) {
     if (!this.userTransactions.has(userId)) return 0;
     const transactions = this.userTransactions.get(userId);
-    let totalPoints = transactions.reduce((sum, txn) => {
-      if (isNaN(txn.date.getTime())) return sum;
-      return sum + this.calculateTransactionPoints(txn);
+    const totalPoints = transactions.reduce((sum, txn) => {
+      if (!isNaN(txn.date.getTime())) {
+        return sum + this.calculateTransactionPoints(txn);
+      }
+      return sum;
     }, 0);
     this.calculationLog.push({ userId, totalPoints, timestamp: new Date() });
     return totalPoints;
   }
 
-  // Calculates monthly rewards summary for a user
   calculateMonthlyRewards(userId) {
     if (!this.userTransactions.has(userId)) return {};
     const transactions = this.userTransactions.get(userId);
     const monthlySummary = {};
-    for (let txn of transactions) {
-      if (isNaN(txn.date.getTime())) continue;
-      const month = (txn.date.getMonth() + 1).toString().padStart(2, '0');
-      const monthKey = txn.date.getFullYear() + '-' + month;
-      if (!monthlySummary[monthKey]) {
-        monthlySummary[monthKey] = 0;
+    transactions.forEach((txn) => {
+      if (!isNaN(txn.date.getTime())) {
+        const month = txn.date.getMonth() + 1;
+        const monthKey = `${txn.date.getFullYear()}-${month.toString().padStart(2, '0')}`;
+        monthlySummary[monthKey] = (monthlySummary[monthKey] || 0) + this.calculateTransactionPoints(txn);
       }
-      monthlySummary[monthKey] += this.calculateTransactionPoints(txn);
-    }
+    });
     return monthlySummary;
   }
 
-  // Asynchronously persists the calculation log to a file.
   persistCalculationLog(callback) {
     setTimeout(() => {
       try {
@@ -131,14 +91,12 @@ class RewardCalculator {
     }, 50);
   }
 
-  // Clears all transactions for a user
   clearTransactions(userId) {
     if (!this.userTransactions.has(userId)) return false;
     this.userTransactions.delete(userId);
     return true;
   }
 
-  // Dynamically updates reward configuration
   updateConfig(newConfig) {
     for (let key in newConfig) {
       if (this.config.hasOwnProperty(key)) {
@@ -147,51 +105,40 @@ class RewardCalculator {
     }
   }
 
-  // Returns a deep copy of the transaction log (as an array of [userId, transactions]).
   getTransactionLog() {
     return JSON.parse(
       JSON.stringify(Array.from(this.userTransactions.entries()))
     );
   }
 
-  // Calculates rewards for a given date range
   calculateRewardsForDateRange(userId, startDate, endDate) {
     if (!this.userTransactions.has(userId)) return 0;
     const transactions = this.userTransactions.get(userId);
-    let total = 0;
     const start = new Date(startDate);
     const end = new Date(endDate);
-    transactions.forEach((txn) => {
-      if (txn.date > start && txn.date < end) {
-        total += this.calculateTransactionPoints(txn);
+    return transactions.reduce((total, txn) => {
+      if (txn.date >= start && txn.date <= end) {
+        return total + this.calculateTransactionPoints(txn);
       }
-    });
-    return total;
+      return total;
+    }, 0);
   }
 
-  // Prints a detailed summary of a user's rewards
   printUserRewardSummary(userId) {
     const rewards = this.calculateUserRewards(userId);
     const monthly = this.calculateMonthlyRewards(userId);
-    let summary =
-      'User: ' +
-      userId +
-      '\nTotal Rewards: ' +
-      rewards +
-      '\nMonthly Breakdown:\n';
-    for (let key in monthly) {
-      summary += key + ' : ' + monthly[key] + '\n';
+    let summary = `User: ${userId}\nTotal Rewards: ${rewards}\nMonthly Breakdown:\n`;
+    for (const key in monthly) {
+      summary += `${key} : ${monthly[key]}\n`;
     }
     console.log(summary);
     return summary;
   }
 
-  // Imports transactions from a JSON file.
   importTransactionsFromFile(filePath) {
     try {
       const data = fs.readFileSync(filePath, 'utf8');
       const transactions = JSON.parse(data);
-      // Expect transactions to be an array of { userId, transaction }.
       transactions.forEach((item) => {
         if (item.userId && item.transaction) {
           this.addTransaction(item.userId, item.transaction);
@@ -204,18 +151,9 @@ class RewardCalculator {
     }
   }
 
-  // Exports all transactions to a JSON file (in the same format importTransactionsFromFile expects).
   exportTransactionsToFile(filePath) {
     try {
-      const allTransactions = [];
-      this.userTransactions.forEach((txnArray, userId) => {
-        txnArray.forEach((txn) => {
-          allTransactions.push({
-            userId,
-            transaction: txn,
-          });
-        });
-      });
+      const allTransactions = Array.from(this.userTransactions.entries());
       fs.writeFileSync(filePath, JSON.stringify(allTransactions, null, 2));
       return true;
     } catch (e) {
@@ -224,24 +162,20 @@ class RewardCalculator {
     }
   }
 
-  // Processes bulk transactions.
   processBulkTransactions(transactions) {
     if (!Array.isArray(transactions)) {
       throw new Error('Invalid transactions data');
     }
     let processedCount = 0;
-    let userId = null;
     transactions.forEach((item) => {
       if (item.transaction && typeof item.transaction.amount === 'number') {
         this.addTransaction(item.userId, item.transaction);
-        processedCount++; // increment count for each valid transaction
-        userId = item.userId;
+        processedCount++;
       }
     });
-    return { count: processedCount, userId };
+    return { count: processedCount, userId: transactions[0]?.userId || null };
   }
 
-  // Returns the transformation of a specific transaction for the user.
   getTransaction(userId, index) {
     if (!this.userTransactions.has(userId)) return null;
     const transactions = this.userTransactions.get(userId);

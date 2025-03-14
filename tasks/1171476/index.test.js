@@ -1,7 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-// const { RewardCalculator } = require(process.env.TARGET_FILE);
-const { RewardCalculator } = require('./model_i');
+const { RewardCalculator } = require('./solution.js');
 
 describe('RewardCalculator Module - Expected Object Output', () => {
   let rc;
@@ -17,6 +16,32 @@ describe('RewardCalculator Module - Expected Object Output', () => {
     if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
   });
 
+  // invalid transaction
+  test('should not add an invalid transaction (null transaction)', () => {
+    try {
+      rc.addTransaction('user1', null);
+    } catch (e) {
+      expect(e.message).toEqual('Invalid transaction data');
+    }
+  });
+
+  test('should not add an invalid transaction (amount is not a number)', () => {
+    try {
+      rc.addTransaction('user1', { amount: 'abc', date: '2023-07-01' });
+    } catch (e) {
+      expect(e.message).toEqual('Invalid transaction data');
+    }
+  });
+
+  test('should not add an invalid transaction (no date)', () => {
+    try {
+      rc.addTransaction('user8', { amount: 100 });
+    } catch (e) {
+      expect(e.message).toEqual('Invalid transaction data');
+    }
+  });
+
+      
   test('should correctly transform a $120 purchase transaction', () => {
     // For a $120 purchase:
     // reward calculation: (100 - 50)*1 + (120 - 100)*2 = 50 + 40 = 90.
@@ -142,6 +167,11 @@ describe('RewardCalculator Module - Expected Object Output', () => {
     });
   });
 
+  test('should return false when user does not exist', () => {
+    const tx = rc.getTransaction('nonexistent', 0);
+    expect(tx).toBeNull();
+  });
+
   test('should clear transactions for a user', () => {
     rc.addTransaction('user7', {
       amount: 100,
@@ -158,6 +188,11 @@ describe('RewardCalculator Module - Expected Object Output', () => {
     rc.clearTransactions('user7');
     const log = rc.getTransactionLog();
     expect(log.find(([id]) => id === 'user7')).toBeUndefined();
+  });
+
+  test('clearTransactions should return false for a non-existent user', () => {
+    const success = rc.clearTransactions('nonexistent');
+    expect(success).toEqual(false);
   });
 
   test('should update reward configuration and affect calculations', () => {
@@ -180,6 +215,17 @@ describe('RewardCalculator Module - Expected Object Output', () => {
       date: new Date('2023-08-01'),
       type: 'purchase',
     });
+  });
+
+  test(`exportTransactionsToFile should return false file path is invalid`, () => {
+    const tempFile = path.join(__dirname, 'nonexistent', 'tempTransactions.json');
+    const success = rc.exportTransactionsToFile(tempFile);
+    expect(success).toEqual(false);
+  });
+
+  test('importTransactionsFromFile should return false if file does not exist', () => {
+    const success = rc.importTransactionsFromFile('nonexistent.json');
+    expect(success).toEqual(false);
   });
 
   test('should export and import transactions correctly', () => {

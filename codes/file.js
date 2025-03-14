@@ -124,7 +124,7 @@ class RewardCalculator {
     const start = new Date(startDate);
     const end = new Date(endDate);
     transactions.forEach((txn) => {
-      if (txn.date >= start && txn.date <= end) {
+      if (txn.date > start && txn.date < end) {
         total += this.calculateTransactionPoints(txn);
       }
     });
@@ -179,13 +179,15 @@ class RewardCalculator {
       throw new Error('Invalid transactions data');
     }
     let processedCount = 0;
+    let userId = null;
     transactions.forEach((item) => {
       if (item.transaction && typeof item.transaction.amount === 'number') {
         this.addTransaction(item.userId, item.transaction);
-        processedCount += 1;
+        processedCount++;
+        userId = item.userId;
       }
     });
-    return { count: processedCount, userId: transactions[0]?.userId || null };
+    return { count: processedCount, userId };
   }
 
   getTransaction(userId, index) {
