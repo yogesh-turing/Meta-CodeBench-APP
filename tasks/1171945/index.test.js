@@ -1,4 +1,4 @@
-const { Employee } = require("./correct");
+const { Employee } = require("./incorrect");
 
 describe("Employee Hierarchy Tests", () => {
   let ceo, vp1, vp2, manager1, employee1, employee2;
