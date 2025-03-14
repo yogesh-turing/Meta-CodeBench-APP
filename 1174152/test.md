@@ -1,3 +1,6 @@
+For the following base code:
+
+```javascript
 //App.js
 import React, { useState, useEffect, useRef } from 'react';
 import axios from 'axios'; 
@@ -165,3 +168,39 @@ const App = () => {
   );
 };
 
+
+```
+
+Team leader provided following code review comments:   
+    
+    Code Review - React Application:
+
+    1. Error in List Rendering: The renderItem prop has a syntax error (= instead of =>), which would prevent the list from rendering properly. This is a critical bug.
+
+    2. Unsafe Filter Operation: The filteredData implementation assumes selectedItem is always defined, but it starts as null. This will cause a runtime error when the component first renders.
+
+    3. Deprecated Libraries: The code uses the older ReactDOM.render() method which is deprecated in React 18. It should use createRoot() instead, as indicated by the import statement already using ReactDOM.createRoot. The older version of react-chartjs-2 that isn't compatible with React 18.
+
+    4. The `useEffect` hooks having empty dependency arrays but using external state/props, leading to stale closure.
+
+    5. The application doesn't verify the response status code before accessing the properties of the posts. It's essential to confirm that the request was successful before using the response data. Additionally, it lacks error and loading states to provide feedback to the user about the process.
+
+    6.  The App component is missing an export, which would lead to a runtime error.
+
+Following are the point that should be addressed/pointed out in code review
+    The review should highlight the most obvious and clearest points that would definitely be mentioned in a good code review. Here is what we are looking for:
+
+    Has the review addressed that the App component export is missing? (0/2)
+
+    Does the review handle the case of checking the response status code before accessing the properties of the post? (0/2)
+
+    Has the review addressed that React 18 is used with ReactDOM.render (deprecated in React 18) and an older version of - react-chartjs-2 that isn't compatible with React 18? (0/2)
+
+    Has the review addressed the potential issue where the filteredData logic could break with undefined input? (0/2)
+
+    Has the review addressed the useEffect hooks have empty dependency arrays but use external state/props, leading to stale closures.?(0/2)
+
+    Has the review addressed that the renderItem prop has a syntax error (= instead of =>), which would prevent the list from rendering properly.?(0/2)
+
+Can you please help to check if team leader’s review has addressed the points.
+Also provide the score for each point, so maximum score of 2 points should be given if point correctly address the issue.

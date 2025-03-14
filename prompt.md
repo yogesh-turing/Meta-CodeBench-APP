@@ -137,7 +137,7 @@ const App = () => {
       <List
         itemLayout="horizontal"
         dataSource={filteredData}
-        renderItem={(item) => (
+        renderItem={(item) = (
           <List.Item
             onClick={() => navigateToUser(item.id)}
             actions={[<a onClick={() => openModal(item)}>View Details</a>]}
@@ -161,37 +161,12 @@ const App = () => {
           </Button>,
         ]}
       >
-        <div dangerouslySetInnerHTML={{ __html: selectedItem }} />
+        <div >{selectedItem }</div>
       </Modal>
     </div>
   );
 };
 
-
-```
-```javascript
-//package.json
-{
-  "name": "react-complex-bug-app",
-  "version": "1.0.0",
-  "main": "index.js",
-  "dependencies": {
-    "react": "^18.0.0", 
-    "react-dom": "^18.0.0",
-    "axios": "^0.21.0", 
-    "antd": "^4.16.0", 
-    "react-router-dom": "^5.1.0", 
-    "chart.js": "^3.7.0", 
-    "react-chartjs-2": "^3.0.0",
-    "react-scripts": "^4.0.0"
-  },
-  "scripts": {
-    "start": "react-scripts start",
-    "build": "react-scripts build",
-    "test": "react-scripts test",
-    "eject": "react-scripts eject"
-  }
-}
 
 ```
 ```javascript
@@ -217,4 +192,4 @@ Please do a code review for the above react application. Please look especially 
 - Clear inefficiencies
 - Bugs
 
-Please mention only the 4-10 most obvious points that would always be mentioned in a good code review. Please make your code review accurate and clear while also being concise.
+Please mention only the 4-7 most obvious points that would always be mentioned in a good code review. Please make your code review accurate and clear while also being concise. Don't include code snippet in the response.
