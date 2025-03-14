@@ -1,5 +1,4 @@
-// const { EventManager } = require(process.env.TARGET_FILE);
-const { EventManager } = require('./correct');
+const { EventManager } = require('./solution');
 
 describe('EventManager', () => {
   let manager;
@@ -66,13 +65,14 @@ describe('EventManager', () => {
         '2030-01-01T10:00:00',
         'Old Location'
       );
+      
       const updated = manager.updateEvent(
         event.id,
         { location: 'New Location' },
-        event.version
+        1
       );
       expect(updated.location).toBe('New Location');
-      expect(updated.version).toBe(event.version + 1);
+      expect(updated.version).toBe(2);
     });
 
     it('should throw an error if the expected version does not match (optimistic concurrency)', () => {
@@ -85,7 +85,7 @@ describe('EventManager', () => {
         manager.updateEvent(
           event.id,
           { location: 'New Location' },
-          event.version + 1
+          2
         )
       ).toThrow(/Version conflict/);
     });
@@ -101,7 +101,7 @@ describe('EventManager', () => {
         'Location'
       );
       expect(() =>
-        manager.updateEvent(event.id, { date: 'invalid date' }, event.version)
+        manager.updateEvent(event.id, { date: 'invalid date' }, 1)
       ).toThrow('Invalid date format provided.');
     });
   });
@@ -216,21 +216,52 @@ describe('EventManager', () => {
     it('should throw an error if the event does not exist', () => {
       expect(() => manager.getEventDetails(999)).toThrow();
     });
+
+    it('should return event details if the event exists', () => {
+      // Create an event
+      const event = manager.createEvent('Event 1', '2030-01-01T10:00:00', 'Texas');
+      manager.updateEvent(event.id, { location: 'NYC' }, 1);     
+      
+      // Invite users
+      manager.inviteUser(event.id, "user1");
+      manager.inviteUser(event.id, "user2");
+      
+      // Users respond to invitations
+      manager.acceptInvitation(event.id, "user1");
+      manager.declineInvitation(event.id, "user2");
+      
+      // Get event details
+      const eventDetails = manager.getEventDetails(event.id);
+      expect(eventDetails.id).toBe(event.id);
+      expect(eventDetails.title).toBe('Event 1');
+      expect(eventDetails.location).toBe('NYC');
+      expect(eventDetails.invitations).toEqual({ 'user1': 'accepted', 'user2': 'declined' });
+      expect(eventDetails.remindersSent).toBe(0);
+      expect(eventDetails.version).toBe(2);
+
+    });
   });
 
   describe('getAttendeeList', () => {
     it('should return a list of users who accepted invitations', () => {
-      const event = manager.createEvent(
-        'Attendee List',
-        '2030-01-01T10:00:00',
-        'Location'
-      );
-      manager.inviteUser(event.id, 'user1');
-      manager.inviteUser(event.id, 'user2');
-      manager.acceptInvitation(event.id, 'user1');
-      manager.declineInvitation(event.id, 'user2');
+      // Create an event
+      const event = manager.createEvent('Event 1', '2030-01-01T10:00:00', 'Texas');
+      manager.updateEvent(event.id, { location: 'NYC' }, 1);     
+      
+      // Invite users
+      manager.inviteUser(event.id, "user1");
+      manager.inviteUser(event.id, "user2");
+      
+      // Users respond to invitations
+      manager.acceptInvitation(event.id, "user1");
+      manager.declineInvitation(event.id, "user2");
+      
       const attendees = manager.getAttendeeList(event.id);
       expect(attendees).toEqual(['user1']);
+    });
+
+    it('should throw an error if the event does not exist', () => {
+      expect(() => manager.getAttendeeList(999)).toThrow();
     });
   });
 
@@ -276,7 +307,45 @@ describe('EventManager', () => {
       expect(stateAfterReplay.invitations['user1']).toBe('accepted');
     });
 
-    
+    // add event, update event, invite user, accept invitation
+    it('should rebuild the aggregate state from the event store (add event, update event, invite user, accept invitation)', () => {
+      const event = manager.createEvent(
+        'Event 1',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.updateEvent(event.id, { location: 'New Location' }, 1);
+      manager.inviteUser(event.id, 'user1');
+      manager.acceptInvitation(event.id, 'user1');
+      const stateBeforeReplay = manager.getEventDetails(event.id);
+      manager.deleteEvent(event.id);
+      expect(() => manager.getEventDetails(event.id)).toThrow();
+      manager.replayEvents();
+      const stateAfterReplay = manager.getEventDetails(event.id);
+      expect(stateAfterReplay.id).toBe(event.id);
+      expect(stateAfterReplay.location).toBe('New Location');
+      expect(stateAfterReplay.invitations['user1']).toBe('accepted');
+    });
+
+    // add event, update event, invite user, decline invitation
+    it('should rebuild the aggregate state from the event store (add event, update event, invite user, decline invitation)', () => {
+      const event = manager.createEvent(
+        'Event 1',
+        '2030-01-01T10:00:00',
+        'Location'
+      );
+      manager.updateEvent(event.id, { location: 'New Location' }, 1);
+      manager.inviteUser(event.id, 'user1');
+      manager.declineInvitation(event.id, 'user1');
+      const stateBeforeReplay = manager.getEventDetails(event.id);
+      manager.deleteEvent(event.id);
+      expect(() => manager.getEventDetails(event.id)).toThrow();
+      manager.replayEvents();
+      const stateAfterReplay = manager.getEventDetails(event.id);
+      expect(stateAfterReplay.id).toBe(event.id);
+      expect(stateAfterReplay.location).toBe('New Location');
+      expect(stateAfterReplay.invitations['user1']).toBe('declined');
+    });
   });
 
   describe('subscribe', () => {

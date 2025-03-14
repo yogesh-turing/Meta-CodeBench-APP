@@ -1,6 +1,6 @@
 Model B, C, E: 
     - The explanation is incorrect, the following explanation is correct.
-        In the `replayEvents` function, it restored the event from logs, and then it also handled the `deleteEvent` action so it deleted the added event. So when `getEventDetails` with the event is called, it throws an error.
+        The model failed to rebuild the aggregate stage, in the `replayEvents` function, it restored the event from logs, and then it also handled the `deleteEvent` action so it deleted the added event. So when `getEventDetails` with the event is called, it throws an error. In the `replayEvents` function, it should restore to the state as they were before deletion.
 
 Model F to J:
 The test cases for Update events seems to be incorrect. Instead of checking version with `event.version + 1` can you use actual number that should be returned, here I have updated the test case with actual numbers. Please have a look and update the unit test.
@@ -84,3 +84,13 @@ To make prompt more clear, you can add following details for each function
 3. What are the outputs from the function
 
 You can include failed test cases in the prompt as well.
+
+
+
+
+The incorrect solution failed to rebuild the aggregate stage, in the `replayEvents` function, it restored the event from logs, and then it also handled the `deleteEvent` action so it deleted the added event. So when `getEventDetails` with the event is called, it throws an error. 
+In the `replayEvents` function, it should restore to the state as they were before deletion, so it should have ignored the `deleteEvent` action.
+
+
+As compared with incorrect solution, the ideal solution rebuild the state correctly.
+In ideal solution, the `replayEvents` function did not handle the `deleteEvent` action. Hence it successfully able restore to the state as they were before deletion.

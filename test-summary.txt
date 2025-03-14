@@ -2,9 +2,9 @@ TEST SUMMARY
 ============
 
 1171523:
-model_f    : 20/24 tests passed [FAILED]
-model_g    : 20/24 tests passed [FAILED]
-model_h    : 20/24 tests passed [FAILED]
-model_i    : 20/24 tests passed [FAILED]
-model_j    : 20/24 tests passed [FAILED]
+model_f    : 25/28 tests passed [FAILED]
+model_g    : 25/28 tests passed [FAILED]
+model_h    : 25/28 tests passed [FAILED]
+model_i    : 25/28 tests passed [FAILED]
+model_j    : 25/28 tests passed [FAILED]
 

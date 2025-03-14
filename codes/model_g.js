@@ -23,9 +23,9 @@ class EventManager {
       title,
       date: eventDate,
       location,
-      invitations: {},
+      invitations: {}, // Changed from Map to Object for JSON compatibility
       remindersSent: 0,
-      version: 1,
+      version: 1 // Initialize with version 1
     };
 
     this.#events.set(eventId, event);
@@ -47,28 +47,34 @@ class EventManager {
   updateEvent(eventId, newDetails, expectedVersion) {
     const event = this.#events.get(eventId);
     if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
     if (event.version !== expectedVersion) {
       throw new Error('Version conflict');
+    }
+    if ('date' in newDetails && isNaN(new Date(newDetails.date))) {
+      throw new Error('Invalid date format provided.');
     }
     Object.keys(newDetails).forEach((key) => {
       if (newDetails[key] !== undefined) {
         event[key] = newDetails[key];
       }
     });
-    event.version++;
+    event.version++; // Increment version upon successful update
     this.#logEvent('updateEvent', { id: eventId, newDetails });
-    this.#publish('EVENT_UPDATED', { type: 'EVENT_UPDATED', payload: event });
+    this.#publish('EVENT_UPDATED', { type: 'EVENT_UPDATED', payload: { id: eventId, ...event } });
     return event;
   }
 
   inviteUser(eventId, userId) {
     const event = this.#events.get(eventId);
     if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
-    if (event.invitations[userId] !== undefined) {
+    if (!userId) {
+      throw new Error('User ID must be provided');
+    }
+    if (event.invitations[userId]) {
       throw new Error('User already invited');
     }
     event.invitations[userId] = 'pending';
@@ -80,10 +86,10 @@ class EventManager {
   acceptInvitation(eventId, userId) {
     const event = this.#events.get(eventId);
     if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
     if (!event.invitations[userId]) {
-      throw new Error(`User ${userId} was not invited to the event.`);
+      throw new Error('User was not invited to the event.');
     }
     event.invitations[userId] = 'accepted';
     this.#logEvent('acceptInvitation', { eventId, userId });
@@ -94,10 +100,10 @@ class EventManager {
   declineInvitation(eventId, userId) {
     const event = this.#events.get(eventId);
     if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
     if (!event.invitations[userId]) {
-      throw new Error(`User ${userId} was not invited to the event.`);
+      throw new Error('User was not invited to the event.');
     }
     event.invitations[userId] = 'declined';
     this.#logEvent('declineInvitation', { eventId, userId });
@@ -117,7 +123,7 @@ class EventManager {
   getEventDetails(eventId) {
     const event = this.#events.get(eventId);
     if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
     return JSON.parse(JSON.stringify(event));
   }
@@ -125,11 +131,13 @@ class EventManager {
   async sendReminder(eventId) {
     const event = this.#events.get(eventId);
     if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
     const acceptedUsers = this.getAttendeeList(eventId);
     if (acceptedUsers.length === 0) {
-      console.log(`No attendees to remind for event ${eventId}.`);
+      console.log(
+        `No accepted attendees to send reminders for event ${eventId}.`
+      );
       return false;
     }
 
@@ -154,7 +162,7 @@ class EventManager {
   getAttendeeList(eventId) {
     const event = this.#events.get(eventId);
     if (!event) {
-      throw new Error(`Event with id ${eventId} does not exist.`);
+      throw new Error('Event not found');
     }
     const attendees = Object.entries(event.invitations)
       .filter(([_, status]) => status === 'accepted')
@@ -193,7 +201,7 @@ class EventManager {
           this.deleteEvent(logEntry.details.id);
           break;
         case 'updateEvent':
-          this.updateEvent(logEntry.details.id, logEntry.details.newDetails, logEntry.details.newDetails.version - 1);
+          this.updateEvent(logEntry.details.id, logEntry.details.newDetails, logEntry.details.version);
           break;
         case 'inviteUser':
           this.inviteUser(logEntry.details.eventId, logEntry.details.userId);
@@ -217,5 +225,38 @@ class EventManager {
     });
   }
 }
+
+/* ==================== Usage Example ====================
+  
+  const manager = new EventManager();
+
+  // Create an event
+  const event = manager.createEvent('Event 1', '2030-01-01T10:00:00', 'Texas');
+  console.log("Created Event:", event);
+  
+  // Update Event
+  manager.updateEvent(event.id, { location: 'NYC' }, 1);
+  
+  // Invite users
+  manager.inviteUser(event.id, "user1");
+  manager.inviteUser(event.id, "user2");
+  
+  // Users respond to invitations
+  manager.acceptInvitation(event.id, "user1");
+  manager.declineInvitation(event.id, "user2");
+  
+  // Get upcoming events
+  console.log("Upcoming Events:", manager.getUpcomingEvents());
+  
+  // Send reminders (simulate async email sending)
+  manager.sendReminder(event.id).then(() => {
+    console.log("Reminders sent!");
+  });
+  
+  // Get event details and attendee list
+  console.log("Event Details:", manager.getEventDetails(event.id));
+  console.log("Attendee List:", manager.getAttendeeList(event.id));
+  
+  ========================================================== */
 
 module.exports = { EventManager };

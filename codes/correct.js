@@ -179,7 +179,7 @@ class EventManager {
   replayEvents() {
     const actions = {
       createEvent: (d) => this.createEvent(d.title, d.date, d.location),
-      updateEvent: (d) => this.updateEvent(d.id, d.newDetails, d.version),
+      updateEvent: (d) => this.updateEvent(d.id, d.newDetails, d.version-1),
       inviteUser: (d) => this.inviteUser(d.eventId, d.userId),
       acceptInvitation: (d) => this.acceptInvitation(d.eventId, d.userId),
       declineInvitation: (d) => this.declineInvitation(d.eventId, d.userId),

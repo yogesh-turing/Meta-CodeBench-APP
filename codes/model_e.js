@@ -33,13 +33,24 @@ class EventManager {
     return { ...event };
   }
 
+  deleteEvent(eventId) {
+    if (!this.#events.has(eventId)) {
+      throw new Error(`Event with id ${eventId} does not exist.`);
+    }
+    const event = this.#events.get(eventId);
+    this.#events.delete(eventId);
+    this.#logEvent('deleteEvent', { id: eventId });
+    this.#publish('EVENT_DELETED', { type: 'EVENT_DELETED', payload: { id: eventId } });
+    return true;
+  }
+
   updateEvent(eventId, newDetails, expectedVersion) {
     const event = this.#events.get(eventId);
     if (!event) {
       throw new Error(`Event with id ${eventId} does not exist.`);
     }
 
-    if (expectedVersion !== event.version) {
+    if (expectedVersion !== undefined && event.version !== expectedVersion) {
       throw new Error('Version conflict');
     }
 
@@ -54,7 +65,7 @@ class EventManager {
     const updatedEvent = {
       ...event,
       ...newDetails,
-      version: event.version + 1
+      version: (event.version || 0) + 1
     };
 
     this.#events.set(eventId, updatedEvent);
@@ -63,20 +74,9 @@ class EventManager {
     return { ...updatedEvent };
   }
 
-  deleteEvent(eventId) {
-    if (!this.#events.has(eventId)) {
-      throw new Error('Event not found');
-    }
-    const event = this.#events.get(eventId);
-    this.#events.delete(eventId);
-    this.#logEvent('deleteEvent', { id: eventId });
-    this.#publish('EVENT_DELETED', { type: 'EVENT_DELETED', payload: { ...event } });
-    return true;
-  }
-
   inviteUser(eventId, userId) {
     if (!userId) {
-      throw new Error('User ID is required');
+      throw new Error('userId is required');
     }
 
     const event = this.#events.get(eventId);
@@ -102,7 +102,6 @@ class EventManager {
     if (!event.invitations[userId]) {
       throw new Error(`User ${userId} was not invited to the event.`);
     }
-
     event.invitations[userId] = 'accepted';
     this.#logEvent('acceptInvitation', { eventId, userId });
     this.#publish('INVITATION_ACCEPTED', { type: 'INVITATION_ACCEPTED', payload: { eventId, userId } });
@@ -117,7 +116,6 @@ class EventManager {
     if (!event.invitations[userId]) {
       throw new Error(`User ${userId} was not invited to the event.`);
     }
-
     event.invitations[userId] = 'declined';
     this.#logEvent('declineInvitation', { eventId, userId });
     this.#publish('INVITATION_DECLINED', { type: 'INVITATION_DECLINED', payload: { eventId, userId } });
@@ -148,7 +146,6 @@ class EventManager {
 
     const acceptedUsers = this.getAttendeeList(eventId);
     if (acceptedUsers.length === 0) {
-      console.log(`No accepted attendees to send reminders for event ${eventId}.`);
       return false;
     }
 
@@ -175,11 +172,15 @@ class EventManager {
     }
     return Object.entries(event.invitations)
       .filter(([_, status]) => status === 'accepted')
-      .map(([userId, _]) => userId);
+      .map(([userId]) => userId);
   }
 
   #logEvent(action, details) {
-    this.#log.push({ action, details, timestamp: new Date() });
+    this.#log.push({
+      action,
+      details: JSON.parse(JSON.stringify(details)),
+      timestamp: new Date()
+    });
   }
 
   #publish(eventType, data) {
@@ -198,50 +199,55 @@ class EventManager {
   replayEvents() {
     this.#events.clear();
     this._eventIdCounter = 1;
-    
+
     this.#log.forEach(logEntry => {
-      switch (logEntry.action) {
+      const { action, details } = logEntry;
+
+      switch (action) {
         case 'createEvent':
-          const event = this.createEvent(
-            logEntry.details.title,
-            logEntry.details.date,
-            logEntry.details.location
-          );
-          event.version = logEntry.details.version;
-          event.invitations = { ...logEntry.details.invitations };
-          event.remindersSent = logEntry.details.remindersSent;
+          const event = {
+            ...details,
+            date: new Date(details.date),
+            invitations: {},
+            version: 1
+          };
           this.#events.set(event.id, event);
           break;
-        case 'deleteEvent':
-          if (this.#events.has(logEntry.details.id)) {
-            this.deleteEvent(logEntry.details.id);
-          }
-          break;
+
         case 'updateEvent':
-          if (this.#events.has(logEntry.details.id)) {
-            const event = this.#events.get(logEntry.details.id);
-            this.updateEvent(logEntry.details.id, logEntry.details.newDetails, event.version);
+          const existingEvent = this.#events.get(details.id);
+          if (existingEvent) {
+            this.#events.set(details.id, {
+              ...existingEvent,
+              ...details.newDetails,
+              version: details.version
+            });
           }
           break;
+
         case 'inviteUser':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.inviteUser(logEntry.details.eventId, logEntry.details.userId);
+          const eventToInvite = this.#events.get(details.eventId);
+          if (eventToInvite) {
+            eventToInvite.invitations[details.userId] = 'pending';
           }
           break;
+
         case 'acceptInvitation':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.acceptInvitation(logEntry.details.eventId, logEntry.details.userId);
+          const eventToAccept = this.#events.get(details.eventId);
+          if (eventToAccept) {
+            eventToAccept.invitations[details.userId] = 'accepted';
           }
           break;
+
         case 'declineInvitation':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.declineInvitation(logEntry.details.eventId, logEntry.details.userId);
+          const eventToDecline = this.#events.get(details.eventId);
+          if (eventToDecline) {
+            eventToDecline.invitations[details.userId] = 'declined';
           }
           break;
-        case 'sendReminder':
-          if (this.#events.has(logEntry.details.eventId)) {
-            this.sendReminder(logEntry.details.eventId);
-          }
+
+        case 'deleteEvent':
+          this.#events.delete(details.id);
           break;
       }
     });

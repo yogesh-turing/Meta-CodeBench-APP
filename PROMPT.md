@@ -220,18 +220,20 @@ class EventManager {
 /* ==================== Usage Example ====================
   
   const manager = new EventManager();
-  
+
   // Create an event
-  const event = manager.createEvent("Annual Meeting", "2025-06-15T09:00:00", "Conference Hall A");
+  const event = manager.createEvent('Event 1', '2030-01-01T10:00:00', 'Texas');
   console.log("Created Event:", event);
+  manager.updateEvent(event.id, { location: 'NYC' }, 1);
+  
   
   // Invite users
-  manager.inviteUser(event.id, "user123");
-  manager.inviteUser(event.id, "user456");
+  manager.inviteUser(event.id, "user1");
+  manager.inviteUser(event.id, "user2");
   
   // Users respond to invitations
-  manager.acceptInvitation(event.id, "user123");
-  manager.declineInvitation(event.id, "user456");
+  manager.acceptInvitation(event.id, "user1");
+  manager.declineInvitation(event.id, "user2");
   
   // Get upcoming events
   console.log("Upcoming Events:", manager.getUpcomingEvents());
@@ -252,56 +254,48 @@ module.exports = { EventManager };
 ```
 Stack Trace:
 ```javascript
-Testing implementation: base_code
-========================================
-  console.log
-    No accepted attendees to send reminders for event 1.
-
-      at EventManager.log [as sendReminder] (1171523/base_code.js:127:15)
-
-  console.log
-    Reminder sent to user user1 for event "Reminder Event" at Tue Jan 01 2030 10:00:00 GMT+0300 (East Africa Time)
-
-      at Timeout.log [as _onTimeout] (1171523/base_code.js:136:19)
-
- FAIL  1171523/index.test.js
   EventManager
     createEvent
-      ✕ should create an event with valid parameters (4 ms)
-      ✓ should throw an error if any required parameter is missing (8 ms)
-      ✓ should throw an error for an invalid date format (1 ms)
+      × should create an event with valid parameters (21 ms)
+      √ should throw an error if any required parameter is missing (16 ms)
+      √ should throw an error for an invalid date format (2 ms)
     deleteEvent
-      ✓ should delete an existing event (1 ms)
-      ✓ should throw an error when attempting to delete a non-existent event
+      √ should delete an existing event (2 ms)
+      √ should throw an error when attempting to delete a non-existent event (1 ms)
     updateEvent
-      ✕ should update event details successfully
-      ✕ should throw an error if the expected version does not match (optimistic concurrency) (1 ms)
-      ✓ should throw an error when updating a non-existent event (1 ms)
-      ✕ should throw an error for an invalid date format on update
+      × should update event details successfully (1 ms)
+      × should throw an error if the expected version does not match (optimistic concurrency) (2 ms)
+      √ should throw an error when updating a non-existent event (2 ms)
+      × should throw an error for an invalid date format on update (2 ms)
     inviteUser
-      ✕ should successfully invite a user (1 ms)
-      ✓ should throw an error when inviting a user to a non-existent event (1 ms)
-      ✓ should throw an error if the same user is invited twice
-      ✕ should throw an error if userId is missing (1 ms)
+      × should successfully invite a user (2 ms)
+      √ should throw an error when inviting a user to a non-existent event (1 ms)
+      √ should throw an error if the same user is invited twice (1 ms)
+      × should throw an error if userId is missing (1 ms)
     acceptInvitation
-      ✕ should mark a user invitation as accepted
-      ✓ should throw an error if a non-invited user attempts to accept
+      × should mark a user invitation as accepted (2 ms)
+      √ should throw an error if a non-invited user attempts to accept (2 ms)
     declineInvitation
-      ✕ should mark a user invitation as declined (1 ms)
-      ✓ should throw an error if a non-invited user attempts to decline
+      × should mark a user invitation as declined (2 ms)
+      √ should throw an error if a non-invited user attempts to decline (1 ms)
     getUpcomingEvents
-      ✓ should return only future events sorted by date
+      √ should return only future events sorted by date (1 ms)
     getEventDetails
-      ✓ should throw an error if the event does not exist (1 ms)
+      √ should throw an error if the event does not exist (1 ms)
+      × should return event details if the event exists (8 ms)
     getAttendeeList
-      ✓ should return a list of users who accepted invitations
+      √ should return a list of users who accepted invitations (2 ms)
+      √ should throw an error if the event does not exist (1 ms)
     sendReminder
-      ✓ should resolve false if no accepted attendees exist (15 ms)
-      ✓ should send reminders to accepted attendees and update remindersSent count (103 ms)
+      √ should resolve false if no accepted attendees exist (32 ms)
+      √ should send reminders to accepted attendees and update remindersSent count (117 ms)
     replayEvents
-      ✕ should rebuild the aggregate state from the event store (1 ms)
+      × should rebuild the aggregate state from the event store (1 ms)
+      × should rebuild the aggregate state from the event store (add event, update event, invite user, accept 
+invitation) (1 ms)
+      × should rebuild the aggregate state from the event store (add event, update event, invite user, decline invitation) (1 ms)
     subscribe
-      ✕ should notify subscribers on event creation (3 ms)
+      × should notify subscribers on event creation (2 ms)
 
   ● EventManager › createEvent › should create an event with valid parameters
 
@@ -310,32 +304,33 @@ Testing implementation: base_code
     Expected: 1
     Received: undefined
 
-      20 |       expect(new Date(event.date)).toEqual(new Date('2030-01-01T10:00:00'));
-      21 |       expect(event.location).toBe('Test Location');
-    > 22 |       expect(event.version).toBe(1);
+      19 |       expect(new Date(event.date)).toEqual(new Date('2030-01-01T10:00:00'));
+      20 |       expect(event.location).toBe('Test Location');
+    > 21 |       expect(event.version).toBe(1);
          |                             ^
-      23 |       expect(event.invitations).toEqual({});
-      24 |       expect(event.remindersSent).toBe(0);
-      25 |     });
+      22 |       expect(event.invitations).toEqual({});
+      23 |       expect(event.remindersSent).toBe(0);
+      24 |     });
 
-      at Object.toBe (1171523/index.test.js:22:29)
+      at Object.toBe (tasks/1171523/index.test.js:21:29)
 
   ● EventManager › updateEvent › should update event details successfully
 
     expect(received).toBe(expected) // Object.is equality
 
-    Expected: NaN
+    Expected: 2
     Received: undefined
 
       73 |       );
       74 |       expect(updated.location).toBe('New Location');
-    > 75 |       expect(updated.version).toBe(event.version + 1);
+    > 75 |       expect(updated.version).toBe(2);
          |                               ^
       76 |     });
       77 |
-      78 |     it('should throw an error if the expected version does not match (optimistic concurrency)', () => {
+      78 |     it('should throw an error if the expected version does not match (optimistic concurrency)', () 
+=> {
 
-      at Object.toBe (1171523/index.test.js:75:31)
+      at Object.toBe (tasks/1171523/index.test.js:75:31)
 
   ● EventManager › updateEvent › should throw an error if the expected version does not match (optimistic concurrency)
 
@@ -345,7 +340,7 @@ Testing implementation: base_code
 
     Received function did not throw
 
-      88 |           event.version + 1
+      88 |           2
       89 |         )
     > 90 |       ).toThrow(/Version conflict/);
          |         ^
@@ -353,7 +348,7 @@ Testing implementation: base_code
       92 |
       93 |     it('should throw an error when updating a non-existent event', () => {
 
-      at Object.toThrow (1171523/index.test.js:90:9)
+      at Object.toThrow (tasks/1171523/index.test.js:90:9)
 
   ● EventManager › updateEvent › should throw an error for an invalid date format on update
 
@@ -364,14 +359,14 @@ Testing implementation: base_code
     Received function did not throw
 
       103 |       expect(() =>
-      104 |         manager.updateEvent(event.id, { date: 'invalid date' }, event.version)
+      104 |         manager.updateEvent(event.id, { date: 'invalid date' }, 1)
     > 105 |       ).toThrow('Invalid date format provided.');
           |         ^
       106 |     });
       107 |   });
       108 |
 
-      at Object.toThrow (1171523/index.test.js:105:9)
+      at Object.toThrow (tasks/1171523/index.test.js:105:9)
 
   ● EventManager › inviteUser › should successfully invite a user
 
@@ -388,7 +383,7 @@ Testing implementation: base_code
       120 |
       121 |     it('should throw an error when inviting a user to a non-existent event', () => {
 
-      at Object.toBe (1171523/index.test.js:118:44)
+      at Object.toBe (tasks/1171523/index.test.js:118:44)
 
   ● EventManager › inviteUser › should throw an error if userId is missing
 
@@ -404,7 +399,7 @@ Testing implementation: base_code
       143 |   });
       144 |
 
-      at Object.toThrow (1171523/index.test.js:141:56)
+      at Object.toThrow (tasks/1171523/index.test.js:141:56)
 
   ● EventManager › acceptInvitation › should mark a user invitation as accepted
 
@@ -421,7 +416,7 @@ Testing implementation: base_code
       157 |
       158 |     it('should throw an error if a non-invited user attempts to accept', () => {
 
-      at Object.toBe (1171523/index.test.js:155:44)
+      at Object.toBe (tasks/1171523/index.test.js:155:44)
 
   ● EventManager › declineInvitation › should mark a user invitation as declined
 
@@ -438,7 +433,30 @@ Testing implementation: base_code
       180 |
       181 |     it('should throw an error if a non-invited user attempts to decline', () => {
 
-      at Object.toBe (1171523/index.test.js:178:44)
+      at Object.toBe (tasks/1171523/index.test.js:178:44)
+
+  ● EventManager › getEventDetails › should return event details if the event exists
+
+    expect(received).toEqual(expected) // deep equality
+
+    - Expected  - 4
+    + Received  + 1
+
+    - Object {
+    -   "user1": "accepted",
+    -   "user2": "declined",
+    - }
+    + Object {}
+
+      236 |       expect(eventDetails.title).toBe('Event 1');
+      237 |       expect(eventDetails.location).toBe('NYC');
+    > 238 |       expect(eventDetails.invitations).toEqual({ 'user1': 'accepted', 'user2': 'declined' });     
+          |                                        ^
+      239 |       expect(eventDetails.remindersSent).toBe(0);
+      240 |       expect(eventDetails.version).toBe(2);
+      241 |
+
+      at Object.toEqual (tasks/1171523/index.test.js:238:40)
 
   ● EventManager › replayEvents › should rebuild the aggregate state from the event store
 
@@ -452,71 +470,108 @@ Testing implementation: base_code
       66 |     if (event.invitations.has(userId)) {
       67 |       throw new Error(`User ${userId} has already been invited.`);
 
-      at EventManager.inviteUser (1171523/base_code.js:64:13)
-      at inviteUser (1171523/base_code.js:196:16)
+      at EventManager.inviteUser (tasks/1171523/base.js:64:13)
+      at inviteUser (tasks/1171523/base.js:196:16)
           at Array.forEach (<anonymous>)
-      at EventManager.forEach [as replayEvents] (1171523/base_code.js:180:15)
-      at Object.replayEvents (1171523/index.test.js:279:15)
+      at EventManager.forEach [as replayEvents] (tasks/1171523/base.js:180:15)
+      at Object.replayEvents (tasks/1171523/index.test.js:304:15)
+
+  ● EventManager › replayEvents › should rebuild the aggregate state from the event store (add event, update event, invite user, accept invitation)
+
+    Event with id 1 does not exist.
+
+      47 |     const event = this.#events.get(eventId);
+      48 |     if (!event) {
+    > 49 |       throw new Error(`Event with id ${eventId} does not exist.`);
+         |             ^
+      50 |     }
+      51 |     Object.keys(newDetails).forEach((key) => {
+      52 |       if (newDetails[key] !== undefined) {
+
+      at EventManager.updateEvent (tasks/1171523/base.js:49:13)
+      at updateEvent (tasks/1171523/base.js:193:16)
+          at Array.forEach (<anonymous>)
+      at EventManager.forEach [as replayEvents] (tasks/1171523/base.js:180:15)
+      at Object.replayEvents (tasks/1171523/index.test.js:323:15)
+
+  ● EventManager › replayEvents › should rebuild the aggregate state from the event store (add event, update event, invite user, decline invitation)
+
+    Event with id 1 does not exist.
+
+      47 |     const event = this.#events.get(eventId);
+      48 |     if (!event) {
+    > 49 |       throw new Error(`Event with id ${eventId} does not exist.`);
+         |             ^
+      50 |     }
+      51 |     Object.keys(newDetails).forEach((key) => {
+      52 |       if (newDetails[key] !== undefined) {
+
+      at EventManager.updateEvent (tasks/1171523/base.js:49:13)
+      at updateEvent (tasks/1171523/base.js:193:16)
+          at Array.forEach (<anonymous>)
+      at EventManager.forEach [as replayEvents] (tasks/1171523/base.js:180:15)
+      at Object.replayEvents (tasks/1171523/index.test.js:343:15)
 
   ● EventManager › subscribe › should notify subscribers on event creation
 
-    expect(jest.fn()).toHaveBeenCalledWith(...expected)
+    expect(received).toHaveProperty(path, value)
 
-    Expected: ObjectContaining {"payload": ObjectContaining {"id": 1}, "type": "EVENT_CREATED"}
-    Received: {"date": 2030-01-01T07:00:00.000Z, "id": 1, "invitations": Map {}, "location": "Location", "remindersSent": 0, "title": "Subscribe Event"}
+    Expected path: "type"
+    Received path: []
 
-    Number of calls: 1
+    Expected value: "EVENT_CREATED"
+    Received value: {"date": 2030-01-01T04:30:00.000Z, "id": 1, "invitations": Map {}, "location": "Location", "remindersSent": 0, "title": "Subscribe Event"}
 
-      293 |         'Location'
-      294 |       );
-    > 295 |       expect(callback).toHaveBeenCalledWith(
-          |                        ^
-      296 |         expect.objectContaining({
-      297 |           type: 'EVENT_CREATED',
-      298 |           payload: expect.objectContaining({ id: event.id }),
+      355 |       manager.createEvent('Subscribe Event', '2030-01-01T10:00:00', 'Location');
+      356 |       expect(callback).toHaveBeenCalled();
+    > 357 |       expect(callback.mock.calls[0][0]).toHaveProperty('type', 'EVENT_CREATED');
+          |                                         ^
+      358 |       expect(callback.mock.calls[0][0]).toHaveProperty('payload');
+      359 |       expect(callback.mock.calls[0][0].payload).toHaveProperty('id');
+      360 |       expect(callback.mock.calls[0][0].payload).toHaveProperty(
 
-      at Object.toHaveBeenCalledWith (1171523/index.test.js:295:24)
+      at Object.toHaveProperty (tasks/1171523/index.test.js:357:41)
 
 Test Suites: 1 failed, 1 total
-Tests:       10 failed, 14 passed, 24 total
-Snapshots:   0 total
-Time:        0.851 s
-Ran all test suites matching /1171523/i.
+Tests:       13 failed, 15 passed, 28 total
 ```
 Prompt:
-I'm building EventManager class and is experiencing several functional issues that are impacting its performance and reliability. Detailed below are the problems currently identified and expected outcomes 
+I'm building an EventManager class and is experiencing several functional issues that are impacting its performance and reliability. Detailed below are the problems currently identified and the expected outcomes 
 
-Identified Issues and Expected Outcomes:
-- createEvent(title, date, location)
-Issue: Currently, events are created without an initial version number, essential for tracking changes through updates.
-Expected Outcome: Each event should be created with a version property initialized at 1. This should be explicitly verified during event creation to facilitate change management.
 
-- updateEvent(eventId, newDetails, expectedVersion)
-Issue: Event updates do not verify version consistency prior to application, leading to potential overwrites or conflicts.
-Expected Outcome: The update process must include a version check: it should compare the provided expectedVersion with the event's stored version. If the versions do not match, the update should be aborted, and a specific error message, "Version conflict," should be returned.
+Identified Issues and Expected Outcomes
+- Create Event: createEvent(title, date, location)
+  Issue: Events lack an initial version number.
+  Expected Outcome: Initialize each event with a version property set to 1.
 
-- deleteEvent(eventId)
-Issue: Deletions are attempted without checking if the event actually exists, resulting in misleading successes.
-Expected Outcome: Implement a pre-deletion check to confirm the event's existence. If the event is not found, the method should return a clear error message, "Event not found," to prevent confusion.
+- Update Event: updateEvent(eventId, newDetails, expectedVersion)
+  Issue: No version consistency check during updates.
+  Expected Outcome: Include a version check. If versions do not match, abort the update and return "Version conflict."
 
-- inviteUser(eventId, userId)
-Issue: The system allows multiple invitations to be sent to the same user for an event, which can lead to redundant data.
-Expected Outcome: Before adding a user to the event’s invitations, verify that the user has not already been invited. If already invited, the system should return an error, "User already invited."
+- Delete Event: deleteEvent(eventId)
+  Issue: Deletions without existence check.
+  Expected Outcome: Check if the event exists before deletion. Return "Event not found" if it does not exist.
 
-- sendReminder(eventId)
-Issue: It's unclear what happens when there are no attendees to remind, which can lead to ambiguous outcomes.
-Expected Outcome: Modify the sendReminder function to check the number of attendees who accepted the invitation. If no attendees are available, the function should return false and a clear message, "No attendees to remind."
+- Invite User: inviteUser(eventId, userId)
+  Issue: Allows multiple invitations to the same user.
+  Expected Outcome: Verify if the user is already invited. Return "User already invited" if so.
 
-- serialization of invitations
-Issue: Invitations are stored in a Map, which cannot be directly serialized into JSON, complicating data handling and storage.
-Expected Outcome: Change the storage of invitations from a Map to an object, which should be implemented before any operation requiring serialization, ensuring compatibility with JSON formats.
+- Send Reminder: sendReminder(eventId)
+  Issue: Unclear behavior when no attendees are present.
+  Expected Outcome: Check for attendees. If none, return false and "No attendees to remind."
+
+- Serialization of Invitations
+  Issue: Invitations stored in a Map, complicating JSON serialization.
+  Expected Outcome: Store invitations in an object for JSON compatibility.
 
 - Replay Events Functionality
-Issue: The replayEvents method fails to restore event details accurately after deletions, indicating issues in logging or reconstructing events.
-Expected Outcome: Modify the replayEvents method to ensure it can fully reconstruct an event’s details (ID, title, location, invitations) exactly as they were before deletion.
+  Issue: Fails to accurately restore event details.
+  Expected Outcome: Ensure replayEvents fully reconstructs event details (ID, title, location, invitations) exactly as they were before deletion.
 
-Revise the notification dispatch system in the EventManager to ensure that all notifications, regardless of the event action type, are sent with a consistent structure:
-type: A string indicating the notification type, corresponding to the event action (e.g., "EVENT_CREATED", "EVENT_UPDATED", "EVENT_DELETED").
-payload: An object containing the full details of the event involved in the action.
+- Notification Dispatch System
+  Issue: Inconsistent notification structure.
+  Expected Outcome: Ensure all notifications have a consistent structure:
+    type: String indicating the event action (e.g., "EVENT_CREATED", "EVENT_UPDATED", "EVENT_DELETED").
+    payload: Object with full event details.
 
-- please give me full fixed code not snippets of the fix.
+Note: Please give me the full fixed code not snippets of the fix.
