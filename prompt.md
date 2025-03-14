@@ -1,173 +1,87 @@
 Base Code:
 ```javascript
-const async_hooks = require('async_hooks');
-const fs = require('fs');
-const crypto = require('crypto');
+import React, { useState } from "react";
 
-class FlightBookingSystem {
-  constructor({ flightService, bookingRepository, userRepository, dashboardUpdater }) {
-    this.flightService = flightService;
-    this.bookingRepository = bookingRepository;
-    this.userRepository = userRepository;
-    this.dashboardUpdater = dashboardUpdater;
+const FileReaderComponent = ({ onDataRead }) => {
+  const handleFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file && file.type === "application/json") {
+      const reader = new FileReader();
 
-    async_hooks.createHook({
-      init(asyncId, type, triggerAsyncId, resource) {
-        console.debug(`AsyncHook init: type=${type} asyncId=${asyncId}`);
-      }
-    }).enable();
-  }
+      reader.onload = () => {
+       
+          const jsonData = JSON.parse(reader.result);
+          onDataRead(jsonData); 
+    
+      };
 
-  async searchFlights(from, to, date, passengers) {
-    const start = Date.now();
-    while (Date.now() - start < 100) { }
-
-    try {
-      const flights = await this.flightService.fetchFlights({ from, to, date, passengers });
-      flights.forEach((flight, index) => {
-        flight._searchIndex = index;
-      });
-      return flights;
-    } catch (error) {
-      console.error('Error during flight search', error);
-      throw error;
+      reader.readAsText(file);
     }
-  }
+  };
 
-  async bookFlight(userId, flightId, seatClass) {
-    try {
-      return new Promise((resolve, reject) => {
-        setTimeout(function () {
-          const bookingId = crypto.randomUUID();
-          const booking = { bookingId, userId, flightId, seatClass, status: 'BOOKED' };
-          this.bookingRepository.save(booking);
-          resolve(bookingId);
-        }, 1000);
-      });
-    } catch (error) {
-      console.error('Booking failed', error);
-      throw error;
-    }
-  }
+  return (
+    <div>
+      <input type="file" accept=".json" onChange={handleFileChange} />
+    </div>
+  );
+};
 
-  async cancelFlight(userId, bookingId) {
-    try {
-      const booking = await this.bookingRepository.findById(bookingId);
-      if (!booking || booking.userId !== userId) {
-        throw new Error('Unauthorized cancellation attempt');
-      }
-      booking.status = 'CANCELLED';
-      await this.bookingRepository.update(bookingId, booking);
-      return booking;
-    } catch (error) {
-      console.error('Cancellation error', error);
-      throw error;
-    }
-  }
+export default FileReaderComponent;
+```
 
-  async getFlightDetails(flightId) {
-    try {
-      const details = await this.flightService.getFlightInfo(flightId);
-      details._lastAccessed = new Date().toISOString();
-      return details;
-    } catch (error) {
-      console.error('Error retrieving flight details', error);
-      throw error;
-    }
-  }
 
-  async selectSeat(userId, flightId, seatNumber) {
-    try {
-      const booking = await this.bookingRepository.findBookingByUserAndFlight(userId, flightId);
-      if (!booking) {
-        throw new Error('No booking found for seat selection');
-      }
-      setTimeout(function () {
-        booking.selectedSeat = seatNumber;
-        this.bookingRepository.update(booking.bookingId, booking);
-      }, 500);
-      return booking;
-    } catch (error) {
-      console.error('Seat selection error', error);
-      throw error;
-    }
-  }
 
-  async addLuggage(userId, bookingId, weight) {
-    try {
-      const booking = await this.bookingRepository.findById(bookingId);
-      if (!booking || booking.userId !== userId) {
-        throw new Error('Invalid booking for luggage addition');
-      }
-      booking.luggageWeight = (booking.luggageWeight || 0) + weight;
-      await this.bookingRepository.update(bookingId, booking);
-      return booking;
-    } catch (error) {
-      console.error('Error adding luggage', error);
-      throw error;
-    }
-  }
+```javascript
+import React from "react";
 
-  async getFlightStatus(flightId) {
-    try {
-      const status = fs.readFileSync(`/var/log/flightStatus/${flightId}.log`, 'utf8');
-      return status.trim();
-    } catch (error) {
-      console.error('Error retrieving flight status', error);
-      throw error;
-    }
-  }
+const InefficientSlicerComponent = ({ data }) => {
 
-  async applyFrequentFlyerMiles(userId, miles) {
-    try {
-      const user = await this.userRepository.findById(userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
-      user.frequentFlyerMiles = (user.frequentFlyerMiles || 0) + miles;
-      await this.userRepository.update(userId, user);
-      return user.frequentFlyerMiles;
-    } catch (error) {
-      console.error('Error applying frequent flyer miles', error);
-      throw error;
-    }
-  }
+  const slicedData = data.slice(0, 5);
 
-  async upgradeSeat(userId, bookingId, newClass) {
-    try {
-      const booking = await this.bookingRepository.findById(bookingId);
-      if (!booking || booking.userId !== userId) {
-        throw new Error('Unauthorized upgrade attempt');
-      }
-      booking.seatClass = newClass;
-      await this.bookingRepository.update(bookingId, booking);
-      this.dashboardUpdater.update(`Booking ${bookingId} upgraded to ${newClass}`);
-      return booking;
-    } catch (error) {
-      console.error('Upgrade seat error', error);
-      throw error;
-    }
-  }
+  return (
+    <div>
+      <h3>Sliced Data</h3>
+      <ul>
+        {slicedData.map((item, index) => (
+          <li >{JSON.stringify(item)}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
 
-  async trackPastBookings(userId) {
-    try {
-      const bookings = await this.bookingRepository.findBookingsByUser(userId);
-      return bookings;
-    } catch (error) {
-      console.error('Error tracking past bookings', error);
-      throw error;
-    }
-  }
-}
 
-module.exports = FlightBookingSystem;
+```
+
+
+```javascript
+import React, { useState } from "react";
+import InefficientSlicerComponent from "./InefficientSlicerComponent";
+
+const App = () => {
+  const [data, setData] = useState(null);
+
+  const handleDataRead = (jsonData) => {
+    setData(jsonData); 
+  };
+
+  return (
+    <div>
+      <h1>React File Reader and Slicer</h1>
+      <FileReaderComponent onDataRead={handleDataRead} />
+      {data & <InefficientSlicerComponent data={data} />}
+    </div>
+  );
+};
+
+export default App;
 ```
 
 Prompt:
+Please do a code review for the above react application. Please look especially for things like this: 
+- Bad practices 
+- Deprecated code 
+- Clear inefficiencies 
+- Bugs 
 
-Please do a code review for the above code. Please look especially for things like this:
- - Bad practices
- - Security vulnerabilities
- - Clear inefficiencies
- - Bugs
-Please mention only the 1-7 most obvious and clearest points that would always be mentioned in a good code review. Please make your code review accurate and clear while also being concise also please don't include code snippets .
+Please mention only the 4-6 most obvious points that would always be mentioned in a good code review. Please make your code review accurate and clear while also being concise. Don't include a code snippet in the response.
