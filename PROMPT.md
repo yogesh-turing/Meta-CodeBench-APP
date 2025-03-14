@@ -1,265 +1,494 @@
 Base Code:
 ```javascript
-function getWordCloud(hashtags, JsonStructure) {
-    // Check if the input string is a valid hashtags string
-    if (!/^#([A-Za-z0-9]+)#*$/.test(hashtags)) {
-        throw new Error("Not a hashtags string");
+class Employee {
+  constructor(name, empId, hoursWorked) {
+    if (typeof name !== "string") {
+      throw new Error("Employee name must be a string");
+    }
+    if (typeof empId !== "string") {
+      throw new Error("Employee ID must be a string");
+    }
+    if (typeof hoursWorked !== "number") {
+      throw new Error("Hours worked must be a number");
     }
 
-    // Transform the structure
-    const transformedStructure = transformStructure(JsonStructure);
+    this.name = name;
+    this.empId = empId;
+    this.hoursWorked = hoursWorked;
+    this.team = []; // Array to hold subordinates (team members)
+  }
 
-    // Get the individual hashtags from the input string
-    const hashtagList = hashtags.slice(1).split('#');
+  addTeamMember(employee) {
+    if (this.team.find((member) => member.empId === employee.empId)) {
+      throw new Error("Same Employee");
+    }
+    this.team.push(employee);
+  }
 
-    // Initialize the result
-    const result = [];
+  getEmployeeData(empId) {
+    // Check if this employee matches the ID
+    if (this.empId === empId) {
+      return {
+        empId: this.empId,
+        name: this.name,
+        hoursWorked: this.hoursWorked,
+        team: this.team.map((member) => member.getEmployeeData(member.empId)),
+      };
+    }
 
-    // Loop through each hashtag
-    hashtagList.forEach((hashtag) => {
-        // Initialize the count
-        let count = 0;
+    // Recursively search in the team
+    for (const member of this.team) {
+      const data = member.getEmployeeData(empId);
+      if (data) {
+        return data;
+      }
+    }
 
-        // Loop through each record in the transformed structure
-        transformedStructure.forEach((record) => {
-            // Count the occurrences of the hashtag in the record
-            count += record.hashtags.filter((h) => h === hashtag).length;
-        });
+    return null;
+  }
 
-        // Add the result to the list
-        result.push([hashtag, count]);
-    });
+  toJSON() {
+    return {
+      empId: this.empId,
+      name: this.name,
+      hoursWorked: this.hoursWorked,
+      team: this.team.map((member) => member.toJSON()),
+    };
+  }
 
-    // Sort the result based on the hashtag string in ascending order
-    result.sort((a, b) => a[0].localeCompare(b[0]));
+  getAverageHoursWorked(empId) {
+    const employee = this.getEmployeeData(empId);
+    if (!employee) {
+      throw new Error("Employee does not exist");
+    }
 
-    return result;
+    const totalHours =
+      employee.hoursWorked +
+      employee.team.reduce((acc, member) => acc + member.hoursWorked, 0);
+    const totalMembers = employee.team.length + 1;
+    return Math.floor(totalHours / totalMembers);
+  }
+
+  moveTeam(sourceTeamEmployeeId, destinationTeamEmployeeId) {
+    const sourceEmployee = this.getEmployeeData(sourceTeamEmployeeId);
+    if (!sourceEmployee) {
+      throw new Error("Employee is not present");
+    }
+
+    const destinationEmployee = this.getEmployeeData(destinationTeamEmployeeId);
+    if (!destinationEmployee) {
+      throw new Error("Employee is not present");
+    }
+
+    // Remove the source employee from its current team
+    const sourceTeam = this.team.find(
+      (member) => member.empId === sourceTeamEmployeeId
+    );
+    if (sourceTeam) {
+      this.team = this.team.filter(
+        (member) => member.empId !== sourceTeamEmployeeId
+      );
+    }
+
+    // Add the source employee to the destination team
+    destinationEmployee.team.push(sourceEmployee);
+    destinationEmployee.team.sort((a, b) => a.empId.localeCompare(b.empId));
+  }
 }
 
-function transformStructure(structure) {
-    // Check if the input structure is valid
-    if (!Array.isArray(structure) || structure.length === 0) {
-        throw new Error("Invalid Json Structure");
-    }
-
-    // Check for multiple records with the same id
-    if (structure.length !== new Set(structure.map((record) => record.id)).size) {
-        throw new Error("Multiple Records with same id");
-    }
-
-    // Check each record in the structure
-    structure.forEach((record) => {
-        // Check if the id is an integer
-        if (!Number.isInteger(record.id)) {
-            throw new Error("Invalid Json Structure");
-        }
-
-        // Check if the hashtags is an array of strings
-        if (!Array.isArray(record.hashtags) || record.hashtags.some((hashtag) => typeof hashtag !== 'string')) {
-            throw new Error("Invalid Json Structure");
-        }
-    });
-
-    // Initialize the transformed structure
-    const transformed = [];
-
-    // Loop through each record in the structure
-    structure.forEach((record) => {
-        // Get the hashtags that appear more than once
-        const repeatedHashtags = record.hashtags.filter((hashtag, index, self) => self.indexOf(hashtag) !== index);
-
-        // Add the record to the transformed structure with the repeated hashtags removed
-        transformed.push({
-            id: record.id,
-            hashtags: record.hashtags.filter((hashtag) => !repeatedHashtags.includes(hashtag)),
-        });
-    });
-
-    // Add a new record for the repeated hashtags
-    if (transformed.length > 0) {
-        const repeatedHashtags = structure.flatMap((record) => record.hashtags.filter((hashtag, index, self) => self.indexOf(hashtag) !== index));
-        transformed.push({
-            id: structure.length + 1,
-            hashtags: repeatedHashtags,
-        });
-    }
-
-    // Sort the transformed structure by id in ascending order
-    transformed.sort((a, b) => a.id - b.id);
-
-    // Sort the hashtags in each record in ascending order
-    transformed.forEach((record) => {
-        record.hashtags.sort();
-    });
-
-    return transformed;
-}
-
-// Export the functions
-module.exports = {
-    getWordCloud,
-    transformStructure
-};
+module.exports = { Employee };
 ```
 
 Stack Trace:
 ```javascript
-ttransformStructure
-    ✕ valid Json Structure input with hashtags appearing more than one times in hashtag list (22 ms)
-    ✕ valid Json Structure input with hashtags appearing exactly one time (1 ms)
-    ✕ invalid JSON structure with record id not incremented by 1 (1 ms)
-    ✓ invalid JSON structure with record id as string (46 ms)
-    ✓ invalid JSON structure with hastag not as list
-    ✓ invalid JSON structure with hastag list not having string type values (1 ms)
-    ✓ invalid JSON structure with empty json structure
-  getWordCloud
-    ✕ valid input with valid hashtag string input
-    ✕ valid input with valid hashtag string input and having same hashtags in multiple records
-    ✓ invalid hashtags string having character other than #
-    ✓ invalid JSON structure with record id as string
-    ✓ invalid JSON structure with hastag not as list
-    ✓ invalid JSON structure with hastag list not having string type values (1 ms)
-    ✓ invalid JSON structure with empty json structure
-    ✓ invalid JSON structure with multiple records having the same id
+ Employee Hierarchy Tests
+    ✓ Employee hierarchy is correctly structured (2 ms)
+    ✕ getAverageHoursWorked for a team (1 ms)
+    ✕ getAverageHoursWorked for employee which dont exist  (10 ms)
+    ✕ moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2) (3 ms)
+    ✓ getAverageHoursWorked for an employee without a team
+    ✓ should throw an error if the source employee does not exist
+    ✓ should throw an error if the destination employee does not exist
+    ✓ should throw an error if both employees source as well as destination does not exist
+    ✕ should throw an error if trying to add a team member with the same ID (2 ms)
+    ✕ should throw an error if trying to add a team member or instantiating employee with the name which is not of string type (1 ms)
+    ✕ should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type (1 ms)
+    ✕ should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type (1 ms)
 
-  ● transformStructure › valid Json Structure input with hashtags appearing more than one times in hashtag list
+  ● Employee Hierarchy Tests › getAverageHoursWorked for a team
 
-    expect(received).toEqual(expected) // deep equality
+    expect(received).toBe(expected) // Object.is equality
 
-    - Expected  - 2
-    + Received  + 0
+    Expected: 39
+    Received: 42
 
-    @@ -22,12 +22,10 @@
-          "id": 3,
-        },
-        Object {
-          "hashtags": Array [
-            "C",
-    -       "C",
-    -       "F",
-            "F",
-          ],
-          "id": 4,
-        },
-      ]
+      67 |   test("getAverageHoursWorked for a team", () => {
+      68 |     const averageHours = vp1.getAverageHoursWorked("e2"); // Bob's team
+    > 69 |     expect(averageHours).toBe(39); // (45 + 40 + 38 + 36) / 4 = 39
+         |                          ^
+      70 |   });
+      71 |
+      72 |   test("getAverageHoursWorked for employee which dont exist ", () => {
 
-      16 |
-      17 |     console.log(transformStructure(input), "tranform");
-    > 18 |     expect(transformStructure(input)).toEqual(expectedOutput);
-         |                                       ^
-      19 |   });
-      20 |
-      21 |   test("valid Json Structure input with hashtags appearing exactly one time", () => {
+      at Object.toBe (WordCloud.test.js:69:26)
 
-      at Object.toEqual (WordCloud.test.js:18:39)
-
-  ● transformStructure › valid Json Structure input with hashtags appearing exactly one time
-
-    expect(received).toEqual(expected) // deep equality
-
-    - Expected  - 0
-    + Received  + 4
-
-    @@ -11,6 +11,10 @@
-            "C",
-            "D",
-          ],
-          "id": 2,
-        },
-    +   Object {
-    +     "hashtags": Array [],
-    +     "id": 3,
-    +   },
-      ]
-
-      25 |     ];
-      26 |     const expectedOutput = input; // No changes expected
-    > 27 |     expect(transformStructure(input)).toEqual(expectedOutput);
-         |                                       ^
-      28 |   });
-      29 |
-      30 |   test("invalid JSON structure with record id not incremented by 1", () => {
-
-      at Object.toEqual (WordCloud.test.js:27:39)
-
-  ● transformStructure › invalid JSON structure with record id not incremented by 1
+  ● Employee Hierarchy Tests › getAverageHoursWorked for employee which dont exist 
 
     expect(received).toThrow(expected)
 
-    Expected substring: "Invalid Json Structure"
+    Expected substring: "Employee is not present"
+    Received message:   "Employee does not exist"
 
-    Received function did not throw
+          58 |     const employee = this.getEmployeeData(empId);
+          59 |     if (!employee) {
+        > 60 |       throw new Error("Employee does not exist");
+             |             ^
+          61 |     }
+          62 |
+          63 |     const totalHours =
 
-      34 |     ];
-      35 |
-    > 36 |     expect(() => transformStructure(input)).toThrow("Invalid Json Structure");
-         |                                             ^
-      37 |   });
-      38 |
-      39 |   test("invalid JSON structure with record id as string", () => {
+          at Employee.getAverageHoursWorked (Solution.js:60:13)
+          at getAverageHoursWorked (WordCloud.test.js:74:11)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:75:8)
 
-      at Object.toThrow (WordCloud.test.js:36:45)
+      73 |     expect(() => {
+      74 |       vp1.getAverageHoursWorked("e999"); // Invalid ID
+    > 75 |     }).toThrow("Employee is not present");
+         |        ^
+      76 |   });
+      77 |
+      78 |   test("moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2)", () => {
 
-  ● getWordCloud › valid input with valid hashtag string input
+      at Object.toThrow (WordCloud.test.js:75:8)
 
-    Not a hashtags string
+  ● Employee Hierarchy Tests › moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2)
 
-      2 |   // Check if the input string is a valid hashtags string
-      3 |   if (!/^#([A-Za-z0-9]+)#*$/.test(hashtags)) {
-    > 4 |     throw new Error("Not a hashtags string");
-        |           ^
-      5 |   }
-      6 |
-      7 |   // Transform the structure
+    expect(received).toEqual(expected) // deep equality
 
-      at getWordCloud (Solution.js:4:11)
-      at Object.getWordCloud (WordCloud.test.js:73:17)
+    - Expected  - 19
+    + Received  +  0
 
-  ● getWordCloud › valid input with valid hashtag string input and having same hashtags in multiple records
+    @@ -5,30 +5,11 @@
+        "team": Array [
+          Object {
+            "empId": "e2",
+            "hoursWorked": 45,
+            "name": "Bob",
+    -       "team": Array [
+    -         Object {
+    -           "empId": "e4",
+    -           "hoursWorked": 40,
+    -           "name": "David",
+            "team": Array [],
+    -         },
+    -         Object {
+    -           "empId": "e5",
+    -           "hoursWorked": 38,
+    -           "name": "Frank",
+    -           "team": Array [],
+    -         },
+    -         Object {
+    -           "empId": "e6",
+    -           "hoursWorked": 36,
+    -           "name": "Grace",
+    -           "team": Array [],
+    -         },
+    -       ],
+          },
+          Object {
+            "empId": "e3",
+            "hoursWorked": 47,
+            "name": "Charlie",
 
-    Not a hashtags string
+      163 |     };
+      164 |
+    > 165 |     expect(ceo.toJSON()).toEqual(expectedAfterMove);
+          |                          ^
+      166 |   });
+      167 |
+      168 |   test("getAverageHoursWorked for an employee without a team", () => {
 
-      2 |   // Check if the input string is a valid hashtags string
-      3 |   if (!/^#([A-Za-z0-9]+)#*$/.test(hashtags)) {
-    > 4 |     throw new Error("Not a hashtags string");
-        |           ^
-      5 |   }
-      6 |
-      7 |   // Transform the structure
+      at Object.toEqual (WordCloud.test.js:165:26)
 
-      at getWordCloud (Solution.js:4:11)
-      at Object.getWordCloud (WordCloud.test.js:89:17)
+  ● Employee Hierarchy Tests › should throw an error if trying to add a team member with the same ID
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Same Employee Id"
+    Received message:   "Same Employee"
+
+          19 |   addTeamMember(employee) {
+          20 |     if (this.team.find((member) => member.empId === employee.empId)) {
+        > 21 |       throw new Error("Same Employee");
+             |             ^
+          22 |     }
+          23 |     this.team.push(employee);
+          24 |   }
+
+          at Employee.addTeamMember (Solution.js:21:13)
+          at addTeamMember (WordCloud.test.js:192:11)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:193:8)
+
+      191 |     expect(() => {
+      192 |       ceo.addTeamMember(duplicateEmployee); // Attempt to add with a duplicate ID
+    > 193 |     }).toThrow("Same Employee Id");
+          |        ^
+      194 |   });
+      195 |
+      196 |   test("should throw an error if trying to add a team member or instantiating employee with the name which is not of string type", () => {
+
+      at Object.toThrow (WordCloud.test.js:193:8)
+
+  ● Employee Hierarchy Tests › should throw an error if trying to add a team member or instantiating employee with the name which is not of string type
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Invalid Input"
+    Received message:   "Employee name must be a string"
+
+          2 |   constructor(name, empId, hoursWorked) {
+          3 |     if (typeof name !== "string") {
+        > 4 |       throw new Error("Employee name must be a string");
+            |             ^
+          5 |     }
+          6 |     if (typeof empId !== "string") {
+          7 |       throw new Error("Employee ID must be a string");
+
+          at new Employee (Solution.js:4:13)
+          at WordCloud.test.js:197:18
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:197:47)
+
+      195 |
+      196 |   test("should throw an error if trying to add a team member or instantiating employee with the name which is not of string type", () => {
+    > 197 |     expect(() => new Employee(123, "e6", 40)).toThrow("Invalid Input");
+          |                                               ^
+      198 |   });
+      199 |
+      200 |   test("should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type", () => {
+
+      at Object.toThrow (WordCloud.test.js:197:47)
+
+  ● Employee Hierarchy Tests › should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Invalid Input"
+    Received message:   "Employee ID must be a string"
+
+           5 |     }
+           6 |     if (typeof empId !== "string") {
+        >  7 |       throw new Error("Employee ID must be a string");
+             |             ^
+           8 |     }
+           9 |     if (typeof hoursWorked !== "number") {
+          10 |       throw new Error("Hours worked must be a number");
+
+          at new Employee (Solution.js:7:13)
+          at WordCloud.test.js:201:18
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:201:52)
+
+      199 |
+      200 |   test("should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type", () => {
+    > 201 |     expect(() => new Employee("charlie", 123, 40)).toThrow("Invalid Input");
+          |                                                    ^
+      202 |   });
+      203 |
+      204 |   test("should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type", () => {
+
+      at Object.toThrow (WordCloud.test.js:201:52)
+
+  ● Employee Hierarchy Tests › should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Invalid Input"
+    Received message:   "Hours worked must be a number"
+
+           8 |     }
+           9 |     if (typeof hoursWorked !== "number") {
+        > 10 |       throw new Error("Hours worked must be a number");
+             |             ^
+          11 |     }
+          12 |
+          13 |     this.name = name;
+
+          at new Employee (Solution.js:10:13)
+          at WordCloud.test.js:205:18
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:205:55)
+
+      203 |
+      204 |   test("should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type", () => {
+    > 205 |     expect(() => new Employee("Charlie", "e6", "40")).toThrow("Invalid Input");
+          |                                                       ^
+      206 |   });
+      207 | });
+      208 |
+
+      at Object.toThrow (WordCloud.test.js:205:55)
 
 Test Suites: 1 failed, 1 total
-Tests:       5 failed, 10 passed, 15 total
+Tests:       7 failed, 5 passed, 12 total
 Snapshots:   0 total
-Time:        0.344 s, estimated 1 s
+Time:        0.165 s, estimated 1 s
 Ran all test suites.
 ```
 Prompt:
 Please fix the bugs in the code based on the details below:
+The Employee Class maintains a hierarchical structure for employees, where each entry in the JSON object contains details such as `hoursWorked`, a `team` array list (each element in the array has same structure as the employee objects), `name`, and `empId`.
+
+ Functions:
+
+1.   `getAverageHoursWorked(employeeId)`
+    
+    -   This function accepts an employee ID and calculates the average hoursWorked ( Considering the hours worked by the employee and their team members.). If the employee has no team, it returns their own `hoursWorked`. The result is returned as an integer.
+    -   If the `employeeId` is not a string, it throws the error "Invalid Input."
+    -   If the employee ID doesn't exist, it throws the error "Employee is not present"
+
+2.   `moveTeam(sourceEmployeeId, destinationEmployeeId)`
+    -   This function takes two parameters: `sourceEmployeeId` and `destinationEmployeeId`. It moves the `team` members of `sourceEmployeeId` and appends them to the `destinationEmployeeId`'s team.
+    -   If either `sourceEmployeeId` or `destinationEmployeeId` is not a string, it throws the error "Invalid Input."
+    -   If either employee ID doesn't exist, it throws the error "Employee is not present"
+
+4.   `getEmployeeData(empId)`
+    
+    -   This function searches for an employee recursively by `empId` and returns the corresponding JSON structure when a match is found.
+    -   If no employee is found, it returns "Employee does not exist."
+
+ Validation Rules while instantiating/creating employee:
+
+-   `name` must be a string. If not, throw "Invalid Input"
+-   `empId` must be a string. If not, throw "Invalid Input"
+-   `hoursWorked` must be a number. If not, throw "Invalid Input"
+-   Employee IDs must be unique. If duplicates are found, throw "Same Employee Id."
 
 
-- `transformStructure` function:
-    - will receive a JSON array structure ( each object has id(always start with 1 and incremented by +1 in asc order) and hashtag list).
-    -   If a hashtag appears more than once in a record, create a new record with the same `id` as the length of the input array, but append the repeated hashtags in the `hashtags` list, keeping their frequency intact.
-  - The array must contain at least one object where:
-        -   The `id` is an integer.
-        -   The `hashtags` field is an array of strings.
-  - The function should return the transformed JSON structure with:
-        -   The array sorted by `id` in ascending order.
-        -   Each record's `hashtags` list sorted in ascending order.
+Note:
+- Team members are always stored in sorted manner in ascending manner based on id.
+
+Here are some of the test cases for which its failing along with the provided input employee hierarchy:
+```javascript
+beforeEach(() => {
+    // Create the employee hierarchy
+    ceo = new Employee("Alice", "e1", 50);
+    vp1 = new Employee("Bob", "e2", 45);
+    vp2 = new Employee("Charlie", "e3", 47);
+    manager1 = new Employee("David", "e4", 40);
+    employee1 = new Employee("Frank", "e5", 38);
+    employee2 = new Employee("Grace", "e6", 36);
+
+    // Build the hierarchy
+    ceo.addTeamMember(vp1);
+    ceo.addTeamMember(vp2);
+    vp1.addTeamMember(manager1);
+    manager1.addTeamMember(employee1);
+    manager1.addTeamMember(employee2);
+  });
+
+ 
+
+  test("getAverageHoursWorked for a team", () => {
+    const averageHours = vp1.getAverageHoursWorked("e2"); // Bob's team
+    expect(averageHours).toBe(39); // (45 + 40 + 38 + 36) / 4 = 39
+  });
 
 
- `getWordCloud` function
-   - will accept a string of hashtags prefixed with `#
-   -   If the input string contains any character other than `#`, throw the error `"Not a hashtags string"`.
-    - Extract individual hashtags from the input string and count how many times each hashtag appears in the JSON structure.
-    - The output should be an array of arrays, where each inner array contains a string (hashtag) followed by its occurrence count.
-    - Sort the output first by the hashtag (string) in ascending order and return the sorted result.
-        
+  test("moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2)", () => {
+    // Expected hierarchy before moving
+    const expectedBeforeMove = {
+      empId: "e1",
+      name: "Alice",
+      hoursWorked: 50,
+      team: [
+        {
+          empId: "e2",
+          name: "Bob",
+          hoursWorked: 45,
+          team: [
+            {
+              empId: "e4",
+              name: "David",
+              hoursWorked: 40,
+              team: [
+                {
+                  empId: "e5",
+                  name: "Frank",
+                  hoursWorked: 38,
+                  team: [],
+                },
+                {
+                  empId: "e6",
+                  name: "Grace",
+                  hoursWorked: 36,
+                  team: [],
+                },
+              ],
+            },
+          ],
+        },
+        {
+          empId: "e3",
+          name: "Charlie",
+          hoursWorked: 47,
+          team: [],
+        },
+      ],
+    };
 
-**Note:**
+    expect(ceo.toJSON()).toEqual(expectedBeforeMove);
 
--   The JSON array structure cannot contain multiple records with the same `id`. If this happens, throw the error "Multiple Records with same id".
--  If the JSON structure is invalid, throw the error `"Invalid JSON Structure"`
+    // Move David's team under Bob
+    vp1.moveTeam("e4", "e2");
+
+    // Expected hierarchy after moving
+    const expectedAfterMove = {
+      empId: "e1",
+      name: "Alice",
+      hoursWorked: 50,
+      team: [
+        {
+          empId: "e2",
+          name: "Bob",
+          hoursWorked: 45,
+          team: [
+            {
+              empId: "e4",
+              name: "David",
+              hoursWorked: 40,
+              team: [],
+            },
+            {
+              empId: "e5",
+              name: "Frank",
+              hoursWorked: 38,
+              team: [],
+            },
+            {
+              empId: "e6",
+              name: "Grace",
+              hoursWorked: 36,
+              team: [],
+            },
+          ],
+        },
+        {
+          empId: "e3",
+          name: "Charlie",
+          hoursWorked: 47,
+          team: [],
+        },
+      ],
+    };
+
+    expect(ceo.toJSON()).toEqual(expectedAfterMove);
+  });
+```
