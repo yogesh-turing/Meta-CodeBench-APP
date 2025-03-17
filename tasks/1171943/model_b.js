@@ -1,131 +1,113 @@
-class Employee {
-    constructor(name, empId, hoursWorked) {
-      if (typeof name !== "string") {
-        throw new Error("Invalid Input");
-      }
-      if (typeof empId !== "string") {
-        throw new Error("Invalid Input");
-      }
-      if (typeof hoursWorked !== "number") {
-        throw new Error("Invalid Input");
-      }
-  
-      this.name = name;
-      this.empId = empId;
-      this.hoursWorked = hoursWorked;
-      this.team = [];
-    }
-  
-    addTeamMember(employee) {
-      if (this.team.find((member) => member.empId === employee.empId)) {
-        throw new Error("Same Employee Id");
-      }
-      this.team.push(employee);
-      this.team.sort((a, b) => a.empId.localeCompare(b.empId));
-    }
-  
-    getEmployeeData(empId) {
-      if (this.empId === empId) {
-        return {
-          empId: this.empId,
-          name: this.name,
-          hoursWorked: this.hoursWorked,
-          team: this.team.map((member) => member.toJSON()),
-        };
-      }
-  
-      for (const member of this.team) {
-        const data = member.getEmployeeData(empId);
-        if (data) {
-          return data;
-        }
-      }
-  
-      return null;
-    }
-  
-    toJSON() {
-      return {
-        empId: this.empId,
-        name: this.name,
-        hoursWorked: this.hoursWorked,
-        team: this.team.map((member) => member.toJSON()),
-      };
-    }
-  
-    getTotalHoursAndMembers(employee) {
-      let totalHours = employee.hoursWorked;
-      let totalMembers = 1;
-  
-      const processTeam = (team) => {
-        for (const member of team) {
-          totalHours += member.hoursWorked;
-          totalMembers++;
-          if (member.team.length > 0) {
-            processTeam(member.team);
-          }
-        }
-      };
-  
-      processTeam(employee.team);
-      return { totalHours, totalMembers };
-    }
-  
-    getAverageHoursWorked(empId) {
-      if (typeof empId !== "string") {
-        throw new Error("Invalid Input");
-      }
-  
-      const employee = this.getEmployeeData(empId);
-      if (!employee) {
-        throw new Error("Employee is not present");
-      }
-  
-      const { totalHours, totalMembers } = this.getTotalHoursAndMembers({
-        hoursWorked: employee.hoursWorked,
-        team: employee.team,
-      });
-  
-      return Math.floor(totalHours / totalMembers);
-    }
-  
-    findAndRemove(empId, team) {
-      const index = team.findIndex((member) => member.empId === empId);
-      if (index !== -1) {
-        return team.splice(index, 1)[0];
-      }
-  
-      for (const member of team) {
-        const found = this.findAndRemove(empId, member.team);
-        if (found) return found;
-      }
-      return null;
-    }
-  
-    moveTeam(sourceTeamEmployeeId, destinationTeamEmployeeId) {
-      if (typeof sourceTeamEmployeeId !== "string" || typeof destinationTeamEmployeeId !== "string") {
-        throw new Error("Invalid Input");
-      }
-  
-      const sourceEmployee = this.getEmployeeData(sourceTeamEmployeeId);
-      if (!sourceEmployee) {
-        throw new Error("Employee is not present");
-      }
-  
-      const destinationEmployee = this.getEmployeeData(destinationTeamEmployeeId);
-      if (!destinationEmployee) {
-        throw new Error("Employee is not present");
-      }
-  
-      const removedEmployee = this.findAndRemove(sourceTeamEmployeeId, this.team);
-      if (removedEmployee) {
-        const destination = this.findAndRemove(destinationTeamEmployeeId, this.team);
-        destination.team = [...destination.team, removedEmployee];
-        destination.team.sort((a, b) => a.empId.localeCompare(b.empId));
-        this.team.push(destination);
-        this.team.sort((a, b) => a.empId.localeCompare(b.empId));
-      }
-    }
+const moment = require("moment");
+const S = require("sanctuary");
+
+class ProjectManagement {
+  constructor() {
+    this.tasks = {};
+    this.milestones = {};
+    this.users = {};
   }
-  
-  module.exports = { Employee };
+
+  addTaskDependency(taskId, dependencyId) {
+    if (!S.is (S.String) (taskId) || !S.is (S.String) (dependencyId)) {
+      throw new Error("Invalid data");
+    }
+
+    if (!this.tasks[taskId] || !this.tasks[dependencyId]) {
+      throw new Error("Task or Dependency not found");
+    }
+
+    if (taskId === dependencyId) {
+      throw new Error("Task cannot depend on itself");
+    }
+
+    if (this.isCircularDependency(taskId, dependencyId)) {
+      throw new Error("Circular dependency detected");
+    }
+
+    if (!this.tasks[taskId].dependencies) {
+      this.tasks[taskId].dependencies = [];
+    }
+    this.tasks[taskId].dependencies.push(dependencyId);
+  }
+
+  isCircularDependency(taskId, dependencyId, visited = new Set()) {
+    if (visited.has(dependencyId)) {
+      return true;
+    }
+
+    visited.add(dependencyId);
+    const dependencies = this.tasks[dependencyId]?.dependencies || [];
+
+    for (const dep of dependencies) {
+      if (dep === taskId || this.isCircularDependency(taskId, dep, visited)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  createMilestone(milestoneId, title, dueDate) {
+    if (!S.is (S.String) (milestoneId) || !S.is (S.String) (title) || !S.is (S.String) (dueDate)) {
+      throw new Error("Invalid data");
+    }
+
+    if (this.milestones[milestoneId]) {
+      throw new Error("Milestone already exists");
+    }
+
+    if (!moment(dueDate, "YYYY-MM-DD", true).isValid()) {
+      throw new Error("Invalid date format");
+    }
+
+    if (moment(dueDate).isBefore(moment(), "day")) {
+      throw new Error("Milestone due date cannot be in the past");
+    }
+
+    this.milestones[milestoneId] = {
+      title,
+      dueDate,
+      tasks: [],
+    };
+  }
+
+  trackTime(taskId, startTime, endTime) {
+    if (!S.is (S.String) (taskId) || !S.is (S.String) (startTime) || !S.is (S.String) (endTime)) {
+      throw new Error("Invalid data");
+    }
+
+    if (!this.tasks[taskId]) {
+      throw new Error("Task not found");
+    }
+
+    if (!moment(startTime, "YYYY-MM-DD HH:mm", true).isValid() || !moment(endTime, "YYYY-MM-DD HH:mm", true).isValid()) {
+      throw new Error("Invalid time format");
+    }
+
+    const startMoment = moment(startTime);
+    const endMoment = moment(endTime);
+    const currentMoment = moment();
+
+    if (startMoment.isAfter(currentMoment)) {
+      throw new Error("Start time cannot be in future");
+    }
+
+    if (startMoment.isAfter(endMoment)) {
+      throw new Error("Start time must be before end time");
+    }
+
+    const timeSpent = endMoment.diff(startMoment, "minutes");
+
+    if (!this.tasks[taskId].timeEntries) {
+      this.tasks[taskId].timeEntries = [];
+    }
+
+    this.tasks[taskId].timeEntries.push({
+      startTime,
+      endTime,
+      timeSpent,
+    });
+  }
+}
+
+module.exports = { ProjectManagement };

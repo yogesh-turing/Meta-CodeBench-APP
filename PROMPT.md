@@ -1,494 +1,713 @@
 Base Code:
 ```javascript
-class Employee {
-  constructor(name, empId, hoursWorked) {
-    if (typeof name !== "string") {
-      throw new Error("Employee name must be a string");
-    }
-    if (typeof empId !== "string") {
-      throw new Error("Employee ID must be a string");
-    }
-    if (typeof hoursWorked !== "number") {
-      throw new Error("Hours worked must be a number");
-    }
+const moment = require("moment");
+const S = require("sanctuary");
 
-    this.name = name;
-    this.empId = empId;
-    this.hoursWorked = hoursWorked;
-    this.team = []; // Array to hold subordinates (team members)
+class ProjectManagement {
+  constructor() {
+    this.tasks = {};
+    this.milestones = {};
+    this.users = {};
   }
 
-  addTeamMember(employee) {
-    if (this.team.find((member) => member.empId === employee.empId)) {
-      throw new Error("Same Employee");
+  addTaskDependency(taskId, dependencyId) {
+    if (!S.is(String)(taskId) || !S.is(String)(dependencyId)) {
+      throw new Error("Invalid data");
     }
-    this.team.push(employee);
+
+    if (!this.tasks[taskId] || !this.tasks[dependencyId]) {
+      throw new Error("Task or Dependency not found");
+    }
+
+    if (taskId === dependencyId) {
+      throw new Error("Task cannot depend on itself");
+    }
+
+    if (this.isCircularDependency(taskId, dependencyId)) {
+      throw new Error("Circular dependency detected");
+    }
+
+    if (!this.tasks[taskId].dependencies) {
+      this.tasks[taskId].dependencies = [];
+    }
+    this.tasks[taskId].dependencies.push(dependencyId);
   }
 
-  getEmployeeData(empId) {
-    // Check if this employee matches the ID
-    if (this.empId === empId) {
-      return {
-        empId: this.empId,
-        name: this.name,
-        hoursWorked: this.hoursWorked,
-        team: this.team.map((member) => member.getEmployeeData(member.empId)),
-      };
+  isCircularDependency(taskId, dependencyId, visited = new Set()) {
+    if (visited.has(dependencyId)) {
+      return true;
     }
 
-    // Recursively search in the team
-    for (const member of this.team) {
-      const data = member.getEmployeeData(empId);
-      if (data) {
-        return data;
+    visited.add(dependencyId);
+    const dependencies = this.tasks[dependencyId]?.dependencies || [];
+
+    for (const dep of dependencies) {
+      if (dep === taskId || this.isCircularDependency(taskId, dep, visited)) {
+        return true;
       }
     }
-
-    return null;
+    return false;
   }
 
-  toJSON() {
-    return {
-      empId: this.empId,
-      name: this.name,
-      hoursWorked: this.hoursWorked,
-      team: this.team.map((member) => member.toJSON()),
+  createMilestone(milestoneId, title, dueDate) {
+    if (
+      !S.is(String)(milestoneId) ||
+      !S.is(String)(title) ||
+      !S.is(String)(dueDate)
+    ) {
+      throw new Error("Invalid data");
+    }
+
+    if (this.milestones[milestoneId]) {
+      throw new Error("Milestone already exists");
+    }
+
+    if (!moment(dueDate, "YYYY-MM-DD", true).isValid()) {
+      throw new Error("Invalid date format");
+    }
+
+    if (moment(dueDate).isBefore(moment(), "day")) {
+      throw new Error("Milestone due date cannot be in the past");
+    }
+
+    this.milestones[milestoneId] = {
+      title,
+      dueDate,
+      tasks: [],
     };
   }
 
-  getAverageHoursWorked(empId) {
-    const employee = this.getEmployeeData(empId);
-    if (!employee) {
-      throw new Error("Employee does not exist");
+  trackTime(taskId, startTime, endTime) {
+    if (
+      !S.is(String)(taskId) ||
+      !S.is(String)(startTime) ||
+      !S.is(String)(endTime)
+    ) {
+      throw new Error("Invalid data");
     }
 
-    const totalHours =
-      employee.hoursWorked +
-      employee.team.reduce((acc, member) => acc + member.hoursWorked, 0);
-    const totalMembers = employee.team.length + 1;
-    return Math.floor(totalHours / totalMembers);
-  }
-
-  moveTeam(sourceTeamEmployeeId, destinationTeamEmployeeId) {
-    const sourceEmployee = this.getEmployeeData(sourceTeamEmployeeId);
-    if (!sourceEmployee) {
-      throw new Error("Employee is not present");
+    if (!this.tasks[taskId]) {
+      throw new Error("Task not found");
     }
 
-    const destinationEmployee = this.getEmployeeData(destinationTeamEmployeeId);
-    if (!destinationEmployee) {
-      throw new Error("Employee is not present");
+    if (
+      !moment(startTime, "YYYY-MM-DD HH:mm", true).isValid() ||
+      !moment(endTime, "YYYY-MM-DD HH:mm", true).isValid()
+    ) {
+      throw new Error("Invalid time format");
     }
 
-    // Remove the source employee from its current team
-    const sourceTeam = this.team.find(
-      (member) => member.empId === sourceTeamEmployeeId
-    );
-    if (sourceTeam) {
-      this.team = this.team.filter(
-        (member) => member.empId !== sourceTeamEmployeeId
-      );
+    const startMoment = moment(startTime);
+    const endMoment = moment(endTime);
+    const currentMoment = moment();
+
+    if (startMoment.isAfter(currentMoment)) {
+      throw new Error("Start time cannot be in future");
     }
 
-    // Add the source employee to the destination team
-    destinationEmployee.team.push(sourceEmployee);
-    destinationEmployee.team.sort((a, b) => a.empId.localeCompare(b.empId));
+    if (startMoment.isAfter(endMoment)) {
+      throw new Error("Start time must be before end time");
+    }
+
+    const timeSpent = endMoment.diff(startMoment, "minutes");
+
+    if (!this.tasks[taskId].timeEntries) {
+      this.tasks[taskId].timeEntries = [];
+    }
+
+    this.tasks[taskId].timeEntries.push({
+      startTime,
+      endTime,
+      timeSpent,
+    });
   }
 }
 
-module.exports = { Employee };
+module.exports = { ProjectManagement };
+
 ```
 
 Stack Trace:
 ```javascript
- Employee Hierarchy Tests
-    ✓ Employee hierarchy is correctly structured (2 ms)
-    ✕ getAverageHoursWorked for a team (1 ms)
-    ✕ getAverageHoursWorked for employee which dont exist  (10 ms)
-    ✕ moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2) (3 ms)
-    ✓ getAverageHoursWorked for an employee without a team
-    ✓ should throw an error if the source employee does not exist
-    ✓ should throw an error if the destination employee does not exist
-    ✓ should throw an error if both employees source as well as destination does not exist
-    ✕ should throw an error if trying to add a team member with the same ID (2 ms)
-    ✕ should throw an error if trying to add a team member or instantiating employee with the name which is not of string type (1 ms)
-    ✕ should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type (1 ms)
-    ✕ should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type (1 ms)
+ProjectManagement
+    addTaskDependency
+      ✕ should throw an error if taskId or dependencyId is not a string (22 ms)
+      ✕ should throw an error if taskId and dependencyId are same , (2 ms)
+      ✕ should throw an error if taskId or dependencyId does not exist (1 ms)
+      ✕ should throw an error for circular dependencies
+      ✕ should add a dependency correctly
+    createMilestone
+      ✕ should throw an error if milestoneId already exists
+      ✕ should throw an error if dueDate is in the past (2 ms)
+      ✕ should throw an error if date format is invalid (1 ms)
+      ✕ should create a milestone successfully
+    trackTime
+      ✕ should throw an error if taskId does not exist (1 ms)
+      ✕ should throw an error if startTime or endTime is in the wrong format (1 ms)
+      ✕ should throw an error if startTime is in the future (3 ms)
+      ✕ should throw an error if startTime is after endTime (2 ms)
+      ✕ should track time in minutes successfully 
 
-  ● Employee Hierarchy Tests › getAverageHoursWorked for a team
+  ● ProjectManagement › addTaskDependency › should throw an error if taskId or dependencyId is not a string
 
-    expect(received).toBe(expected) // Object.is equality
+    expect(received).toThrow(expected)
 
-    Expected: 39
-    Received: 42
+    Expected substring: "Invalid data"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
 
-      67 |   test("getAverageHoursWorked for a team", () => {
-      68 |     const averageHours = vp1.getAverageHoursWorked("e2"); // Bob's team
-    > 69 |     expect(averageHours).toBe(39); // (45 + 40 + 38 + 36) / 4 = 39
-         |                          ^
-      70 |   });
+          10 |
+          11 |   addTaskDependency(taskId, dependencyId) {
+        > 12 |     if (!S.is(String)(taskId) || !S.is(String)(dependencyId)) {
+             |            ^
+          13 |       throw new Error("Invalid data");
+          14 |     }
+          15 |
+
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as addTaskDependency] (Solution.js:12:12)
+          at addTaskDependency (WordCloud.test.js:19:23)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:19:54)
+
+      17 |   describe("addTaskDependency", () => {
+      18 |     it("should throw an error if taskId or dependencyId is not a string", () => {
+    > 19 |       expect(() => pm.addTaskDependency(1, "task2")).toThrow("Invalid data");
+         |                                                      ^
+      20 |       expect(() => pm.addTaskDependency("task1", 2)).toThrow("Invalid data");
+      21 |     });
+      22 |
+
+      at Object.toThrow (WordCloud.test.js:19:54)
+
+  ● ProjectManagement › addTaskDependency › should throw an error if taskId and dependencyId are same ,
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Task cannot depend on itself"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
+
+          10 |
+          11 |   addTaskDependency(taskId, dependencyId) {
+        > 12 |     if (!S.is(String)(taskId) || !S.is(String)(dependencyId)) {
+             |            ^
+          13 |       throw new Error("Invalid data");
+          14 |     }
+          15 |
+
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as addTaskDependency] (Solution.js:12:12)
+          at addTaskDependency (WordCloud.test.js:24:23)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:24:60)
+
+      22 |
+      23 |     it("should throw an error if taskId and dependencyId are same ,", () => {
+    > 24 |       expect(() => pm.addTaskDependency("task2", "task2")).toThrow(
+         |                                                            ^
+      25 |         "Task cannot depend on itself"
+      26 |       );
+      27 |     });
+
+      at Object.toThrow (WordCloud.test.js:24:60)
+
+  ● ProjectManagement › addTaskDependency › should throw an error if taskId or dependencyId does not exist
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Task or Dependency not found"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
+
+          10 |
+          11 |   addTaskDependency(taskId, dependencyId) {
+        > 12 |     if (!S.is(String)(taskId) || !S.is(String)(dependencyId)) {
+             |            ^
+          13 |       throw new Error("Invalid data");
+          14 |     }
+          15 |
+
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as addTaskDependency] (Solution.js:12:12)
+          at addTaskDependency (WordCloud.test.js:30:23)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:30:60)
+
+      28 |
+      29 |     it("should throw an error if taskId or dependencyId does not exist", () => {
+    > 30 |       expect(() => pm.addTaskDependency("task1", "task4")).toThrow(
+         |                                                            ^
+      31 |         "Task or Dependency not found"
+      32 |       );
+      33 |       expect(() => pm.addTaskDependency("task5", "task2")).toThrow(
+
+      at Object.toThrow (WordCloud.test.js:30:60)
+
+  ● ProjectManagement › addTaskDependency › should throw an error for circular dependencies
+
+    TypeError: Invalid value
+
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1
+
+    1)  function String() { [native code] } :: Function, (a -> b)
+
+    The value at position 1 is not a member of ‘Type’.
+
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+
+      10 |
+      11 |   addTaskDependency(taskId, dependencyId) {
+    > 12 |     if (!S.is(String)(taskId) || !S.is(String)(dependencyId)) {
+         |            ^
+      13 |       throw new Error("Invalid data");
+      14 |     }
+      15 |
+
+      at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+      at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+      at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+      at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+      at ProjectManagement.is [as addTaskDependency] (Solution.js:12:12)
+      at Object.addTaskDependency (WordCloud.test.js:39:10)
+
+  ● ProjectManagement › addTaskDependency › should add a dependency correctly
+
+    TypeError: Invalid value
+
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1
+
+    1)  function String() { [native code] } :: Function, (a -> b)
+
+    The value at position 1 is not a member of ‘Type’.
+
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+
+      10 |
+      11 |   addTaskDependency(taskId, dependencyId) {
+    > 12 |     if (!S.is(String)(taskId) || !S.is(String)(dependencyId)) {
+         |            ^
+      13 |       throw new Error("Invalid data");
+      14 |     }
+      15 |
+
+      at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+      at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+      at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+      at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+      at ProjectManagement.is [as addTaskDependency] (Solution.js:12:12)
+      at Object.addTaskDependency (WordCloud.test.js:47:10)
+
+  ● ProjectManagement › createMilestone › should throw an error if milestoneId already exists
+
+    TypeError: Invalid value
+
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1
+
+    1)  function String() { [native code] } :: Function, (a -> b)
+
+    The value at position 1 is not a member of ‘Type’.
+
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+
+      50 |   createMilestone(milestoneId, title, dueDate) {
+      51 |     if (
+    > 52 |       !S.is(String)(milestoneId) ||
+         |          ^
+      53 |       !S.is(String)(title) ||
+      54 |       !S.is(String)(dueDate)
+      55 |     ) {
+
+      at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+      at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+      at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+      at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+      at ProjectManagement.is [as createMilestone] (Solution.js:52:10)
+      at Object.createMilestone (WordCloud.test.js:54:10)
+
+  ● ProjectManagement › createMilestone › should throw an error if dueDate is in the past
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Milestone due date cannot be in the past"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
+
+          50 |   createMilestone(milestoneId, title, dueDate) {
+          51 |     if (
+        > 52 |       !S.is(String)(milestoneId) ||
+             |          ^
+          53 |       !S.is(String)(title) ||
+          54 |       !S.is(String)(dueDate)
+          55 |     ) {
+
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as createMilestone] (Solution.js:52:10)
+          at createMilestone (WordCloud.test.js:62:12)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:63:9)
+
+      61 |       expect(() =>
+      62 |         pm.createMilestone("milestone1", "Milestone 1", "2020-05-01")
+    > 63 |       ).toThrow("Milestone due date cannot be in the past");
+         |         ^
+      64 |     });
+      65 |
+      66 |     it("should throw an error if date format is invalid", () => {
+
+      at Object.toThrow (WordCloud.test.js:63:9)
+
+  ● ProjectManagement › createMilestone › should throw an error if date format is invalid
+
+    expect(received).toThrow(expected)
+
+    Expected substring: "Invalid date format"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
+
+          50 |   createMilestone(milestoneId, title, dueDate) {
+          51 |     if (
+        > 52 |       !S.is(String)(milestoneId) ||
+             |          ^
+          53 |       !S.is(String)(title) ||
+          54 |       !S.is(String)(dueDate)
+          55 |     ) {
+
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as createMilestone] (Solution.js:52:10)
+          at createMilestone (WordCloud.test.js:68:12)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrow (WordCloud.test.js:69:9)
+
+      67 |       expect(() =>
+      68 |         pm.createMilestone("milestone1", "Milestone 1", "2025-05-32")
+    > 69 |       ).toThrow("Invalid date format");
+         |         ^
+      70 |     });
       71 |
-      72 |   test("getAverageHoursWorked for employee which dont exist ", () => {
+      72 |     it("should create a milestone successfully", () => {
 
-      at Object.toBe (WordCloud.test.js:69:26)
+      at Object.toThrow (WordCloud.test.js:69:9)
 
-  ● Employee Hierarchy Tests › getAverageHoursWorked for employee which dont exist 
+  ● ProjectManagement › createMilestone › should create a milestone successfully
 
-    expect(received).toThrow(expected)
+    TypeError: Invalid value
 
-    Expected substring: "Employee is not present"
-    Received message:   "Employee does not exist"
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1
 
-          58 |     const employee = this.getEmployeeData(empId);
-          59 |     if (!employee) {
-        > 60 |       throw new Error("Employee does not exist");
-             |             ^
-          61 |     }
-          62 |
-          63 |     const totalHours =
+    1)  function String() { [native code] } :: Function, (a -> b)
 
-          at Employee.getAverageHoursWorked (Solution.js:60:13)
-          at getAverageHoursWorked (WordCloud.test.js:74:11)
-          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
-          at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
-          at Object.toThrow (WordCloud.test.js:75:8)
+    The value at position 1 is not a member of ‘Type’.
 
-      73 |     expect(() => {
-      74 |       vp1.getAverageHoursWorked("e999"); // Invalid ID
-    > 75 |     }).toThrow("Employee is not present");
-         |        ^
-      76 |   });
-      77 |
-      78 |   test("moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2)", () => {
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
 
-      at Object.toThrow (WordCloud.test.js:75:8)
+      50 |   createMilestone(milestoneId, title, dueDate) {
+      51 |     if (
+    > 52 |       !S.is(String)(milestoneId) ||
+         |          ^
+      53 |       !S.is(String)(title) ||
+      54 |       !S.is(String)(dueDate)
+      55 |     ) {
 
-  ● Employee Hierarchy Tests › moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2)
+      at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+      at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+      at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+      at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+      at ProjectManagement.is [as createMilestone] (Solution.js:52:10)
+      at Object.createMilestone (WordCloud.test.js:73:10)
 
-    expect(received).toEqual(expected) // deep equality
-
-    - Expected  - 19
-    + Received  +  0
-
-    @@ -5,30 +5,11 @@
-        "team": Array [
-          Object {
-            "empId": "e2",
-            "hoursWorked": 45,
-            "name": "Bob",
-    -       "team": Array [
-    -         Object {
-    -           "empId": "e4",
-    -           "hoursWorked": 40,
-    -           "name": "David",
-            "team": Array [],
-    -         },
-    -         Object {
-    -           "empId": "e5",
-    -           "hoursWorked": 38,
-    -           "name": "Frank",
-    -           "team": Array [],
-    -         },
-    -         Object {
-    -           "empId": "e6",
-    -           "hoursWorked": 36,
-    -           "name": "Grace",
-    -           "team": Array [],
-    -         },
-    -       ],
-          },
-          Object {
-            "empId": "e3",
-            "hoursWorked": 47,
-            "name": "Charlie",
-
-      163 |     };
-      164 |
-    > 165 |     expect(ceo.toJSON()).toEqual(expectedAfterMove);
-          |                          ^
-      166 |   });
-      167 |
-      168 |   test("getAverageHoursWorked for an employee without a team", () => {
-
-      at Object.toEqual (WordCloud.test.js:165:26)
-
-  ● Employee Hierarchy Tests › should throw an error if trying to add a team member with the same ID
+  ● ProjectManagement › trackTime › should throw an error if taskId does not exist
 
     expect(received).toThrow(expected)
 
-    Expected substring: "Same Employee Id"
-    Received message:   "Same Employee"
+    Expected substring: "Task not found"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
 
-          19 |   addTeamMember(employee) {
-          20 |     if (this.team.find((member) => member.empId === employee.empId)) {
-        > 21 |       throw new Error("Same Employee");
-             |             ^
-          22 |     }
-          23 |     this.team.push(employee);
-          24 |   }
+          78 |   trackTime(taskId, startTime, endTime) {
+          79 |     if (
+        > 80 |       !S.is(String)(taskId) ||
+             |          ^
+          81 |       !S.is(String)(startTime) ||
+          82 |       !S.is(String)(endTime)
+          83 |     ) {
 
-          at Employee.addTeamMember (Solution.js:21:13)
-          at addTeamMember (WordCloud.test.js:192:11)
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as trackTime] (Solution.js:80:10)
+          at trackTime (WordCloud.test.js:85:12)
           at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
           at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
-          at Object.toThrow (WordCloud.test.js:193:8)
+          at Object.toThrow (WordCloud.test.js:86:9)
 
-      191 |     expect(() => {
-      192 |       ceo.addTeamMember(duplicateEmployee); // Attempt to add with a duplicate ID
-    > 193 |     }).toThrow("Same Employee Id");
-          |        ^
-      194 |   });
-      195 |
-      196 |   test("should throw an error if trying to add a team member or instantiating employee with the name which is not of string type", () => {
+      84 |       expect(() =>
+      85 |         pm.trackTime("task4", "2025-03-17 10:00", "2025-03-17 12:00")
+    > 86 |       ).toThrow("Task not found");
+         |         ^
+      87 |     });
+      88 |     it("should throw an error if startTime or endTime is in the wrong format", () => {
+      89 |       expect(() =>
 
-      at Object.toThrow (WordCloud.test.js:193:8)
+      at Object.toThrow (WordCloud.test.js:86:9)
 
-  ● Employee Hierarchy Tests › should throw an error if trying to add a team member or instantiating employee with the name which is not of string type
+  ● ProjectManagement › trackTime › should throw an error if startTime or endTime is in the wrong format
 
     expect(received).toThrow(expected)
 
-    Expected substring: "Invalid Input"
-    Received message:   "Employee name must be a string"
+    Expected substring: "Invalid time format"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
 
-          2 |   constructor(name, empId, hoursWorked) {
-          3 |     if (typeof name !== "string") {
-        > 4 |       throw new Error("Employee name must be a string");
-            |             ^
-          5 |     }
-          6 |     if (typeof empId !== "string") {
-          7 |       throw new Error("Employee ID must be a string");
+          78 |   trackTime(taskId, startTime, endTime) {
+          79 |     if (
+        > 80 |       !S.is(String)(taskId) ||
+             |          ^
+          81 |       !S.is(String)(startTime) ||
+          82 |       !S.is(String)(endTime)
+          83 |     ) {
 
-          at new Employee (Solution.js:4:13)
-          at WordCloud.test.js:197:18
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as trackTime] (Solution.js:80:10)
+          at trackTime (WordCloud.test.js:90:12)
           at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
           at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
-          at Object.toThrow (WordCloud.test.js:197:47)
+          at Object.toThrow (WordCloud.test.js:91:9)
 
-      195 |
-      196 |   test("should throw an error if trying to add a team member or instantiating employee with the name which is not of string type", () => {
-    > 197 |     expect(() => new Employee(123, "e6", 40)).toThrow("Invalid Input");
-          |                                               ^
-      198 |   });
-      199 |
-      200 |   test("should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type", () => {
+      89 |       expect(() =>
+      90 |         pm.trackTime("task1", "2025-03-17 10:00", "2025-03-17 12:60")
+    > 91 |       ).toThrow("Invalid time format");
+         |         ^
+      92 |       expect(() =>
+      93 |         pm.trackTime("task1", "2025-03-17 10:00", "March 17, 2025 12:00")
+      94 |       ).toThrow("Invalid time format");
 
-      at Object.toThrow (WordCloud.test.js:197:47)
+      at Object.toThrow (WordCloud.test.js:91:9)
 
-  ● Employee Hierarchy Tests › should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type
+  ● ProjectManagement › trackTime › should throw an error if startTime is in the future
 
     expect(received).toThrow(expected)
 
-    Expected substring: "Invalid Input"
-    Received message:   "Employee ID must be a string"
+    Expected substring: "Start time cannot be in future"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
 
-           5 |     }
-           6 |     if (typeof empId !== "string") {
-        >  7 |       throw new Error("Employee ID must be a string");
-             |             ^
-           8 |     }
-           9 |     if (typeof hoursWorked !== "number") {
-          10 |       throw new Error("Hours worked must be a number");
+          78 |   trackTime(taskId, startTime, endTime) {
+          79 |     if (
+        > 80 |       !S.is(String)(taskId) ||
+             |          ^
+          81 |       !S.is(String)(startTime) ||
+          82 |       !S.is(String)(endTime)
+          83 |     ) {
 
-          at new Employee (Solution.js:7:13)
-          at WordCloud.test.js:201:18
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as trackTime] (Solution.js:80:10)
+          at trackTime (WordCloud.test.js:99:12)
           at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
           at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
-          at Object.toThrow (WordCloud.test.js:201:52)
+          at Object.toThrow (WordCloud.test.js:100:9)
 
-      199 |
-      200 |   test("should throw an error if trying to add a team member or instantiating employee with the empId which is not of string type", () => {
-    > 201 |     expect(() => new Employee("charlie", 123, 40)).toThrow("Invalid Input");
-          |                                                    ^
-      202 |   });
-      203 |
-      204 |   test("should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type", () => {
+       98 |       expect(() =>
+       99 |         pm.trackTime("task1", futureTime, "2025-03-17 12:00")
+    > 100 |       ).toThrow("Start time cannot be in future");
+          |         ^
+      101 |     });
+      102 |     it("should throw an error if startTime is after endTime", () => {
+      103 |       expect(() =>
 
-      at Object.toThrow (WordCloud.test.js:201:52)
+      at Object.toThrow (WordCloud.test.js:100:9)
 
-  ● Employee Hierarchy Tests › should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type
+  ● ProjectManagement › trackTime › should throw an error if startTime is after endTime
 
     expect(received).toThrow(expected)
 
-    Expected substring: "Invalid Input"
-    Received message:   "Hours worked must be a number"
+    Expected substring: "Start time must be before end time"
+    Received message:   "Invalid value·
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1·
+    1)  function String() { [native code] } :: Function, (a -> b)·
+    The value at position 1 is not a member of ‘Type’.·
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+    "
 
-           8 |     }
-           9 |     if (typeof hoursWorked !== "number") {
-        > 10 |       throw new Error("Hours worked must be a number");
-             |             ^
-          11 |     }
-          12 |
-          13 |     this.name = name;
+          78 |   trackTime(taskId, startTime, endTime) {
+          79 |     if (
+        > 80 |       !S.is(String)(taskId) ||
+             |          ^
+          81 |       !S.is(String)(startTime) ||
+          82 |       !S.is(String)(endTime)
+          83 |     ) {
 
-          at new Employee (Solution.js:10:13)
-          at WordCloud.test.js:205:18
+          at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+          at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+          at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+          at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+          at ProjectManagement.is [as trackTime] (Solution.js:80:10)
+          at trackTime (WordCloud.test.js:104:12)
           at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
           at Object.throwingMatcher [as toThrow] (node_modules/expect/build/index.js:320:21)
-          at Object.toThrow (WordCloud.test.js:205:55)
+          at Object.toThrow (WordCloud.test.js:105:9)
 
-      203 |
-      204 |   test("should throw an error if trying to add a team member  or instantiating employee with the hoursWorked which is not of number type", () => {
-    > 205 |     expect(() => new Employee("Charlie", "e6", "40")).toThrow("Invalid Input");
-          |                                                       ^
-      206 |   });
-      207 | });
-      208 |
+      103 |       expect(() =>
+      104 |         pm.trackTime("task1", "2025-03-17 14:00", "2025-03-17 12:00")
+    > 105 |       ).toThrow("Start time must be before end time");
+          |         ^
+      106 |     });
+      107 |     it("should track time in minutes successfully ", () => {
+      108 |       pm.trackTime("task1", "2025-03-17 10:00", "2025-03-17 12:00");
 
-      at Object.toThrow (WordCloud.test.js:205:55)
+      at Object.toThrow (WordCloud.test.js:105:9)
+
+  ● ProjectManagement › trackTime › should track time in minutes successfully 
+
+    TypeError: Invalid value
+
+    is :: Type -> Any -> Boolean
+          ^^^^
+           1
+
+    1)  function String() { [native code] } :: Function, (a -> b)
+
+    The value at position 1 is not a member of ‘Type’.
+
+    See https://github.com/sanctuary-js/sanctuary-def/tree/v0.22.0#Type for information about the Type type.
+
+      78 |   trackTime(taskId, startTime, endTime) {
+      79 |     if (
+    > 80 |       !S.is(String)(taskId) ||
+         |          ^
+      81 |       !S.is(String)(startTime) ||
+      82 |       !S.is(String)(endTime)
+      83 |     ) {
+
+      at invalidValue (node_modules/sanctuary-def/index.js:2576:12)
+      at Object.value (node_modules/sanctuary-def/index.js:1350:18)
+      at assertRight (node_modules/sanctuary-def/index.js:2641:37)
+      at Object.is (node_modules/sanctuary-def/index.js:2732:27)
+      at ProjectManagement.is [as trackTime] (Solution.js:80:10)
+      at Object.trackTime (WordCloud.test.js:108:10)
 
 Test Suites: 1 failed, 1 total
-Tests:       7 failed, 5 passed, 12 total
+Tests:       14 failed, 14 total
 Snapshots:   0 total
-Time:        0.165 s, estimated 1 s
+Time:        0.295 s, estimated 1 s
 Ran all test suites.
 ```
+
 Prompt:
-Please fix the bugs in the code based on the details below:
-The Employee Class maintains a hierarchical structure for employees, where each entry in the JSON object contains details such as `hoursWorked`, a `team` array list (each element in the array has same structure as the employee objects), `name`, and `empId`.
-
- Functions:
-
-1.   `getAverageHoursWorked(employeeId)`
-    
-    -   This function accepts an employee ID and calculates the average hoursWorked ( Considering the hours worked by the employee and their team members.). If the employee has no team, it returns their own `hoursWorked`. The result is returned as an integer.
-    -   If the `employeeId` is not a string, it throws the error "Invalid Input."
-    -   If the employee ID doesn't exist, it throws the error "Employee is not present"
-
-2.   `moveTeam(sourceEmployeeId, destinationEmployeeId)`
-    -   This function takes two parameters: `sourceEmployeeId` and `destinationEmployeeId`. It moves the `team` members of `sourceEmployeeId` and appends them to the `destinationEmployeeId`'s team.
-    -   If either `sourceEmployeeId` or `destinationEmployeeId` is not a string, it throws the error "Invalid Input."
-    -   If either employee ID doesn't exist, it throws the error "Employee is not present"
-
-4.   `getEmployeeData(empId)`
-    
-    -   This function searches for an employee recursively by `empId` and returns the corresponding JSON structure when a match is found.
-    -   If no employee is found, it returns "Employee does not exist."
-
- Validation Rules while instantiating/creating employee:
-
--   `name` must be a string. If not, throw "Invalid Input"
--   `empId` must be a string. If not, throw "Invalid Input"
--   `hoursWorked` must be a number. If not, throw "Invalid Input"
--   Employee IDs must be unique. If duplicates are found, throw "Same Employee Id."
+Please fix the errors/bugs in the code as per the detail below:
+1. function `addTaskDependency(taskId, dependencyId)`
+    -   `taskId` (string)
+    -   `dependencyId` (string)
+    - If the parameter passed to above functions are of invalid type then raise error "Invalid data"
+    -   If the `taskId` or `dependencyId` do not exist, throw an error: `"Task or Dependency not found"`.
+    -   Ensure that the `dependencyId` does not create a circular dependency (a task cannot depend on itself, either directly or indirectly).
+    -   Add the `dependencyId` to the `dependencies` array of the task with the `taskId`.
 
 
-Note:
-- Team members are always stored in sorted manner in ascending manner based on id.
-
-Here are some of the test cases for which its failing along with the provided input employee hierarchy:
-```javascript
-beforeEach(() => {
-    // Create the employee hierarchy
-    ceo = new Employee("Alice", "e1", 50);
-    vp1 = new Employee("Bob", "e2", 45);
-    vp2 = new Employee("Charlie", "e3", 47);
-    manager1 = new Employee("David", "e4", 40);
-    employee1 = new Employee("Frank", "e5", 38);
-    employee2 = new Employee("Grace", "e6", 36);
-
-    // Build the hierarchy
-    ceo.addTeamMember(vp1);
-    ceo.addTeamMember(vp2);
-    vp1.addTeamMember(manager1);
-    manager1.addTeamMember(employee1);
-    manager1.addTeamMember(employee2);
-  });
-
- 
-
-  test("getAverageHoursWorked for a team", () => {
-    const averageHours = vp1.getAverageHoursWorked("e2"); // Bob's team
-    expect(averageHours).toBe(39); // (45 + 40 + 38 + 36) / 4 = 39
-  });
+2. function `createMilestone(milestoneId, title, dueDate)`
+    -   `milestoneId` (string)
+    -   `title` (string)
+    -   `dueDate` (string in 'YYYY-MM-DD' format)
+    -   If the milestoneId already exists, throw an error: `"Milestone already exists"`.
+    -   If the dueDate is in the past, throw an error: `"Milestone due date cannot be in the past"`.
+    - if the dueDate is not in the format 'YYYY-MM-DD' , raise "Invalid date format".
+    -   Store the milestone with its tasks and due date.
 
 
-  test("moveTeam successfully moves a team(Move David's team(empId:e4) under Bob team(empId:e2)", () => {
-    // Expected hierarchy before moving
-    const expectedBeforeMove = {
-      empId: "e1",
-      name: "Alice",
-      hoursWorked: 50,
-      team: [
-        {
-          empId: "e2",
-          name: "Bob",
-          hoursWorked: 45,
-          team: [
-            {
-              empId: "e4",
-              name: "David",
-              hoursWorked: 40,
-              team: [
-                {
-                  empId: "e5",
-                  name: "Frank",
-                  hoursWorked: 38,
-                  team: [],
-                },
-                {
-                  empId: "e6",
-                  name: "Grace",
-                  hoursWorked: 36,
-                  team: [],
-                },
-              ],
-            },
-          ],
-        },
-        {
-          empId: "e3",
-          name: "Charlie",
-          hoursWorked: 47,
-          team: [],
-        },
-      ],
-    };
 
-    expect(ceo.toJSON()).toEqual(expectedBeforeMove);
 
-    // Move David's team under Bob
-    vp1.moveTeam("e4", "e2");
+3. function `trackTime(taskId, startTime, endTime)` 
+    -   `taskId` (string)
+    -   `startTime` (string in 'YYYY-MM-DD HH:mm' format)
+    -   `endTime` (string in 'YYYY-MM-DD HH:mm' format)
+    -   If the taskId does not exist, throw an error: `"Task not found"`.
+    -   Validate that the `startTime` is before the `endTime` and that the `startTime` is not in the future, if in future startTime raise error "Start time cannot be in future".
+    - If the startTime and endTime is not in the format 'YYYY-MM-DD HH:mm' raise error "Invalid time format".
+    -   Calculate the time spent on the task (in minutes)and store it in an array under the `timeEntries` field for the task.
 
-    // Expected hierarchy after moving
-    const expectedAfterMove = {
-      empId: "e1",
-      name: "Alice",
-      hoursWorked: 50,
-      team: [
-        {
-          empId: "e2",
-          name: "Bob",
-          hoursWorked: 45,
-          team: [
-            {
-              empId: "e4",
-              name: "David",
-              hoursWorked: 40,
-              team: [],
-            },
-            {
-              empId: "e5",
-              name: "Frank",
-              hoursWorked: 38,
-              team: [],
-            },
-            {
-              empId: "e6",
-              name: "Grace",
-              hoursWorked: 36,
-              team: [],
-            },
-          ],
-        },
-        {
-          empId: "e3",
-          name: "Charlie",
-          hoursWorked: 47,
-          team: [],
-        },
-      ],
-    };
-
-    expect(ceo.toJSON()).toEqual(expectedAfterMove);
-  });
-```
+Note: Don't provide me code without using sanctuary library methods.
