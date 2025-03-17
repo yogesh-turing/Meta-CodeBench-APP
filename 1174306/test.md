@@ -78,33 +78,48 @@ const App = () => {
 export default App;
 ```
 
+import React, { useState } from "react";
+import InefficientSlicerComponent from "./InefficientSlicerComponent";
+
+const App = () => {
+  const [data, setData] = useState(null);
+
+  const handleDataRead = (jsonData) => {
+    setData(jsonData); 
+  };
+
+  return (
+    <div>
+      <h1>React File Reader and Slicer</h1>
+      <FileReaderComponent onDataRead={handleDataRead} />
+      {data & <InefficientSlicerComponent data={data} />}
+    </div>
+  );
+};
+
+export default App;
+```
+
 Team leader provided following code review comments:   
-    Code Review:
+    Code Review - Key Issues:
 
-    1. Missing Error Handling
-    - FileReaderComponent lacks error handling for JSON.parse() which could throw exceptions
-    - No user feedback when file loading fails or for invalid file types
-    - No loading state management during file reading
+1. Missing Error Handling:
+   The FileReader component lacks error handling for JSON parsing and file reading operations. This could lead to unhandled runtime errors if the JSON is malformed or if file reading fails.
 
-    2. Performance Issue in InefficientSlicerComponent
-    - Component name accurately reflects its issue - slice operation runs on every renderKnowledge of a specialized software area
-    - Missing key prop in the map function, causing potential render performance issues
-    - Should use useMemo for slicedData to prevent unnecessary calculations
-    -  `InefficientSlicerComponent` performs `JSON.stringify` on every render for each item, which is inefficient and may lead to performance issues with large datasets.
-    - Inefficiency of calling `JSON.stringify` on every render in `InefficientSlicerComponent`. This could lead to performance issues, especially with large datasets.
+2. Critical Syntax Error in App.js:
+   The conditional rendering uses `&` instead of `&&`, which is incorrect and will cause unexpected behavior. This is a bug that needs immediate attention.
 
-    3. Logical Error in App.js 
-    - Incorrect syntax in conditional rendering: `{data &` should be `{data &&`
-    - This bug would cause runtime errors
+3. Missing Key Prop in InefficientSlicerComponent:
+   The map function in the InefficientSlicerComponent doesn't include a key prop for list items, which violates React's best practices and impacts performance for list updates.
 
-    4. Type Safety Concerns
-    - No prop-types or TypeScript implementation
-    - No validation for data structure in InefficientSlicerComponent
-    - Potential runtime errors if data prop is undefined or not an array
+4. Unnecessary Re-renders:
+   The slice operation in InefficientSlicerComponent runs on every render. This should be memoized using useMemo since it depends only on the data prop.
 
-    5. Component Issues
-    -   The `InefficientSlicerComponent` is missing an export statement.
-    -   The import for `FileReaderComponent` is missing in `App.js`.
+5. Type Safety Issues:
+   There's no type checking for the props or data structure. This could lead to runtime errors if unexpected data formats are provided. Consider adding PropTypes or TypeScript.
+
+6. Incomplete File Validation:
+   The file type check only verifies the MIME type but doesn't validate the file size or structure, which could lead to performance issues with large files or invalid data.
 
 Following are the 7 point that should be addressed/pointed out in code review:
     
