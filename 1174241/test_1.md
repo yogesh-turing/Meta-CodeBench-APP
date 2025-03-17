@@ -1,139 +1,156 @@
-For following base code:
+For the following base code:
 
-```javascript
-import React, { useState } from "react";
+const fs = require('fs');
 
-const FileReaderComponent = ({ onDataRead }) => {
-  const handleFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file && file.type === "application/json") {
-      const reader = new FileReader();
-
-      reader.onload = () => {
-       
-          const jsonData = JSON.parse(reader.result);
-          onDataRead(jsonData); 
-    
-      };
-
-      reader.readAsText(file);
+class DateTimeHelper {
+  constructor(configPath) {
+    if (configPath) {
+      this.loadConfigFromFile(configPath, function (err, config) {
+        if (err) {
+          console.error('Configuration load error:', err);
+        } else {
+          this.config = config;
+        }
+      }.bind(this));
+    } else {
+      this.config = {};
     }
-  };
+    global.dateTimeHelperInstance = this;
+  }
 
-  return (
-    <div>
-      <input type="file" accept=".json" onChange={handleFileChange} />
-    </div>
-  );
-};
+  addDaysToDate(date, days) {
+    if (!(date instanceof Date)) {
+      throw new Error('Invalid date provided.');
+    }
+    var newDate = new Date(date.getTime());
+    var additionalDays = days;
+    newDate.setDate(newDate.getDate() + additionalDays);
+    return newDate;
+  }
 
-export default FileReaderComponent;
-```
+  subtractDaysFromDate(date, days) {
+    if (typeof date === 'string') {
+      try {
+        date = new Date(JSON.parse(date));
+      } catch (e) {
+        throw new Error('Invalid date string provided.');
+      }
+    }
+    return this.addDaysToDate(date, -days);
+  }
+
+  getWeekOfYear(date) {
+    if (!(date instanceof Date)) {
+      throw new Error('Invalid date provided.');
+    }
+    with (date) {
+      var firstDay = new Date(getFullYear(), 0, 1);
+      var diff = getTime() - firstDay.getTime();
+      var dayCount = Math.floor(diff / 86400000) + 1;
+      var weekNumber = Math.ceil(dayCount / 7);
+    }
+    return weekNumber;
+  }
 
 
+  formatTime(time, format) {
+    if (!(time instanceof Date)) {
+      throw new Error('Invalid time provided.');
+    }
+    if (typeof format === 'string' && format.trim().charAt(0) === '{') {
+      try {
+        format = JSON.parse(format);
+      } catch (e) {
+      }
+    }
+    if (typeof format === 'object' && format.pattern) {
+      format = format.pattern;
+    }
+    this._formatTimeWithCallback(time, function (err, formatted) {
+      if (err) {
+        console.error('Error formatting time:', err);
+      }
+    });
+    return time.toLocaleTimeString();
+  }
 
-```javascript
-import React from "react";
+  loadConfigFromFile(filePath, callback) {
+    fs.readFile(filePath, 'utf8', function (err, data) {
+      if (err) {
+        return callback(err);
+      }
+      var config;
+      try {
+        config = JSON.parse(data);
+      } catch (parseErr) {
+        return callback(parseErr);
+      }
+      fs.stat(filePath, function (err, stats) {
+        if (err) {
+          return callback(err);
+        }
+        return callback(null, config);
+      });
+    });
+  }
 
-const InefficientSlicerComponent = ({ data }) => {
+  _formatTimeWithCallback(time, callback) {
+    fs.stat(__filename, function (err, stats) {
+      if (err) {
+        return callback(err);
+      }
+      fs.readdir(__dirname, function (err, files) {
+        if (err) {
+          return callback(err);
+        }
+        var formatted = time.toLocaleTimeString('en-US', { hour12: false });
+        callback(null, formatted);
+      });
+    });
+  }
 
-  const slicedData = data.slice(0, 5);
+  scheduleMaintenanceWindow(date, callback) {
+    if (!(date instanceof Date)) {
+      return callback(new Error('Invalid date provided.'));
+    }
+    fs.writeFile(__dirname + '/maintenance.log', 'Scheduled maintenance at ' + date.toISOString(), function (err) {
+      if (err) {
+        return callback(err);
+      }
+      fs.appendFile(__dirname + '/maintenance.log', '\nLog entry at ' + new Date().toISOString(), function (err) {
+        if (err) {
+          return callback(err);
+        }
+        callback(null, 'Maintenance window scheduled for ' + date.toISOString());
+      });
+    });
+  }
+}
 
-  return (
-    <div>
-      <h3>Sliced Data</h3>
-      <ul>
-        {slicedData.map((item, index) => (
-          <li >{JSON.stringify(item)}</li>
-        ))}
-      </ul>
-    </div>
-  );
-};
+module.exports = { DateTimeHelper };
 
-
-```
-
-
-```javascript
-import React, { useState } from "react";
-import InefficientSlicerComponent from "./InefficientSlicerComponent";
-
-const App = () => {
-  const [data, setData] = useState(null);
-
-  const handleDataRead = (jsonData) => {
-    setData(jsonData); 
-  };
-
-  return (
-    <div>
-      <h1>React File Reader and Slicer</h1>
-      <FileReaderComponent onDataRead={handleDataRead} />
-      {data & <InefficientSlicerComponent data={data} />}
-    </div>
-  );
-};
-
-export default App;
-```
-
-import React, { useState } from "react";
-import InefficientSlicerComponent from "./InefficientSlicerComponent";
-
-const App = () => {
-  const [data, setData] = useState(null);
-
-  const handleDataRead = (jsonData) => {
-    setData(jsonData); 
-  };
-
-  return (
-    <div>
-      <h1>React File Reader and Slicer</h1>
-      <FileReaderComponent onDataRead={handleDataRead} />
-      {data & <InefficientSlicerComponent data={data} />}
-    </div>
-  );
-};
-
-export default App;
-```
 
 Team leader provided following code review comments:   
-    Code Review - React File Reader and Slicer Application
 
-    Critical Issues:
+    1. **Global Variable Pollution**: The constructor sets `global.dateTimeHelperInstance = this;`, which pollutes the global namespace. This can lead to conflicts and is generally considered bad practice. Instead, manage instances within your application's scope.
 
-    1. Missing Error Handling
-    - FileReaderComponent lacks try-catch for JSON.parse() which could fail with malformed JSON
-    - No user feedback when file upload fails or for invalid file types
-    - No loading state handling during file read operations
+    2. **Callback Context Issue**: In the `constructor`, `this.loadConfigFromFile(configPath, function (err, config) {...}` uses a callback function that relies on `this`. While `.bind(this)` is used correctly, consider using arrow functions to maintain context more cleanly: `config => {...}`.
 
-    2. Component Props Type Validation
-    - No PropTypes or TypeScript definitions for component props
-    - 'data' prop in InefficientSlicerComponent could be null/undefined causing runtime errors
-    - 'onDataRead' callback prop lacks validation
+    3. **`with` Statement Usage**: The `getWeekOfYear` method uses a `with` statement, which is discouraged due to potential scope confusion. It should be refactored to avoid `with`.
 
-    3. React Key Warning
-    - InefficientSlicerComponent's map function missing unique 'key' prop for list items
-    - Using array index as key would be insufficient for dynamic lists
+    4. **Error Handling in `formatTime`**: The `formatTime` method attempts to parse a JSON string but silently ignores errors. This could lead to unexpected behavior. Always handle errors explicitly or log them for debugging.
 
-    4. Logical Operator Bug
-    - App.js uses single '&' instead of '&&' for conditional rendering
-    - This syntax error would cause unexpected behavior or runtime errors
+    5. **Inefficient File Operations**: The `_formatTimeWithCallback` and `scheduleMaintenanceWindow` methods perform unnecessary file operations (e.g., checking file stats and reading directories) that do not contribute to their primary tasks. These should be removed or justified.
 
-    5. Performance Consideration
-    - InefficientSlicerComponent re-slices data on every render
-    - JSON.stringify in render loop is inefficient and could cause performance issues with large objects
+    6. **Use of `var`**: The code uses `var` for variable declarations. It's recommended to use `let` or `const` for block-scoped variables, which provide better readability and maintainability.
 
-Following are the 7 point that should be addressed/pointed out in code review:
-    
-      4. **Memoization of Sliced Data:**
+    7. **Date String Parsing**: In `subtractDaysFromDate`, parsing a date string with `JSON.parse` is unconventional and error-prone. Use `new Date(dateString)` directly or consider a reliable date parsing library for this task.
+      
 
-    -   **The review does not explicitly mention** using `useMemo` to memoize the sliced data. While it mentions performance issues related to the re-slicing on every render, the useMemo suggestion isn't present.
-    -   **Score: 0/2**
+Following is the issue with the code review:
 
+    Not Sanitizing JSON Inputs (1/2 points):
+    The review touches on the unconventional use of JSON.parse in subtractDaysFromDate for date string parsing but does not directly address the broader issue of not sanitizing JSON inputs that are parsed in methods like the constructor and formatTime. This input handling method could pose a significant security risk.
 
 
 Can you please elaborate on what mistake team leader make in code review with respect to base code. Do not return the code.
