@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { RewardCalculator } = require('./solution.js');
+const { RewardCalculator } = require('./incorrect');
 
 describe('RewardCalculator Module - Expected Object Output', () => {
   let rc;
@@ -306,6 +306,7 @@ describe('RewardCalculator Module - Expected Object Output', () => {
       type: 'purchase',
     });
     const total = rc.getTotalRewards('user13');
+    // jest.useFakeTimers(100);
     rc.persistCalculationLog((err, result) => {
       expect(err).toBeNull();
       expect(result).toEqual({ persisted: true });
@@ -313,7 +314,7 @@ describe('RewardCalculator Module - Expected Object Output', () => {
       expect(fs.existsSync(logFile)).toEqual(true);
       done();
     });
-  }, 10000); 
+  }); 
 
   test('should correctly transform a $50 purchase transaction (exact threshold) to 0 points', () => {
     rc.addTransaction('user14', {

@@ -2,13 +2,15 @@ TEST SUMMARY
 ============
 
 1171476:
+correct    : 23/23 tests passed [PASSED]
+incorrect  : 21/23 tests passed [FAILED]
 model_a    : 23/23 tests passed [PASSED]
 model_b    : 22/23 tests passed [FAILED]
 model_c    : 23/23 tests passed [PASSED]
 model_d    : 23/23 tests passed [PASSED]
 model_e    : 21/23 tests passed [FAILED]
 model_f    : 21/23 tests passed [FAILED]
-model_g    : 19/23 tests passed [FAILED]
+model_g    : 21/23 tests passed [FAILED]
 model_h    : 22/23 tests passed [FAILED]
 model_i    : 21/23 tests passed [FAILED]
 model_j    : 21/23 tests passed [FAILED]
