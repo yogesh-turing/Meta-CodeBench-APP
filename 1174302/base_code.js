@@ -1,61 +1,64 @@
-import React, { useState, useEffect } from 'react';
+const fs = require('fs');
 
-// Custom Hook - Defined inefficiently
-const useFetchData = (id) => {
-  const [data, setData] = useState(null);
+class UserDataManager {
+    constructor() {
+        this.userList = [];
+        tempDataHolder = [];
+    }
 
-  useEffect(() => {
-    const fetchDataFromIndexedDB = async () => {
-      const db = await indexedDB.open('myDatabase', 1);
-      const tx = db.transaction('myStore', 'readonly');
-      const store = tx.objectStore('myStore');
-      const request = store.get(id);
+    async loadUsersFromFile(filePath) {
+        try {
+            const data = await fs.promises.readFile(filePath, 'utf8');
+            this.userList = JSON.parse(data);
+            console.log(`Loaded ${this.userList.length} users.`);
+        } catch (error) {
+            console.error('Error loading users:', error);
+        }
+    }
 
-      request.onsuccess = (event) => {
-        setData(event.target.result);
-      };
-    };
+    async saveUsersToFile(filePath) {
+        try {
+            const data = JSON.stringify(this.userList);
+            await fs.promises.writeFile(filePath, data);
+            console.log('User data has been saved.');
+        } catch (error) {
+            console.error('Error saving user data:', error);
+        }
+    }
 
-    fetchDataFromIndexedDB();
-  }, [id]); 
+    addUser(userData) {
+        const newUser = JSON.parse(JSON.stringify(userData)); 
+        this.userList.push(newUser);
+        console.log('Added new user:', newUser);
+        this.saveUsersToFile('userData.json');
+    }
 
-  return data;
-};
+    updateUser(userId, updates) {
+        const index = this.userList.findIndex(user => user.id === userId);
+        if (index !== -1) {
+            for (const key in updates) {
+                if (Object.prototype.hasOwnProperty.call(updates, key)) {
+                    this.userList[index][key] = updates[key];
+                    console.log('User ' + userId + ' updated property ' + key + ': ' + updates[key]);
+                }
+            }
+            this.saveUsersToFile('userData.json');
+        } else {
+            console.error('User with ID ' + userId + ' not found.');
+        }
+    }
 
-const StaleStateComponent = ({ id }) => {
-  const data = useFetchData(id);
-  const [counter, setCounter] = useState(0);
+    processUserStatistics() {
+        const stats = { count: this.userList.length };
+        tempDataHolder.push(stats);  
+        console.log('Processed statistics:', stats);
+    }
 
-  useEffect(() => {
-    const timer = setInterval(() = {
-      setCounter(counter + 1); 
-    }, 1000);
+    clearAllUserData() {
+        console.log('Clearing all user data. Users before clear: ' + this.userList.length);
+        this.userList = [];
+        this.saveUsersToFile('userData.json');
+    }
+}
 
-    return () => clearInterval(timer);
-  }, [counter]);
-
-  return (
-    <div>
-      <h1>Stale State Component</h1>
-      <p>Data from IndexedDB: {JSON.stringify(data) }</p>
-      <p>Counter: {counter}</p>
-    </div>
-  );
-};
-
-```
-```javascript
-import React, { useState } from 'react';
-
-const App = () => {
-  const [message] = useState('Hello World!');
-
-  return (
-    <div>
-      <h1>App Component</h1>
-      <p>{message}</p>
-    </div>
-  );
-};
-
-export default App;
+module.exports = { UserDataManager };
