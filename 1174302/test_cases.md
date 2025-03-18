@@ -1,9 +1,8 @@
- Here is what we are looking for:
- - The code review should point out callback hell in methods like loadConfigFromFile, _formatTimeWithCallback, and scheduleMaintenanceWindow use nested callbacks.
- - The code review should point out not sanitizing JSON inputs JSON strings are directly parsed in the constructor, subtractDaysFromDate, and formatTime without rigorous validation.
- - The code review should point out leaking variables to global scope - the constructor assigns the instance to the global object using global.dateTimeHelperInstance.
- - The code review should point out importing modules with side effects - the fs module is imported solely for its side effects, such as triggering logging routines.
- - The code review should point out use of with statement - the getWeekOfYear method employs a with statement to access date properties.
- - The code review should point out variable hoisting - variables are declared using var instead of let or const, leading to hoisting issues.
- - The code review should point out silent failures in certain error cases (like JSON parsing in the constructor), errors are caught and only logged or silently defaulted, which can mask underlying issues during production runtime.
-Each of these is worth a maximum of 2 points, for a total of 14 points. Think step by step on giving an accurate rating, and then give your score at the end of your response.
+The review should highlight the most obvious and clearest points that would definitely be mentioned in a good code review. Here is what we are looking for:
+
+    Does the code review identify a typographical error in StaleStateComponent with the incorrect setInterval syntax (= { instead of => {), which will cause a syntax error? (0/2)
+    Does the code review highlight Inefficient IndexedDB Usage: opening a database connection and starting a transaction every time the id changes is inefficient, and does it identify that IndexedDB connections and transactions aren't properly cleaned up in useFetchData? (0/2)
+    Does the code review point out that the useFetchData hook lacks error handling for IndexedDB operations? If an error occurs during the database transaction or data retrieval, it will fail silently. Also, does it identify the lack of PropTypes usage and the absence of data structure validation for IndexedDB? (0/2)
+    Does the code review recognize that the StaleStateComponent uses a stale closure by directly referencing counter, causing the counter to increment only once? (0/2)
+    Does the code review note that the export statement is missing for the StaleStateComponent component?
+    Does the code review identify that the StaleStateComponent will re-render every second due to the counter state, even when the data hasn't changed? It should consider separating the counter logic into a different component or using memo/useMemo for optimization. Also, does it point out that the message state in the App component is initialized but never updated, making it redundant? (0/2)

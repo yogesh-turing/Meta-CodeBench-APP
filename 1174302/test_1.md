@@ -1,156 +1,114 @@
-For the following base code:
+For given base code:
 
-const fs = require('fs');
+import React, { useState, useEffect } from 'react';
 
-class DateTimeHelper {
-  constructor(configPath) {
-    if (configPath) {
-      this.loadConfigFromFile(configPath, function (err, config) {
-        if (err) {
-          console.error('Configuration load error:', err);
-        } else {
-          this.config = config;
-        }
-      }.bind(this));
-    } else {
-      this.config = {};
-    }
-    global.dateTimeHelperInstance = this;
-  }
+// Custom Hook - Defined inefficiently
+const useFetchData = (id) => {
+  const [data, setData] = useState(null);
 
-  addDaysToDate(date, days) {
-    if (!(date instanceof Date)) {
-      throw new Error('Invalid date provided.');
-    }
-    var newDate = new Date(date.getTime());
-    var additionalDays = days;
-    newDate.setDate(newDate.getDate() + additionalDays);
-    return newDate;
-  }
+  useEffect(() => {
+    const fetchDataFromIndexedDB = async () => {
+      const db = await indexedDB.open('myDatabase', 1);
+      const tx = db.transaction('myStore', 'readonly');
+      const store = tx.objectStore('myStore');
+      const request = store.get(id);
 
-  subtractDaysFromDate(date, days) {
-    if (typeof date === 'string') {
-      try {
-        date = new Date(JSON.parse(date));
-      } catch (e) {
-        throw new Error('Invalid date string provided.');
-      }
-    }
-    return this.addDaysToDate(date, -days);
-  }
+      request.onsuccess = (event) => {
+        setData(event.target.result);
+      };
+    };
 
-  getWeekOfYear(date) {
-    if (!(date instanceof Date)) {
-      throw new Error('Invalid date provided.');
-    }
-    with (date) {
-      var firstDay = new Date(getFullYear(), 0, 1);
-      var diff = getTime() - firstDay.getTime();
-      var dayCount = Math.floor(diff / 86400000) + 1;
-      var weekNumber = Math.ceil(dayCount / 7);
-    }
-    return weekNumber;
-  }
+    fetchDataFromIndexedDB();
+  }, [id]); 
 
+  return data;
+};
 
-  formatTime(time, format) {
-    if (!(time instanceof Date)) {
-      throw new Error('Invalid time provided.');
-    }
-    if (typeof format === 'string' && format.trim().charAt(0) === '{') {
-      try {
-        format = JSON.parse(format);
-      } catch (e) {
-      }
-    }
-    if (typeof format === 'object' && format.pattern) {
-      format = format.pattern;
-    }
-    this._formatTimeWithCallback(time, function (err, formatted) {
-      if (err) {
-        console.error('Error formatting time:', err);
-      }
-    });
-    return time.toLocaleTimeString();
-  }
+const StaleStateComponent = ({ id }) => {
+  const data = useFetchData(id);
+  const [counter, setCounter] = useState(0);
 
-  loadConfigFromFile(filePath, callback) {
-    fs.readFile(filePath, 'utf8', function (err, data) {
-      if (err) {
-        return callback(err);
-      }
-      var config;
-      try {
-        config = JSON.parse(data);
-      } catch (parseErr) {
-        return callback(parseErr);
-      }
-      fs.stat(filePath, function (err, stats) {
-        if (err) {
-          return callback(err);
-        }
-        return callback(null, config);
-      });
-    });
-  }
+  useEffect(() => {
+    const timer = setInterval(() = {
+      setCounter(counter + 1); 
+    }, 1000);
 
-  _formatTimeWithCallback(time, callback) {
-    fs.stat(__filename, function (err, stats) {
-      if (err) {
-        return callback(err);
-      }
-      fs.readdir(__dirname, function (err, files) {
-        if (err) {
-          return callback(err);
-        }
-        var formatted = time.toLocaleTimeString('en-US', { hour12: false });
-        callback(null, formatted);
-      });
-    });
-  }
+    return () => clearInterval(timer);
+  }, [counter]);
 
-  scheduleMaintenanceWindow(date, callback) {
-    if (!(date instanceof Date)) {
-      return callback(new Error('Invalid date provided.'));
-    }
-    fs.writeFile(__dirname + '/maintenance.log', 'Scheduled maintenance at ' + date.toISOString(), function (err) {
-      if (err) {
-        return callback(err);
-      }
-      fs.appendFile(__dirname + '/maintenance.log', '\nLog entry at ' + new Date().toISOString(), function (err) {
-        if (err) {
-          return callback(err);
-        }
-        callback(null, 'Maintenance window scheduled for ' + date.toISOString());
-      });
-    });
-  }
-}
+  return (
+    <div>
+      <h1>Stale State Component</h1>
+      <p>Data from IndexedDB: {JSON.stringify(data) }</p>
+      <p>Counter: {counter}</p>
+    </div>
+  );
+};
 
-module.exports = { DateTimeHelper };
+```
+```javascript
+import React, { useState } from 'react';
+
+const App = () => {
+  const [message] = useState('Hello World!');
+
+  return (
+    <div>
+      <h1>App Component</h1>
+      <p>{message}</p>
+    </div>
+  );
+};
+
+export default App;
 
 
 Team leader provided following code review comments:   
 
-    1. **Global Variable Pollution**: The constructor sets `global.dateTimeHelperInstance = this;`, which pollutes the global namespace. This can lead to conflicts and is generally considered bad practice. Instead, manage instances within your application's scope.
+    Code Review - React Application
 
-    2. **Callback Context Issue**: In the `constructor`, `this.loadConfigFromFile(configPath, function (err, config) {...}` uses a callback function that relies on `this`. While `.bind(this)` is used correctly, consider using arrow functions to maintain context more cleanly: `config => {...}`.
+    Critical Issues:
 
-    3. **`with` Statement Usage**: The `getWeekOfYear` method uses a `with` statement, which is discouraged due to potential scope confusion. It should be refactored to avoid `with`.
+    1. Stale Closure in Timer (Bug)
+      - The interval timer in StaleStateComponent uses a stale closure by directly referencing 'counter' in setInterval.
+      - This will cause the counter to increment only once as it captures the initial value (0).
+      - Should use the functional update form: setCounter(prev => prev + 1)
 
-    4. **Error Handling in `formatTime`**: The `formatTime` method attempts to parse a JSON string but silently ignores errors. This could lead to unexpected behavior. Always handle errors explicitly or log them for debugging.
+    2. IndexedDB Implementation 
+      - The useFetchData hook doesn't handle database errors or connection failures
+      - IndexedDB operations are not properly closed/cleanup after use
+      - Could have reused the connection by caching it.
+      - Missing error boundaries for potential database operation failures
+      - The IndexedDB connection is recreated on every id change without proper cleanup. Should establish connection once and reuse it, or properly close connections
+      -  Lack of PropTypes usage and the absence of data structure validation for IndexedDB
 
-    5. **Inefficient File Operations**: The `_formatTimeWithCallback` and `scheduleMaintenanceWindow` methods perform unnecessary file operations (e.g., checking file stats and reading directories) that do not contribute to their primary tasks. These should be removed or justified.
 
-    6. **Use of `var`**: The code uses `var` for variable declarations. It's recommended to use `let` or `const` for block-scoped variables, which provide better readability and maintainability.
+    3. Effect Dependencies (Bad Practice)
+      - The useEffect in StaleStateComponent depends on 'counter' which creates unnecessary re-renders
+      - The timer should not have any dependencies as it's meant to run independently
 
-    7. **Date String Parsing**: In `subtractDaysFromDate`, parsing a date string with `JSON.parse` is unconventional and error-prone. Use `new Date(dateString)` directly or consider a reliable date parsing library for this task.
+    4. Component Structure (Inefficiency)
+      - The App component is overly simplified and doesn't utilize the useState hook effectively
+      - Since the message state never changes, it should be a constant instead of state
       
-
-Following is the issue with the code review:
-
-    Not Sanitizing JSON Inputs (1/2 points):
-    The review touches on the unconventional use of JSON.parse in subtractDaysFromDate for date string parsing but does not directly address the broader issue of not sanitizing JSON inputs that are parsed in methods like the constructor and formatTime. This input handling method could pose a significant security risk.
+    5. Missing export statement for the `StaleStateComponent`.
+    6. The `setInterval` function contains a syntax error: `setInterval(() = { ... });` should be `setInterval(() => { ... });`. This would lead to a runtime error preventing the counter from incrementing.
 
 
-Can you please elaborate on what mistake team leader make in code review with respect to base code. Do not return the code.
+Following are the point that should be addressed/pointed out in code review
+
+    Does the code review identify a typographical error in StaleStateComponent with the incorrect setInterval syntax (= { instead of => {), which will cause a syntax error? (0/2)
+
+    Does the code review highlight Inefficient IndexedDB Usage: opening a database connection and starting a transaction every time the id changes is inefficient, and does it identify that IndexedDB connections and transactions aren't properly cleaned up in useFetchData? (0/2)
+
+    Does the code review point out that the useFetchData hook lacks error handling for IndexedDB operations? If an error occurs during the database transaction or data retrieval, it will fail silently. Also, does it identify the lack of PropTypes usage and the absence of data structure validation for IndexedDB? (0/2)
+
+    Does the code review recognize that the StaleStateComponent uses a stale closure by directly referencing counter, causing the counter to increment only once? (0/2)
+
+    Does the code review note that the export statement is missing for the StaleStateComponent component? (0/2)
+
+    Does the code review identify that the StaleStateComponent will re-render every second due to the counter state, even when the data hasn't changed? It should consider separating the counter logic into a different component or using memo/useMemo for optimization. Also, does it point out that the message state in the App component is initialized but never updated, making it redundant? (0/2)
+
+
+Can you please help to check if team leader’s review has addressed the points.
+Also provide the score for each point, so maximum score of 2 points should be given if point correctly address the issue.
