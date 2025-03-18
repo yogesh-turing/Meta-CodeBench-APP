@@ -1,116 +1,37 @@
-const moment = require("moment");
-const S = require("sanctuary");
+function generateProjectQuery(queryName = null, jobNumber = null, status = null) {
+  let query = "SELECT * FROM projects";
+  let conditions = [];
+  let params = [];
 
-// Helper function to check if a value is a string
-const isString = value => S.type(value) === 'String';
-
-class ProjectManagement {
-  constructor() {
-    this.tasks = {};
-    this.milestones = {};
-    this.users = {};
+  // Filter by project name (queryName) with prefix matching and case-insensitivity
+  if (queryName) {
+      conditions.push("LOWER(name) LIKE ?");
+      params.push(`${queryName.toLowerCase()}%`);
   }
 
-  addTaskDependency(taskId, dependencyId) {
-    if (!isString(taskId) || !isString(dependencyId)) {
-      throw new Error("Invalid data");
-    }
-
-    if (!this.tasks[taskId] || !this.tasks[dependencyId]) {
-      throw new Error("Task or Dependency not found");
-    }
-
-    if (taskId === dependencyId) {
-      throw new Error("Task cannot depend on itself");
-    }
-
-    if (this.isCircularDependency(taskId, dependencyId)) {
-      throw new Error("Circular dependency detected");
-    }
-
-    if (!this.tasks[taskId].dependencies) {
-      this.tasks[taskId].dependencies = [];
-    }
-    this.tasks[taskId].dependencies.push(dependencyId);
+  // Filter by job number
+  if (jobNumber) {
+      conditions.push("job_number = ?");
+      params.push(jobNumber);
   }
 
-  isCircularDependency(taskId, dependencyId, visited = new Set()) {
-    if (visited.has(dependencyId)) {
-      return true;
-    }
-
-    visited.add(dependencyId);
-    const dependencies = this.tasks[dependencyId]?.dependencies || [];
-
-    for (const dep of dependencies) {
-      if (dep === taskId || this.isCircularDependency(taskId, dep, visited)) {
-        return true;
-      }
-    }
-    return false;
+  // Filter by status
+  if (status === "current") {
+      conditions.push("completed_at IS NULL");
+  } else if (status === "former") {
+      conditions.push("completed_at IS NOT NULL AND completed_at < NOW() - INTERVAL 18 MONTH");
+  } else if (status === "recent_former") {
+      conditions.push("completed_at IS NOT NULL AND completed_at >= NOW() - INTERVAL 18 MONTH");
+  } else if (status !== null && status !== "both") {
+      return { query, params }; // Invalid status, return base query
   }
 
-  createMilestone(milestoneId, title, dueDate) {
-    if (!isString(milestoneId) || !isString(title) || !isString(dueDate)) {
-      throw new Error("Invalid data");
-    }
-
-    if (this.milestones[milestoneId]) {
-      throw new Error("Milestone already exists");
-    }
-
-    if (!moment(dueDate, "YYYY-MM-DD", true).isValid()) {
-      throw new Error("Invalid date format");
-    }
-
-    if (moment(dueDate).isBefore(moment(), "day")) {
-      throw new Error("Milestone due date cannot be in the past");
-    }
-
-    this.milestones[milestoneId] = {
-      title,
-      dueDate,
-      tasks: [],
-    };
+  // Append conditions if any
+  if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
   }
 
-  trackTime(taskId, startTime, endTime) {
-    if (!isString(taskId) || !isString(startTime) || !isString(endTime)) {
-      throw new Error("Invalid data");
-    }
-
-    if (!this.tasks[taskId]) {
-      throw new Error("Task not found");
-    }
-
-    if (!moment(startTime, "YYYY-MM-DD HH:mm", true).isValid() || !moment(endTime, "YYYY-MM-DD HH:mm", true).isValid()) {
-      throw new Error("Invalid time format");
-    }
-
-    const startMoment = moment(startTime);
-    const endMoment = moment(endTime);
-    const currentMoment = moment();
-
-    if (startMoment.isAfter(currentMoment)) {
-      throw new Error("Start time cannot be in future");
-    }
-
-    if (startMoment.isAfter(endMoment)) {
-      throw new Error("Start time must be before end time");
-    }
-
-    const timeSpent = endMoment.diff(startMoment, "minutes");
-
-    if (!this.tasks[taskId].timeEntries) {
-      this.tasks[taskId].timeEntries = [];
-    }
-
-    this.tasks[taskId].timeEntries.push({
-      startTime,
-      endTime,
-      timeSpent,
-    });
-  }
+  return { query, params };
 }
 
-module.exports = { ProjectManagement };
+module.exports = { generateProjectQuery };
