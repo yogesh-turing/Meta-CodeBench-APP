@@ -1,19 +1,21 @@
-Estimated skill requirements:
-    Include "Software engineering best practices"
+Model Evaluations:
+    Models A to E:
+        The Model is penalized for not validating age parameter correctly. But from prompt/base code/stack trace it is not clear how to handle this scenario. 
 
-Unit test:
-    When I tried executing test cases for all model and solutions, I got different results.
-    I think this is due to tool's regex issue, following test case is failing.
+        ```javascript
+            expect(() =>
+                FinancialToolkit.estimateInsuranceCost(0, 1, 100000)
+            ).toThrow();
+        ```
 
-    ```javascript
-    test("filters by queryName with prefix matching conditions", () => {
-        const result = generateProjectQuery("dir");
+
+        Same with following test case, it should be clear in prompt that `expenses` should be array of positive numbers only.
+        ```javascript
+            expect(() =>
+                FinancialToolkit.determineFinancialHealth(5000, [1000, '500'])
+            ).toThrow();
+        ```
+
+        Zero is neither positive not negative.
+
         
-        // Verify that the WHERE clause contains two LIKE conditions.
-        expect(result.query).toMatch(/LOWER$name$ LIKE \?/);
-        // Check that both parameters are present
-        expect(result.params).toEqual(["dir%", "% dir%"]);
-    });
-    ```
-
-Once I get correct unit test cases, I will continue with remaining evaluations.
