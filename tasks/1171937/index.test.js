@@ -1,256 +1,363 @@
-const { FinancialToolkit, } = require('./model_a');
+// const { CollectionHelper } = require(process.env.TARGET_FILE);
+const { CollectionHelper } = require('./incorrect');
 
-describe('FinancialToolkit', () => {
-  describe('convertCurrencyAmount', () => {
-    it('should correctly convert currency and throw errors on invalid input', () => {
-      expect(
-        FinancialToolkit.convertCurrencyAmount(100, 'USD', 'EUR', 0.85)
-      ).toBeCloseTo(85);
+describe('CollectionHelper', () => {
+  describe('addToSet', () => {
+    it('should add a new element and return true; and not add duplicates', () => {
+      const set = new Set([1, 2]);
+      const addedNew = CollectionHelper.addToSet(set, 3);
+      expect(addedNew).toBe(true);
+      expect(set.has(3)).toBe(true);
+      expect(set.size).toBe(3);
+      const addedDuplicate = CollectionHelper.addToSet(set, 1);
+      expect(addedDuplicate).toBe(false);
+      expect(set.size).toBe(3);
+    });
 
-      expect(() =>
-        FinancialToolkit.convertCurrencyAmount('100', 'USD', 'EUR', 0.85)
-      ).toThrow();
-      // Invalid currency codes
-      expect(() =>
-        FinancialToolkit.convertCurrencyAmount(100, 123, 'EUR', 0.85)
-      ).toThrow();
-      // Invalid exchange rate (zero or negative)
-      expect(() =>
-        FinancialToolkit.convertCurrencyAmount(100, 'USD', 'EUR', 0)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.convertCurrencyAmount(100, 'USD', 'EUR', -1)
-      ).toThrow();
+    it('should throw a TypeError when the collection is not a Set', () => {
+      expect(() => CollectionHelper.addToSet([], 1)).toThrow(TypeError);
     });
   });
 
-  describe('calculateSimpleInterest', () => {
-    it('should compute interest correctly and throw errors on invalid input', () => {
-      expect(
-        FinancialToolkit.calculateSimpleInterest(1000, 0.05, 3)
-      ).toBeCloseTo(150);
-      expect(() =>
-        FinancialToolkit.calculateSimpleInterest(-1000, 0.05, 3)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateSimpleInterest(1000, -0.05, 3)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateSimpleInterest(1000, 0.05, -3)
-      ).toThrow();
+  describe('removeFromSet', () => {
+    it('should remove an element and return true; and return false if element is absent', () => {
+      const set = new Set([1, 2, 3]);
+      // Removing an existing element
+      const removedExisting = CollectionHelper.removeFromSet(set, 2);
+      expect(removedExisting).toBe(true);
+      expect(set.has(2)).toBe(false);
+      expect(set.size).toBe(2);
+      // Removing a non-existing element returns false
+      const removedNonExisting = CollectionHelper.removeFromSet(set, 5);
+      expect(removedNonExisting).toBe(false);
+      expect(set.size).toBe(2);
+    });
+
+    it('should throw a TypeError when the collection is not a Set', () => {
+      expect(() => CollectionHelper.removeFromSet([], 1)).toThrow(TypeError);
     });
   });
 
-  describe('calculateLoanPayment', () => {
-    it('should compute monthly payment correctly and throw errors on invalid input', () => {
-      const payment = FinancialToolkit.calculateLoanPayment(200000, 5, 30);
-      expect(payment).toBeCloseTo(1073.64, 1);
-      // Zero interest rate
-      expect(FinancialToolkit.calculateLoanPayment(120000, 0, 30)).toBeCloseTo(
-        120000 / (30 * 12)
+  describe('union', () => {
+    it('should return the union of two sets', () => {
+      const setA = new Set([1, 2]);
+      const setB = new Set([2, 3]);
+      const unionSet = CollectionHelper.union(setA, setB);
+      expect(unionSet).toBeInstanceOf(Set);
+      expect(unionSet.has(1)).toBe(true);
+      expect(unionSet.has(2)).toBe(true);
+      expect(unionSet.has(3)).toBe(true);
+      expect(unionSet.size).toBe(3);
+    });
+
+    it('should throw a TypeError if either parameter is not a Set', () => {
+      expect(() => CollectionHelper.union(new Set([1]), [2])).toThrow(
+        TypeError
       );
-      expect(() =>
-        FinancialToolkit.calculateLoanPayment(-200000, 5, 30)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateLoanPayment(200000, -5, 30)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateLoanPayment(200000, 5, 0)
-      ).toThrow();
+      expect(() => CollectionHelper.union([], new Set([1]))).toThrow(TypeError);
     });
   });
 
-  describe('calculateSavingsFutureValue', () => {
-    it('should compute future value correctly and handle invalid inputs', () => {
-      expect(
-        FinancialToolkit.calculateSavingsFutureValue(1000, 0.05, 10)
-      ).toBeCloseTo(1000 * Math.pow(1.05, 10));
-      expect(() =>
-        FinancialToolkit.calculateSavingsFutureValue(-1000, 0.05, 10)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateSavingsFutureValue(1000, -0.05, 10)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateSavingsFutureValue(1000, 0.05, -10)
-      ).toThrow();
+  describe('intersection', () => {
+    it('should return the intersection of two sets', () => {
+      const setA = new Set([1, 2, 3]);
+      const setB = new Set([2, 3, 4]);
+      const intersectionSet = CollectionHelper.intersection(setA, setB);
+      expect(intersectionSet).toBeInstanceOf(Set);
+      expect(intersectionSet.has(2)).toBe(true);
+      expect(intersectionSet.has(3)).toBe(true);
+      expect(intersectionSet.size).toBe(2);
     });
-  });
 
-  describe('calculateTotalCost', () => {
-    it('should compute total cost correctly and handle invalid inputs', () => {
-      expect(FinancialToolkit.calculateTotalCost(100, 0.1)).toBeCloseTo(110);
-      expect(() => FinancialToolkit.calculateTotalCost(-100, 0.1)).toThrow();
-      expect(() => FinancialToolkit.calculateTotalCost(100, -0.1)).toThrow();
+    it('should return an empty set when either set is null', () => {
+      const result1 = CollectionHelper.intersection(null, new Set([1]));
+      expect(result1.size).toBe(0);
+      const result2 = CollectionHelper.intersection(new Set([1]), null);
+      expect(result2.size).toBe(0);
     });
-  });
 
-  describe('determineBreakEvenPoint', () => {
-    it('should compute break-even point correctly and handle invalid inputs', () => {
-      expect(
-        FinancialToolkit.determineBreakEvenPoint(1000, 20, 10)
-      ).toBeCloseTo(1000 / (20 - 10));
-      expect(() =>
-        FinancialToolkit.determineBreakEvenPoint(-1000, 20, 10)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.determineBreakEvenPoint(1000, 10, 20)
-      ).toThrow();
-    });
-  });
-
-  describe('calculatePercentageIncrease', () => {
-    it('should compute percentage increase correctly and handle invalid inputs', () => {
-      expect(
-        FinancialToolkit.calculatePercentageIncrease(100, 150)
-      ).toBeCloseTo(50);
-      expect(() =>
-        FinancialToolkit.calculatePercentageIncrease(0, 150)
-      ).toThrow();
-    });
-  });
-
-  describe('compareInvestmentOptions', () => {
-    it('should return best option and throw errors on invalid input', () => {
-      const options = [
-        { name: 'Option A', expectedReturn: 10, risk: 2 },
-        { name: 'Option B', expectedReturn: 8, risk: 1 },
-        { name: 'Option C', expectedReturn: 12, risk: 3 },
-      ];
-      const result = FinancialToolkit.compareInvestmentOptions(1000, options);
-      expect(result).toHaveProperty('bestOption');
-      expect(result.bestOption.name).toBe('Option B');
-      expect(() =>
-        FinancialToolkit.compareInvestmentOptions(-1000, [])
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.compareInvestmentOptions(1000, 'invalid')
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.compareInvestmentOptions(1000, [{}, null])
-      ).toThrow();
-    });
-  });
-
-  describe('calculateDiscountedPrice', () => {
-    it('should compute discounted price correctly and handle invalid inputs', () => {
-      expect(FinancialToolkit.calculateDiscountedPrice(100, 0.2)).toBeCloseTo(
-        80
+    it('should throw a TypeError if parameters are not sets', () => {
+      expect(() => CollectionHelper.intersection([], new Set([1]))).toThrow(
+        TypeError
       );
-      expect(() =>
-        FinancialToolkit.calculateDiscountedPrice(-100, 0.2)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateDiscountedPrice(100, 1.2)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateDiscountedPrice(100, -0.1)
-      ).toThrow();
     });
   });
 
-  describe('calculateGrossProfit', () => {
-    it('should compute gross profit and handle invalid inputs', () => {
-      expect(FinancialToolkit.calculateGrossProfit(1000, 600)).toBeCloseTo(400);
-      expect(() => FinancialToolkit.calculateGrossProfit(-1000, 600)).toThrow();
-      expect(() => FinancialToolkit.calculateGrossProfit(1000, -600)).toThrow();
+  describe('difference', () => {
+    it('should return the difference between two sets (setA - setB)', () => {
+      const setA = new Set([1, 2, 3]);
+      const setB = new Set([2]);
+      const diffSet = CollectionHelper.difference(setA, setB);
+      expect(diffSet).toBeInstanceOf(Set);
+      expect(diffSet.has(1)).toBe(true);
+      expect(diffSet.has(3)).toBe(true);
+      expect(diffSet.size).toBe(2);
     });
-  });
 
-  describe('calculateDebtToIncomeRatio', () => {
-    it('should compute debt-to-income ratio and handle invalid inputs', () => {
-      expect(
-        FinancialToolkit.calculateDebtToIncomeRatio(200, 1000)
-      ).toBeCloseTo(0.2);
-      expect(() =>
-        FinancialToolkit.calculateDebtToIncomeRatio(-200, 1000)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.calculateDebtToIncomeRatio(200, 0)
-      ).toThrow();
+    it('should return the full set if the second set is null', () => {
+      const setA = new Set([1, 2]);
+      const diffSet = CollectionHelper.difference(setA, null);
+      expect(diffSet.size).toBe(2);
+      expect(diffSet.has(1)).toBe(true);
+      expect(diffSet.has(2)).toBe(true);
     });
-  });
 
-  describe('estimateInsuranceCost', () => {
-    it('should estimate insurance cost correctly and handle invalid inputs', () => {
-      // For different age groups (base cost = coverageAmount * 0.001)
-      const costYoung = FinancialToolkit.estimateInsuranceCost(25, 1, 100000);
-      expect(costYoung).toBeCloseTo(100);
-      const costMid = FinancialToolkit.estimateInsuranceCost(40, 1, 100000);
-      expect(costMid).toBeCloseTo(100 * 1.2);
-      const costOld = FinancialToolkit.estimateInsuranceCost(60, 1, 100000);
-      expect(costOld).toBeCloseTo(100 * 1.5);
-
-      expect(() =>
-        FinancialToolkit.estimateInsuranceCost(0, 1, 100000)
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.estimateInsuranceCost(30, 0, 100000)
-      ).toThrow();
-      expect(() => FinancialToolkit.estimateInsuranceCost(30, 1, 0)).toThrow();
+    it('should return an empty set if the first set is null', () => {
+      const diffSet = CollectionHelper.difference(null, new Set([1]));
+      expect(diffSet.size).toBe(0);
     });
-  });
 
-  describe('calculateAnnualSavings', () => {
-    it('should compute annual savings correctly and handle invalid inputs', () => {
-      expect(FinancialToolkit.calculateAnnualSavings(500)).toBeCloseTo(6000);
-      expect(() => FinancialToolkit.calculateAnnualSavings(-500)).toThrow();
-    });
-  });
-
-  describe('determineFinancialHealth', () => {
-    it('should assess financial health correctly and handle invalid inputs', () => {
-      const result = FinancialToolkit.determineFinancialHealth(
-        5000,
-        [1000, 500, 800]
+    it('should throw a TypeError if parameters are not sets', () => {
+      expect(() => CollectionHelper.difference([], new Set([1]))).toThrow(
+        TypeError
       );
-      expect(result.income).toBe(5000);
-      expect(result.totalExpenses).toBeCloseTo(2300);
-      expect(result.savings).toBeCloseTo(2700);
-      expect(result.savingsRate).toBeCloseTo(2700 / 5000);
-      if (result.savingsRate >= 0.2) {
-        expect(result.healthStatus).toBe('Good');
-      } else if (result.savingsRate >= 0.1) {
-        expect(result.healthStatus).toBe('Average');
-      } else {
-        expect(result.healthStatus).toBe('Poor');
-      }
-      expect(() =>
-        FinancialToolkit.determineFinancialHealth(-5000, [1000, 500])
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.determineFinancialHealth(5000, 'not an array')
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.determineFinancialHealth(5000, [1000, '500'])
-      ).toThrow();
     });
   });
 
-  describe('generateBasicFinancialReport', () => {
-    it('should generate a financial report correctly and handle invalid inputs', () => {
-      const transactions = [
-        { date: '2023-01-01', description: 'Income', amount: 2000 },
-        { date: '2023-01-02', description: 'Expense', amount: -500 },
-        { date: '2023-01-03', description: 'Income', amount: 1500 },
-        { date: '2023-01-04', description: 'Expense', amount: -300 },
-      ];
-      const report =
-        FinancialToolkit.generateBasicFinancialReport(transactions);
-      expect(report.totalIncome).toBeCloseTo(3500);
-      expect(report.totalExpenses).toBeCloseTo(-800);
-      expect(report.netBalance).toBeCloseTo(3500 - 800);
-      expect(report.transactionCount).toBe(transactions.length);
+  describe('mergeMaps', () => {
+    it('should merge two maps without a merge function (mapB overwrites)', () => {
+      const mapA = new Map([
+        ['a', 1],
+        ['b', 2],
+      ]);
+      const mapB = new Map([
+        ['b', 3],
+        ['c', 4],
+      ]);
+      const merged = CollectionHelper.mergeMaps(mapA, mapB);
+      expect(merged.get('a')).toBe(1);
+      expect(merged.get('b')).toBe(3);
+      expect(merged.get('c')).toBe(4);
+      expect(merged.size).toBe(3);
+    });
 
-      expect(() =>
-        FinancialToolkit.generateBasicFinancialReport('not an array')
-      ).toThrow();
-      expect(() =>
-        FinancialToolkit.generateBasicFinancialReport([
-          { date: '2023-01-01', description: 'Test', amount: 'NaN' },
-        ])
-      ).toThrow();
+    it('should merge two maps with a merge function', () => {
+      const mapA = new Map([
+        ['a', 1],
+        ['b', 2],
+      ]);
+      const mapB = new Map([
+        ['b', 3],
+        ['c', 4],
+      ]);
+      const mergeFn = (a, b) => a + b;
+      const merged = CollectionHelper.mergeMaps(mapA, mapB, mergeFn);
+      expect(merged.get('a')).toBe(1);
+      expect(merged.get('b')).toBe(5);
+      expect(merged.get('c')).toBe(4);
+    });
+
+    it('should throw a TypeError if either parameter is not a Map', () => {
+      expect(() => CollectionHelper.mergeMaps([], new Map())).toThrow(
+        TypeError
+      );
+      expect(() => CollectionHelper.mergeMaps(new Map(), {})).toThrow(
+        TypeError
+      );
+    });
+  });
+
+  describe('mergeArrays', () => {
+    it('should merge two arrays correctly', () => {
+      const arrA = [1, 2];
+      const arrB = [3, 4];
+      const merged = CollectionHelper.mergeArrays(arrA, arrB);
+      expect(merged).toEqual([1, 2, 3, 4]);
+    });
+
+    it('should throw a TypeError if inputs are not arrays', () => {
+      expect(() => CollectionHelper.mergeArrays(1, [2])).toThrow(TypeError);
+      expect(() => CollectionHelper.mergeArrays([1], '2')).toThrow(TypeError);
+    });
+  });
+
+  describe('filterCollection', () => {
+    it('should filter an array based on the predicate', () => {
+      const array = [1, 2, 3, 4];
+      const filtered = CollectionHelper.filterCollection(
+        array,
+        (x) => x % 2 === 0
+      );
+      expect(filtered).toEqual([2, 4]);
+    });
+
+    it('should filter a set based on the predicate', () => {
+      const set = new Set([1, 2, 3, 4]);
+      const filtered = CollectionHelper.filterCollection(set, (x) => x > 2);
+      expect(filtered).toBeInstanceOf(Set);
+      expect(filtered.has(3)).toBe(true);
+      expect(filtered.has(4)).toBe(true);
+      expect(filtered.size).toBe(2);
+    });
+
+    it('should throw a TypeError if the predicate is not a function', () => {
+      expect(() => CollectionHelper.filterCollection([1, 2], null)).toThrow(
+        TypeError
+      );
+    });
+
+    it('should throw a TypeError if the collection is not supported', () => {
+      expect(() => CollectionHelper.filterCollection({}, (x) => x)).toThrow(
+        TypeError
+      );
+    });
+  });
+
+  describe('transformCollection', () => {
+    it('should transform an array correctly', () => {
+      const array = [1, 2, 3];
+      const transformed = CollectionHelper.transformCollection(
+        array,
+        (x) => x * 2
+      );
+      expect(transformed).toEqual([2, 4, 6]);
+    });
+
+    it('should transform a set correctly', () => {
+      const set = new Set([1, 2, 3]);
+      const transformed = CollectionHelper.transformCollection(
+        set,
+        (x) => x + 1
+      );
+      expect(transformed).toBeInstanceOf(Set);
+      expect(transformed.has(2)).toBe(true);
+      expect(transformed.has(3)).toBe(true);
+      expect(transformed.has(4)).toBe(true);
+      expect(transformed.size).toBe(3);
+    });
+
+    it('should throw a TypeError if transform function is not a function', () => {
+      expect(() => CollectionHelper.transformCollection([1, 2], null)).toThrow(
+        TypeError
+      );
+    });
+
+    it('should throw a TypeError if the collection type is unsupported', () => {
+      expect(() => CollectionHelper.transformCollection({}, (x) => x)).toThrow(
+        TypeError
+      );
+    });
+  });
+
+  describe('sortArray', () => {
+    it('should return a sorted copy of the array without modifying the original', () => {
+      const array = [3, 1, 2];
+      const sorted = CollectionHelper.sortArray(array, (a, b) => a - b);
+      expect(sorted).toEqual([1, 2, 3]);
+      expect(array).toEqual([3, 1, 2]); // ensure original is not modified
+    });
+
+    it('should throw a TypeError if the input is not an array', () => {
+      expect(() => CollectionHelper.sortArray(123)).toThrow(TypeError);
+    });
+  });
+
+  describe('bulk operations', () => {
+    it('addAllToSet should add new elements and return true, or false if no change', () => {
+      const setA = new Set([1]);
+      const result1 = CollectionHelper.addAllToSet(setA, [2, 3]);
+      expect(result1).toBe(true);
+      expect(setA.size).toBe(3);
+      expect(setA.has(2)).toBe(true);
+      // Adding duplicate elements should return false
+      const result2 = CollectionHelper.addAllToSet(setA, [1, 2]);
+      expect(result2).toBe(false);
+      expect(setA.size).toBe(3);
+    });
+
+    it('removeAllFromSet should remove specified elements and return true, or false if no removal', () => {
+      const setB = new Set([1, 2, 3]);
+      const result1 = CollectionHelper.removeAllFromSet(setB, [2, 4]);
+      expect(result1).toBe(true);
+      expect(setB.size).toBe(2);
+      expect(setB.has(2)).toBe(false);
+      const result2 = CollectionHelper.removeAllFromSet(setB, [5, 6]);
+      expect(result2).toBe(false);
+      expect(setB.size).toBe(2);
+    });
+
+    it('retainAllInSet should retain only the provided elements and return true if modified', () => {
+      const setC = new Set([1, 2, 3, 4]);
+      const result1 = CollectionHelper.retainAllInSet(setC, [2, 3, 5]);
+      expect(result1).toBe(true);
+      expect(setC.size).toBe(2);
+      expect(setC.has(2)).toBe(true);
+      expect(setC.has(3)).toBe(true);
+      const setD = new Set([1, 2]);
+      const result2 = CollectionHelper.retainAllInSet(setD, [1, 2, 3]);
+      expect(result2).toBe(false);
+      expect(setD.size).toBe(2);
+    });
+
+    it('should throw a TypeError for bulk operations if the first parameter is not a Set', () => {
+      expect(() => CollectionHelper.addAllToSet([], [1])).toThrow(TypeError);
+      expect(() => CollectionHelper.removeAllFromSet([], [1])).toThrow(
+        TypeError
+      );
+      expect(() => CollectionHelper.retainAllInSet([], [1])).toThrow(TypeError);
+    });
+  });
+
+  describe('getSize', () => {
+    it('should return the length for arrays', () => {
+      expect(CollectionHelper.getSize([1, 2, 3])).toBe(3);
+    });
+    it('should return the size for sets', () => {
+      expect(CollectionHelper.getSize(new Set([1, 2, 3, 4]))).toBe(4);
+    });
+    it('should return the size for maps', () => {
+      expect(
+        CollectionHelper.getSize(
+          new Map([
+            ['a', 1],
+            ['b', 2],
+          ])
+        )
+      ).toBe(2);
+    });
+    it('should throw a TypeError for unsupported collection types', () => {
+      expect(() => CollectionHelper.getSize({})).toThrow(TypeError);
+    });
+  });
+
+  describe('getReadOnlyCollection', () => {
+    it('should return a frozen array when given an array input', () => {
+      const array = [1, 2, 3];
+      const readonlyArray = CollectionHelper.getReadOnlyCollection(array);
+      expect(Object.isFrozen(readonlyArray)).toBe(true);
+      expect(readonlyArray).toEqual([1, 2, 3]);
+      expect(() => {
+        readonlyArray.push(4);
+      }).toThrow();
+    });
+
+    it('should return a read-only set when given a set input', () => {6
+      const set = new Set([1, 2, 3]);
+      const readonlySet = CollectionHelper.getReadOnlyCollection(set);
+      expect(readonlySet instanceof Set).toBe(true);
+      expect(readonlySet.has(1)).toBe(true);
+      expect(() => {
+        readonlySet.add(4);
+      }).toThrow();
+    });
+
+    it('should return a read-only map when given a map input', () => {
+      const map = new Map([
+        ['a', 1],
+        ['b', 2],
+      ]);
+      const readonlyMap = CollectionHelper.getReadOnlyCollection(map);
+      expect(readonlyMap instanceof Map).toBe(true);
+      expect(readonlyMap.get('a')).toBe(1);
+      expect(() => {
+        readonlyMap.set('c', 3);
+      }).toThrow();
+    });
+
+    it('should throw a TypeError for unsupported collection types', () => {
+      expect(() => CollectionHelper.getReadOnlyCollection({ a: 1 })).toThrow(
+        TypeError
+      );
     });
   });
 });
