@@ -1,18 +1,18 @@
 TEST SUMMARY
 ============
 
-1171947:
-base       : 1/15 tests passed [FAILED]
-correct    : 15/15 tests passed [PASSED]
-incorrect  : 12/15 tests passed [FAILED]
-model_a    : 14/15 tests passed [FAILED]
-model_b    : 14/15 tests passed [FAILED]
-model_c    : 14/15 tests passed [FAILED]
-model_d    : 13/15 tests passed [FAILED]
-model_e    : 13/15 tests passed [FAILED]
-model_f    : 12/15 tests passed [FAILED]
-model_g    : 12/15 tests passed [FAILED]
-model_h    : 12/15 tests passed [FAILED]
-model_i    : 12/15 tests passed [FAILED]
-model_j    : 13/15 tests passed [FAILED]
+1171939:
+base       : 1/13 tests passed [FAILED]
+correct    : 13/13 tests passed [PASSED]
+incorrect  : 0/13 tests passed [FAILED]
+model_a    : 0/13 tests passed [FAILED]
+model_b    : 0/13 tests passed [FAILED]
+model_c    : 1/13 tests passed [FAILED]
+model_d    : 0/13 tests passed [FAILED]
+model_e    : 0/13 tests passed [FAILED]
+model_f    : 1/13 tests passed [FAILED]
+model_g    : 1/13 tests passed [FAILED]
+model_h    : 1/13 tests passed [FAILED]
+model_i    : 1/13 tests passed [FAILED]
+model_j    : 1/13 tests passed [FAILED]
 

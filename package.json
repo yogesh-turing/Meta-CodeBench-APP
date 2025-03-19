@@ -21,6 +21,7 @@
     "jest": "^29.7.0"
   },
   "dependencies": {
+    "check-type": "^0.4.11",
     "date-fns": "^4.1.0",
     "immutable": "^5.0.3",
     "moment": "^2.30.1",

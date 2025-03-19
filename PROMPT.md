@@ -1,487 +1,545 @@
 Base Code:
 ```javascript
-class FinancialToolkit {
-  static convertCurrencyAmount(amount, fromCurrency, toCurrency, exchangeRate) {
-    return amount * exchangeRate;
+const checkType = require("check-type");
+
+function processUserActivity(data, windowDays = 30) {
+  if (!Array.isArray(data)) {
+    throw new Error("Invalid type: data must be an array");
   }
 
-  static calculateSimpleInterest(principal, rate, time) {
-    return principal * rate * time;
-  }
+  const currentDate = new Date();
+  const windowMilliseconds = windowDays * 24 * 60 * 60 * 1000;
 
-  static calculateLoanPayment(principal, annualRate, years) {
-    let monthlyRate = annualRate / 12 / 100;
-    let n = years * 12;
-    if (monthlyRate === 0) return principal / n;
-    let numerator = principal * monthlyRate * Math.pow(1 + monthlyRate, n);
-    let denominator = Math.pow(1 + monthlyRate, n) - 1;
-    return numerator / denominator;
-  }
-
-  static calculateSavingsFutureValue(principal, rate, time) {
-    return principal * Math.exp(rate * time);
-  }
-
-  static calculateTotalCost(price, taxRate) {
-    return price + taxRate;
-  }
-
-  static determineBreakEvenPoint(fixedCosts, pricePerUnit, costPerUnit) {
-    return fixedCosts / pricePerUnit - costPerUnit;
-  }
-
-  static calculatePercentageIncrease(originalValue, newValue) {
-    return (
-      ((newValue - originalValue) / ((originalValue + newValue) / 2)) * 100
-    );
-  }
-
-  static compareInvestmentOptions(initialInvestment, options) {
-    options.forEach((opt) => {
-      opt.riskAdjustedReturn = opt.expectedReturn / (opt.risk || 1);
+  function validateActivityObject(activity) {
+    // Make sure the expected types are strings in lowercase
+    return checkType(activity).matches({
+      timestamp: "string",
+      action: "string",
+      postId: "number",
+      likes: "number",
+      comments: "number",
     });
-    options.sort((a, b) => a.riskAdjustedReturn - b.riskAdjustedReturn);
-    return {
-      initialInvestment,
-      bestOption: options[0],
-      allOptions: options,
-    };
   }
 
-  static calculateDiscountedPrice(originalPrice, discountRate) {
-    if (discountRate < 0.1) return originalPrice;
-    return originalPrice * (1 - discountRate);
-  }
-
-  static calculateGrossProfit(revenue, costOfGoodsSold) {
-    if (costOfGoodsSold === undefined) costOfGoodsSold = revenue / 2;
-    return revenue - costOfGoodsSold;
-  }
-
-  static calculateDebtToIncomeRatio(totalDebt, grossIncome) {
-    if (grossIncome === 0) return totalDebt;
-    return totalDebt / grossIncome;
-  }
-
-  static estimateInsuranceCost(age, healthFactor, coverageAmount) {
-    let baseCost = coverageAmount / 1000;
-    let ageMultiplier = age < 30 ? 1 : age < 60 ? 1.5 : 2;
-    return baseCost * ageMultiplier * healthFactor;
-  }
-
-
-  static calculateAnnualSavings(monthlySaving) {
-    return monthlySaving * 12;
-  }
-
-  static determineFinancialHealth(income, expenses) {
-    let totalExpenses = 0;
-    for (let exp of expenses) {
-      totalExpenses += exp;
+  function validateUserObject(user) {
+    if (
+      !checkType(user).matches({
+        userId: "number", // Make sure "number" is a string type
+        userName: "string", // "string" is a string type
+        activity: "array", // "array" is a string type
+      })
+    ) {
+      return false;
     }
-    let savings = income - totalExpenses;
-    let savingsRate = income ? savings / income : 0;
-    let healthStatus =
-      savingsRate > 0.3 ? 'Good' : savingsRate > 0.1 ? 'Average' : 'Poor';
-    return { income, totalExpenses, savings, savingsRate, healthStatus };
+    return user.activity.every(validateActivityObject);
   }
 
-  
-  static generateBasicFinancialReport(transactions) {
-    if (!Array.isArray(transactions))
-      throw new Error('Transactions must be an array.');
-    let totalIncome = 0,
-      totalExpenses = 0;
-    transactions.forEach((tx) => {
-      if (typeof tx.amount !== 'number')
-        throw new Error('Each transaction must have a numeric amount.');
-      if (tx.amount >= 0) {
-        totalIncome += tx.amount;
-      } else {
-        totalExpenses += tx.amount;
-      }
-    });
-    const netBalance = totalIncome + totalExpenses;
-    return {
-      totalIncome,
-      totalExpenses,
-      netBalance,
-      transactionCount: transactions.length,
-    };
+  if (!data.every(validateUserObject)) {
+    throw new Error("Invalid type");
   }
+
+  const filteredData = data
+    .filter((user) => {
+      if (user.activity.length === 0) return false;
+
+      const hasNonShareActions = user.activity.some(
+        (act) => act.action !== "share"
+      );
+      if (!hasNonShareActions) return false;
+
+      const recentActivity = user.activity.some((act) => {
+        const activityDate = new Date(act.timestamp);
+        return currentDate - activityDate <= windowMilliseconds;
+      });
+
+      return recentActivity;
+    })
+    .map((user) => {
+      const sortedActivities = user.activity.sort(
+        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+      );
+
+      const totalLikes = sortedActivities.reduce(
+        (sum, act) => sum + act.likes,
+        0
+      );
+      const totalComments = sortedActivities.reduce(
+        (sum, act) => sum + act.comments,
+        0
+      );
+      const activityCount = sortedActivities.length;
+
+      const totalEngagementScore = totalLikes * 0.5 + totalComments * 0.3;
+
+      return {
+        userId: user.userId,
+        userName: user.userName,
+        totalEngagementScore,
+        activityCount,
+        avgLikes: activityCount > 0 ? totalLikes / activityCount : 0,
+        avgComments: activityCount > 0 ? totalComments / activityCount : 0,
+      };
+    });
+
+  return filteredData.sort(
+    (a, b) => b.totalEngagementScore - a.totalEngagementScore
+  );
 }
 
-module.exports = { FinancialToolkit };
+module.exports = { processUserActivity };
 
 ```
-
 Stack Trace:
 ```javascript
-Testing implementation: base_code
-========================================
- FAIL  newTAsk/index.test.js
-  FinancialToolkit
-    convertCurrencyAmount
-      ✕ should correctly convert currency and throw errors on invalid input (3 ms)
-    calculateSimpleInterest
-      ✕ should compute interest correctly and throw errors on invalid input
-    calculateLoanPayment
-      ✕ should compute monthly payment correctly and throw errors on invalid input
-    calculateSavingsFutureValue
-      ✕ should compute future value correctly and handle invalid inputs
-    calculateTotalCost
-      ✕ should compute total cost correctly and handle invalid inputs (1 ms)
-    determineBreakEvenPoint
-      ✕ should compute break-even point correctly and handle invalid inputs (1 ms)
-    calculatePercentageIncrease
-      ✕ should compute percentage increase correctly and handle invalid inputs (1 ms)
-    compareInvestmentOptions
-      ✕ should return best option and throw errors on invalid input (3 ms)
-    calculateDiscountedPrice
-      ✕ should compute discounted price correctly and handle invalid inputs
-    calculateGrossProfit
-      ✕ should compute gross profit and handle invalid inputs
-    calculateDebtToIncomeRatio
-      ✕ should compute debt-to-income ratio and handle invalid inputs
-    estimateInsuranceCost
-      ✕ should estimate insurance cost correctly and handle invalid inputs
-    calculateAnnualSavings
-      ✕ should compute annual savings correctly and handle invalid inputs (1 ms)
-    determineFinancialHealth
-      ✕ should assess financial health correctly and handle invalid inputs (1 ms)
-    generateBasicFinancialReport
-      ✓ should generate a financial report correctly and handle invalid inputs (7 ms)
-
-  ● FinancialToolkit › convertCurrencyAmount › should correctly convert currency and throw errors on invalid input
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Invalid amount/
-
-    Received function did not throw
-
-      13 |       expect(() =>
-      14 |         FinancialToolkit.convertCurrencyAmount('100', 'USD', 'EUR', 0.85)
-    > 15 |       ).toThrow(/Invalid amount/);
-         |         ^
-      16 |       // Invalid currency codes
-      17 |       expect(() =>
-      18 |         FinancialToolkit.convertCurrencyAmount(100, 123, 'EUR', 0.85)
-
-      at Object.toThrow (newTAsk/index.test.js:15:9)
-
-  ● FinancialToolkit › calculateSimpleInterest › should compute interest correctly and throw errors on invalid input
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Principal must be a non-negative number/
-
-    Received function did not throw
-
-      35 |       expect(() =>
-      36 |         FinancialToolkit.calculateSimpleInterest(-1000, 0.05, 3)
-    > 37 |       ).toThrow(/Principal must be a non-negative number/);
-         |         ^
-      38 |       expect(() =>
-      39 |         FinancialToolkit.calculateSimpleInterest(1000, -0.05, 3)
-      40 |       ).toThrow(/Rate must be a non-negative number/);
-
-      at Object.toThrow (newTAsk/index.test.js:37:9)
-
-  ● FinancialToolkit › calculateLoanPayment › should compute monthly payment correctly and throw errors on invalid input
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Principal must be a non-negative number/
-
-    Received function did not throw
-
-      55 |       expect(() =>
-      56 |         FinancialToolkit.calculateLoanPayment(-200000, 5, 30)
-    > 57 |       ).toThrow(/Principal must be a non-negative number/);
-         |         ^
-      58 |       expect(() =>
-      59 |         FinancialToolkit.calculateLoanPayment(200000, -5, 30)
-      60 |       ).toThrow(/Annual rate must be a non-negative number/);
-
-      at Object.toThrow (newTAsk/index.test.js:57:9)
-
-  ● FinancialToolkit › calculateSavingsFutureValue › should compute future value correctly and handle invalid inputs
-
-    expect(received).toBeCloseTo(expected)
-
-    Expected: 1628.8946267774422
-    Received: 1648.7212707001281
-
-    Expected precision:    2
-    Expected difference: < 0.005
-    Received difference:   19.82664392268589
-
-      69 |       expect(
-      70 |         FinancialToolkit.calculateSavingsFutureValue(1000, 0.05, 10)
-    > 71 |       ).toBeCloseTo(1000 * Math.pow(1.05, 10));
-         |         ^
-      72 |       expect(() =>
-      73 |         FinancialToolkit.calculateSavingsFutureValue(-1000, 0.05, 10)
-      74 |       ).toThrow(/Principal must be a non-negative number/);
-
-      at Object.toBeCloseTo (newTAsk/index.test.js:71:9)
-
-  ● FinancialToolkit › calculateTotalCost › should compute total cost correctly and handle invalid inputs
-
-    expect(received).toBeCloseTo(expected)
-
-    Expected: 110
-    Received: 100.1
-
-    Expected precision:    2
-    Expected difference: < 0.005
-    Received difference:   9.900000000000006
-
-      84 |   describe('calculateTotalCost', () => {
-      85 |     it('should compute total cost correctly and handle invalid inputs', () => {
-    > 86 |       expect(FinancialToolkit.calculateTotalCost(100, 0.1)).toBeCloseTo(110);
-         |                                                             ^
-      87 |       expect(() => FinancialToolkit.calculateTotalCost(-100, 0.1)).toThrow(
-      88 |         /Price must be a non-negative number/
-      89 |       );
-
-      at Object.toBeCloseTo (newTAsk/index.test.js:86:61)
-
-  ● FinancialToolkit › determineBreakEvenPoint › should compute break-even point correctly and handle invalid inputs
-
-    expect(received).toBeCloseTo(expected)
-
-    Expected: 100
-    Received: 40
-
-    Expected precision:    2
-    Expected difference: < 0.005
-    Received difference:   60
-
-       98 |       expect(
-       99 |         FinancialToolkit.determineBreakEvenPoint(1000, 20, 10)
-    > 100 |       ).toBeCloseTo(1000 / (20 - 10));
-          |         ^
-      101 |       expect(() =>
-      102 |         FinancialToolkit.determineBreakEvenPoint(-1000, 20, 10)
-      103 |       ).toThrow(/Fixed costs must be a non-negative number/);
-
-      at Object.toBeCloseTo (newTAsk/index.test.js:100:9)
-
-  ● FinancialToolkit › calculatePercentageIncrease › should compute percentage increase correctly and handle invalid inputs
-
-    expect(received).toBeCloseTo(expected)
-
-    Expected: 50
-    Received: 40
-
-    Expected precision:    2
-    Expected difference: < 0.005
-    Received difference:   10
-
-      112 |       expect(
-      113 |         FinancialToolkit.calculatePercentageIncrease(100, 150)
-    > 114 |       ).toBeCloseTo(50);
-          |         ^
-      115 |       expect(() =>
-      116 |         FinancialToolkit.calculatePercentageIncrease(0, 150)
-      117 |       ).toThrow(/Original value must be a positive number/);
-
-      at Object.toBeCloseTo (newTAsk/index.test.js:114:9)
-
-  ● FinancialToolkit › compareInvestmentOptions › should return best option and throw errors on invalid input
-
-    expect(received).toBe(expected) // Object.is equality
-
-    Expected: "Option B"
-    Received: "Option C"
-
-      129 |       expect(result).toHaveProperty('bestOption');
-      130 |       // Option B has risk-adjusted return 8/1 = 8, which is highest among these options.
-    > 131 |       expect(result.bestOption.name).toBe('Option B');
-          |                                      ^
-      132 |
-      133 |       expect(() =>
-      134 |         FinancialToolkit.compareInvestmentOptions(-1000, [])
-
-      at Object.toBe (newTAsk/index.test.js:131:38)
-
-  ● FinancialToolkit › calculateDiscountedPrice › should compute discounted price correctly and handle invalid inputs
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Original price must be a non-negative number/
-
-    Received function did not throw
-
-      150 |       expect(() =>
-      151 |         FinancialToolkit.calculateDiscountedPrice(-100, 0.2)
-    > 152 |       ).toThrow(/Original price must be a non-negative number/);
-          |         ^
-      153 |       expect(() => FinancialToolkit.calculateDiscountedPrice(100, 1.2)).toThrow(
-      154 |         /Discount rate must be a number between 0 and 1/
-      155 |       );
-
-      at Object.toThrow (newTAsk/index.test.js:152:9)
-
-  ● FinancialToolkit › calculateGrossProfit › should compute gross profit and handle invalid inputs
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Revenue must be a non-negative number/
-
-    Received function did not throw
-
-      163 |     it('should compute gross profit and handle invalid inputs', () => {
-      164 |       expect(FinancialToolkit.calculateGrossProfit(1000, 600)).toBeCloseTo(400);
-    > 165 |       expect(() => FinancialToolkit.calculateGrossProfit(-1000, 600)).toThrow(
-          |                                                                       ^
-      166 |         /Revenue must be a non-negative number/
-      167 |       );
-      168 |       expect(() => FinancialToolkit.calculateGrossProfit(1000, -600)).toThrow(
-
-      at Object.toThrow (newTAsk/index.test.js:165:71)
-
-  ● FinancialToolkit › calculateDebtToIncomeRatio › should compute debt-to-income ratio and handle invalid inputs
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Total debt must be a non-negative number/
-
-    Received function did not throw
-
-      179 |       expect(() =>
-      180 |         FinancialToolkit.calculateDebtToIncomeRatio(-200, 1000)
-    > 181 |       ).toThrow(/Total debt must be a non-negative number/);
-          |         ^
-      182 |       expect(() => FinancialToolkit.calculateDebtToIncomeRatio(200, 0)).toThrow(
-      183 |         /Gross income must be greater than zero/
-      184 |       );
-
-      at Object.toThrow (newTAsk/index.test.js:181:9)
-
-  ● FinancialToolkit › estimateInsuranceCost › should estimate insurance cost correctly and handle invalid inputs
-
-    expect(received).toBeCloseTo(expected)
-
-    Expected: 120
-    Received: 150
-
-    Expected precision:    2
-    Expected difference: < 0.005
-    Received difference:   30
-
-      192 |       expect(costYoung).toBeCloseTo(100);
-      193 |       const costMid = FinancialToolkit.estimateInsuranceCost(40, 1, 100000);
-    > 194 |       expect(costMid).toBeCloseTo(100 * 1.2);
-          |                       ^
-      195 |       const costOld = FinancialToolkit.estimateInsuranceCost(60, 1, 100000);
-      196 |       expect(costOld).toBeCloseTo(100 * 1.5);
-      197 |
-
-      at Object.toBeCloseTo (newTAsk/index.test.js:194:23)
-
-  ● FinancialToolkit › calculateAnnualSavings › should compute annual savings correctly and handle invalid inputs
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Monthly saving must be a non-negative number/
-
-    Received function did not throw
-
-      211 |     it('should compute annual savings correctly and handle invalid inputs', () => {
-      212 |       expect(FinancialToolkit.calculateAnnualSavings(500)).toBeCloseTo(6000);
-    > 213 |       expect(() => FinancialToolkit.calculateAnnualSavings(-500)).toThrow(
-          |                                                                   ^
-      214 |         /Monthly saving must be a non-negative number/
-      215 |       );
-      216 |     });
-
-      at Object.toThrow (newTAsk/index.test.js:213:67)
-
-  ● FinancialToolkit › determineFinancialHealth › should assess financial health correctly and handle invalid inputs
-
-    expect(received).toThrow(expected)
-
-    Expected pattern: /Income must be a non-negative number/
-
-    Received function did not throw
-
-      236 |       expect(() =>
-      237 |         FinancialToolkit.determineFinancialHealth(-5000, [1000, 500])
-    > 238 |       ).toThrow(/Income must be a non-negative number/);
-          |         ^
-      239 |       expect(() =>
-      240 |         FinancialToolkit.determineFinancialHealth(5000, 'not an array')
-      241 |       ).toThrow(/Expenses must be provided as an array/);
-
-      at Object.toThrow (newTAsk/index.test.js:238:9)
-
+  processUserActivity
+    ✕ should handle empty activity arrays correctly (1 ms)
+    ✕ should filter out users with no recent activity
+    ✕ should exclude "share" actions from user activity
+    ✕ should calculate total engagement score, average likes, and comments
+    ✕ should handle multiple users with varying activity counts and engagement scores
+    ✕ should handle edge case of no valid records after filtering
+    ✕ should handle edge case with all activities being "share" actions
+    ✓ should throw an error if the data is not an array (1 ms)
+    ✕ should throw an error if user object is invalid (missing userId) (9 ms)
+    ✕ should throw an error if activity object is invalid (incorrect timestamp type) (1 ms)
+    ✕ should throw an error if activity object is missing a required field (missing action) (1 ms)
+    ✕ should throw an error if activity object contains invalid likes type (should be a number) (1 ms)
+    ✕ should throw an error if activity object contains invalid comments type (should be a number) (1 ms)
+
+  ● processUserActivity › should handle empty activity arrays correctly
+
+    Unsupported type
+
+      22 |   function validateUserObject(user) {
+      23 |     if (
+    > 24 |       !checkType(user).matches({
+         |                        ^
+      25 |         userId: "number", // Make sure "number" is a string type
+      26 |         userName: "string", // "string" is a string type
+      27 |         activity: "array", // "array" is a string type
+
+      at d.is (node_modules/check-type/check-type.min.js:2:240)
+      at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+      at node_modules/check-type/check-type.min.js:2:683
+      at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+      at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+      at matches (Solution.js:24:24)
+          at Array.every (<anonymous>)
+      at every (Solution.js:35:13)
+      at Object.processUserActivity (WordCloud.test.js:13:20)
+
+  ● processUserActivity › should filter out users with no recent activity
+
+    Unsupported type
+
+      22 |   function validateUserObject(user) {
+      23 |     if (
+    > 24 |       !checkType(user).matches({
+         |                        ^
+      25 |         userId: "number", // Make sure "number" is a string type
+      26 |         userName: "string", // "string" is a string type
+      27 |         activity: "array", // "array" is a string type
+
+      at d.is (node_modules/check-type/check-type.min.js:2:240)
+      at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+      at node_modules/check-type/check-type.min.js:2:683
+      at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+      at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+      at matches (Solution.js:24:24)
+          at Array.every (<anonymous>)
+      at every (Solution.js:35:13)
+      at Object.processUserActivity (WordCloud.test.js:47:20)
+
+  ● processUserActivity › should exclude "share" actions from user activity
+
+    Unsupported type
+
+      22 |   function validateUserObject(user) {
+      23 |     if (
+    > 24 |       !checkType(user).matches({
+         |                        ^
+      25 |         userId: "number", // Make sure "number" is a string type
+      26 |         userName: "string", // "string" is a string type
+      27 |         activity: "array", // "array" is a string type
+
+      at d.is (node_modules/check-type/check-type.min.js:2:240)
+      at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+      at node_modules/check-type/check-type.min.js:2:683
+      at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+      at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+      at matches (Solution.js:24:24)
+          at Array.every (<anonymous>)
+      at every (Solution.js:35:13)
+      at Object.processUserActivity (WordCloud.test.js:84:20)
+
+  ● processUserActivity › should calculate total engagement score, average likes, and comments
+
+    Unsupported type
+
+      22 |   function validateUserObject(user) {
+      23 |     if (
+    > 24 |       !checkType(user).matches({
+         |                        ^
+      25 |         userId: "number", // Make sure "number" is a string type
+      26 |         userName: "string", // "string" is a string type
+      27 |         activity: "array", // "array" is a string type
+
+      at d.is (node_modules/check-type/check-type.min.js:2:240)
+      at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+      at node_modules/check-type/check-type.min.js:2:683
+      at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+      at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+      at matches (Solution.js:24:24)
+          at Array.every (<anonymous>)
+      at every (Solution.js:35:13)
+      at Object.processUserActivity (WordCloud.test.js:121:20)
+
+  ● processUserActivity › should handle multiple users with varying activity counts and engagement scores
+
+    Unsupported type
+
+      22 |   function validateUserObject(user) {
+      23 |     if (
+    > 24 |       !checkType(user).matches({
+         |                        ^
+      25 |         userId: "number", // Make sure "number" is a string type
+      26 |         userName: "string", // "string" is a string type
+      27 |         activity: "array", // "array" is a string type
+
+      at d.is (node_modules/check-type/check-type.min.js:2:240)
+      at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+      at node_modules/check-type/check-type.min.js:2:683
+      at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+      at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+      at matches (Solution.js:24:24)
+          at Array.every (<anonymous>)
+      at every (Solution.js:35:13)
+      at Object.processUserActivity (WordCloud.test.js:171:20)
+
+  ● processUserActivity › should handle edge case of no valid records after filtering
+
+    Unsupported type
+
+      22 |   function validateUserObject(user) {
+      23 |     if (
+    > 24 |       !checkType(user).matches({
+         |                        ^
+      25 |         userId: "number", // Make sure "number" is a string type
+      26 |         userName: "string", // "string" is a string type
+      27 |         activity: "array", // "array" is a string type
+
+      at d.is (node_modules/check-type/check-type.min.js:2:240)
+      at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+      at node_modules/check-type/check-type.min.js:2:683
+      at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+      at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+      at matches (Solution.js:24:24)
+          at Array.every (<anonymous>)
+      at every (Solution.js:35:13)
+      at Object.processUserActivity (WordCloud.test.js:209:20)
+
+  ● processUserActivity › should handle edge case with all activities being "share" actions
+
+    Unsupported type
+
+      22 |   function validateUserObject(user) {
+      23 |     if (
+    > 24 |       !checkType(user).matches({
+         |                        ^
+      25 |         userId: "number", // Make sure "number" is a string type
+      26 |         userName: "string", // "string" is a string type
+      27 |         activity: "array", // "array" is a string type
+
+      at d.is (node_modules/check-type/check-type.min.js:2:240)
+      at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+      at node_modules/check-type/check-type.min.js:2:683
+      at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+      at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+      at matches (Solution.js:24:24)
+          at Array.every (<anonymous>)
+      at every (Solution.js:35:13)
+      at Object.processUserActivity (WordCloud.test.js:230:20)
+
+  ● processUserActivity › should throw an error if user object is invalid (missing userId)
+
+    expect(received).toThrowError(expected)
+
+    Expected substring: "Invalid type"
+    Received message:   "Unsupported type"
+
+          22 |   function validateUserObject(user) {
+          23 |     if (
+        > 24 |       !checkType(user).matches({
+             |                        ^
+          25 |         userId: "number", // Make sure "number" is a string type
+          26 |         userName: "string", // "string" is a string type
+          27 |         activity: "array", // "array" is a string type
+
+          at d.is (node_modules/check-type/check-type.min.js:2:240)
+          at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+          at node_modules/check-type/check-type.min.js:2:683
+          at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+          at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+          at matches (Solution.js:24:24)
+              at Array.every (<anonymous>)
+          at every (Solution.js:35:13)
+          at processUserActivity (WordCloud.test.js:259:18)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrowError] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrowError (WordCloud.test.js:259:46)
+
+      257 |     ];
+      258 |
+    > 259 |     expect(() => processUserActivity(input)).toThrowError("Invalid type");
+          |                                              ^
+      260 |   });
+      261 |
+      262 |   it("should throw an error if activity object is invalid (incorrect timestamp type)", () => {
+
+      at Object.toThrowError (WordCloud.test.js:259:46)
+
+  ● processUserActivity › should throw an error if activity object is invalid (incorrect timestamp type)
+
+    expect(received).toThrowError(expected)
+
+    Expected substring: "Invalid type"
+    Received message:   "Unsupported type"
+
+          22 |   function validateUserObject(user) {
+          23 |     if (
+        > 24 |       !checkType(user).matches({
+             |                        ^
+          25 |         userId: "number", // Make sure "number" is a string type
+          26 |         userName: "string", // "string" is a string type
+          27 |         activity: "array", // "array" is a string type
+
+          at d.is (node_modules/check-type/check-type.min.js:2:240)
+          at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+          at node_modules/check-type/check-type.min.js:2:683
+          at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+          at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+          at matches (Solution.js:24:24)
+              at Array.every (<anonymous>)
+          at every (Solution.js:35:13)
+          at processUserActivity (WordCloud.test.js:279:18)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrowError] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrowError (WordCloud.test.js:279:46)
+
+      277 |     ];
+      278 |
+    > 279 |     expect(() => processUserActivity(input)).toThrowError("Invalid type");
+          |                                              ^
+      280 |   });
+      281 |
+      282 |   it("should throw an error if activity object is missing a required field (missing action)", () => {
+
+      at Object.toThrowError (WordCloud.test.js:279:46)
+
+  ● processUserActivity › should throw an error if activity object is missing a required field (missing action)
+
+    expect(received).toThrowError(expected)
+
+    Expected substring: "Invalid type"
+    Received message:   "Unsupported type"
+
+          22 |   function validateUserObject(user) {
+          23 |     if (
+        > 24 |       !checkType(user).matches({
+             |                        ^
+          25 |         userId: "number", // Make sure "number" is a string type
+          26 |         userName: "string", // "string" is a string type
+          27 |         activity: "array", // "array" is a string type
+
+          at d.is (node_modules/check-type/check-type.min.js:2:240)
+          at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+          at node_modules/check-type/check-type.min.js:2:683
+          at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+          at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+          at matches (Solution.js:24:24)
+              at Array.every (<anonymous>)
+          at every (Solution.js:35:13)
+          at processUserActivity (WordCloud.test.js:298:18)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrowError] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrowError (WordCloud.test.js:298:46)
+
+      296 |     ];
+      297 |
+    > 298 |     expect(() => processUserActivity(input)).toThrowError("Invalid type");
+          |                                              ^
+      299 |   });
+      300 |
+      301 |   it("should throw an error if activity object contains invalid likes type (should be a number)", () => {
+
+      at Object.toThrowError (WordCloud.test.js:298:46)
+
+  ● processUserActivity › should throw an error if activity object contains invalid likes type (should be a number)
+
+    expect(received).toThrowError(expected)
+
+    Expected substring: "Invalid type"
+    Received message:   "Unsupported type"
+
+          22 |   function validateUserObject(user) {
+          23 |     if (
+        > 24 |       !checkType(user).matches({
+             |                        ^
+          25 |         userId: "number", // Make sure "number" is a string type
+          26 |         userName: "string", // "string" is a string type
+          27 |         activity: "array", // "array" is a string type
+
+          at d.is (node_modules/check-type/check-type.min.js:2:240)
+          at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+          at node_modules/check-type/check-type.min.js:2:683
+          at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+          at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+          at matches (Solution.js:24:24)
+              at Array.every (<anonymous>)
+          at every (Solution.js:35:13)
+          at processUserActivity (WordCloud.test.js:318:18)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrowError] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrowError (WordCloud.test.js:318:46)
+
+      316 |     ];
+      317 |
+    > 318 |     expect(() => processUserActivity(input)).toThrowError("Invalid type");
+          |                                              ^
+      319 |   });
+      320 |
+      321 |   it("should throw an error if activity object contains invalid comments type (should be a number)", () => {
+
+      at Object.toThrowError (WordCloud.test.js:318:46)
+
+  ● processUserActivity › should throw an error if activity object contains invalid comments type (should be a number)
+
+    expect(received).toThrowError(expected)
+
+    Expected substring: "Invalid type"
+    Received message:   "Unsupported type"
+
+          22 |   function validateUserObject(user) {
+          23 |     if (
+        > 24 |       !checkType(user).matches({
+             |                        ^
+          25 |         userId: "number", // Make sure "number" is a string type
+          26 |         userName: "string", // "string" is a string type
+          27 |         activity: "array", // "array" is a string type
+
+          at d.is (node_modules/check-type/check-type.min.js:2:240)
+          at Function.d.is.not (node_modules/check-type/check-type.min.js:2:317)
+          at node_modules/check-type/check-type.min.js:2:683
+          at Function.Object.<anonymous>._.each._.forEach (node_modules/check-type/node_modules/underscore/underscore.js:87:22)
+          at Object.d.matches (node_modules/check-type/check-type.min.js:2:651)
+          at matches (Solution.js:24:24)
+              at Array.every (<anonymous>)
+          at every (Solution.js:35:13)
+          at processUserActivity (WordCloud.test.js:338:18)
+          at Object.<anonymous> (node_modules/expect/build/toThrowMatchers.js:74:11)
+          at Object.throwingMatcher [as toThrowError] (node_modules/expect/build/index.js:320:21)
+          at Object.toThrowError (WordCloud.test.js:338:46)
+
+      336 |     ];
+      337 |
+    > 338 |     expect(() => processUserActivity(input)).toThrowError("Invalid type");
+          |                                              ^
+      339 |   });
+      340 | });
+      341 |
+
+      at Object.toThrowError (WordCloud.test.js:338:46)
 Test Suites: 1 failed, 1 total
-Tests:       14 failed, 1 passed, 15 total
+Tests:       12 failed, 1 passed, 13 total
 Snapshots:   0 total
-Time:        0.484 s, estimated 1 s
-Ran all test suites matching /newTAsk/i.
+Time:        0.202 s, estimated 1 s
+Ran all test suites.
 ```
 
 Prompt:
-I am developing a FinancialToolkit class in JavaScript to handle various financial calculations. However, during testing, the class is failing multiple tests as detailed below. I need help to address these issues, with examples provided for clarity:
+Please fix the bug/errors in the code as per detailed below and have the type check using `check-type` methods.
 
-- convertCurrencyAmount: Fails to throw errors for invalid inputs.
-    - Input: FinancialToolkit.convertCurrencyAmount('100', 'USD', 'EUR', 0.85)
-    - Expected: Throw an error indicating "Invalid amount."
 
-- calculateSimpleInterest: Does not throw an error when invalid values are provided.
-    - Input: FinancialToolkit.calculateSimpleInterest(-1000, 0.05, 3)
-    - Expected: Throw an error indicating "Principal must be a non-negative number."
+`processUserActivity` function:
+-  Input Data Structure:
 
-- calculateLoanPayment: Fails to throw an error for negative principal or annual rate, or zero years.
-    - Input: FinancialToolkit.calculateLoanPayment(-200000, 5, 30)
-    - Expected: Throw an error indicating "Principal must be a non-negative number."
+	 An array of objects with the following structure:
 
-- calculateSavingsFutureValue: Incorrect future value calculation.
-    - Input: FinancialToolkit.calculateSavingsFutureValue(1000, 0.05, 10)
-    - Expected: Correctly calculate future value to be close to 1628.89, but the function returns 1648.72.
+	-   `userId`: Integer, representing the unique ID of the user.
+	-   `userName`: String, representing the username.
+	-   `activity`: Array of objects representing individual user activities. Each activity object has:
+	    -   `timestamp`: ISO 8601 date string, e.g., `"2025-03-18T08:30:00Z"`, representing the time of the activity.
+	    -   `action`: String, representing the type of action the user performed (e.g., "like", "comment", "share").
+	    -   `postId`: Integer, the ID of the post the user interacted with.
+	    -   `likes`: Integer, the number of likes received for that post at the time of the action.
+	    -   `comments`: Integer, the number of comments received for that post at the time of the action.
+        - if the type of the fields in the structure is not valid type as defined then raise error ,"Invalid type"
 
-- calculateTotalCost: Incorrect total cost calculation when tax is applied.
-    - Input: FinancialToolkit.calculateTotalCost(100, 0.1)
-    - Expected: 110.
+Logic:
 
-- determineBreakEvenPoint: Incorrect break-even point calculation.
-    - Input: FinancialToolkit.determineBreakEvenPoint(1000, 20, 10)
-    - Expected: 100, but the function returns 40.
+1.  **Filter the Records**:
+    
+    -   filter out records where the `activity` array is empty or contains only "share" actions.
+    -   Filter out users who have no interactions in the last 30 days from the current date.
+2.  **Group Activities by User**:
+    
+    -   Group the activities by `userId` and aggregate the activities into a list of actions performed by each user. Each group should be sorted by `timestamp` in ascending order.
+3.  **Calculate User Engagement**:
+    
+    -   Calculate the total `likes` and `comments` across all activities for each user, and calculate an average engagement score for each user as:
+        -   `engagement_score = (total_likes * 0.5) + (total_comments * 0.3)`
+4.  **Summarize User Activity(Taking the filtered dataset)**:
+    
+    -   For each user, return an object that contains:
+        -   `userId`
+        -   `userName`
+        -   `totalEngagementScore`
+        -   `activityCount`: The number of activities the user performed.
+        -   `avgLikes`: The average number of likes per activity.
+        -   `avgComments`: The average number of comments per activity.
+5.  **Sort the Users**:
+    
+    -   Return the list of users sorted by `totalEngagementScore` in descending order.
+6.  **Return the Output**:
+    
+    -   The output should be an array of objects, each representing a user and their summarized activity statistics.
 
-- calculatePercentageIncrease: Incorrect percentage increase calculation.
-    - Input: FinancialToolkit.calculatePercentageIncrease(100, 150)
-    - Expected: 50, but the function returns 40.
+Here is Summarize User Activity test case which is failing:
+```javascript
+it('should exclude "share" actions from user activity', () => {
+    const input = [
+      {
+        userId: 1,
+        userName: "user_1",
+        activity: [
+          {
+            timestamp: "2025-03-18T12:00:00Z",
+            action: "like",
+            postId: 101,
+            likes: 30,
+            comments: 5,
+          },
+          {
+            timestamp: "2025-03-18T13:00:00Z",
+            action: "share",
+            postId: 102,
+            likes: 0,
+            comments: 0,
+          },
+        ],
+      },
+    ];
 
-- compareInvestmentOptions: Incorrect identification of the best investment option.
-    - Input: Options array where Option B should be best based on risk-adjusted returns.
-    - Expected: Option B, but the function returns Option C.
-
-- calculateDiscountedPrice: Fails to handle invalid discount rates.
-    - Input: FinancialToolkit.calculateDiscountedPrice(100, -0.1)
-    - Expected: Throw an error indicating "Discount rate must be between 0 and 1."
-
-- calculateGrossProfit: Does not handle negative inputs as expected.
-    - Input: FinancialToolkit.calculateGrossProfit(-1000, 600)
-    - Expected: Throw an error indicating "Revenue must be a non-negative number."
-
-- calculateDebtToIncomeRatio: Fails to handle negative total debt and zero gross income.
-    - Input: FinancialToolkit.calculateDebtToIncomeRatio(-200, 1000)
-    - Expected: Throw an error indicating "Total debt must be a non-negative number."
-
-- estimateInsuranceCost: Incorrect insurance cost calculation for different age multipliers.
-    - Input: FinancialToolkit.estimateInsuranceCost(40, 1, 100000)
-    - Expected: 120, but the function returns 150.
-
-- calculateAnnualSavings: Does not throw an error for negative monthly savings.
-    - Input: FinancialToolkit.calculateAnnualSavings(-500)
-    - Expected: Throw an error indicating "Monthly saving must be a non-negative number."
-
-- determineFinancialHealth:Fails to handle negative income and non-array expenses.
-    - Input: FinancialToolkit.determineFinancialHealth(-5000, [1000, 500])
-    - Expected: Throw an error indicating "Income must be a non-negative number."
-
-can you help me to fix those issues ?
+    const result = processUserActivity(input);
+    expect(result).toEqual([
+      {
+        userId: 1,
+        userName: "user_1",
+        totalEngagementScore: 16.5,
+        activityCount: 1,
+        avgLikes: 30,
+        avgComments: 5,
+      },
+    ]);
+  });
+```
