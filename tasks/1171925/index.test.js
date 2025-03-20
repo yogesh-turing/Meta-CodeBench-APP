@@ -1,78 +1,236 @@
-const { ReservationSystem } = require('./model_a');
+const { BusScheduleSystem } = require('./model_c');
 
-describe("Reservation System", () => {
-    let system;
+describe("BusScheduleSystem", () => {
+  let busSystem;
 
-    beforeEach(() => {
-        system = new ReservationSystem();
+  beforeEach(() => {
+    busSystem = new BusScheduleSystem();
+  });
+
+  describe("createBusSchedule", () => {
+    it("should create a bus schedule successfully", () => {
+      const schedule = busSystem.createBusSchedule({
+        scheduleId: "1",
+        route: "Route 101",
+        busId: "B123",
+        departureTime: "2025-06-15 08:00:00",
+        arrivalTime: "2025-06-15 10:00:00",
+        stops: [
+          { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+          { stopId: "S2", stopName: "Park Avenue", stopTime: "09:00:00" },
+        ],
+        status: "scheduled",
+      });
+
+      expect(schedule).toHaveProperty("scheduleId", "1");
+      expect(schedule).toHaveProperty("route", "Route 101");
+      expect(busSystem.schedules.length).toBe(1);
     });
 
-    test("Should successfully book a room and store the reservation", () => {
-        const result = system.bookRoom("alice", "B202", "2025-03-25", "10:00", "12:00");
-        expect(result).toBe(true);
-
-        // Check reservation was actually stored
-        const bookings = system.getRoomBookings("B202", "2025-03-25");
-        expect(bookings.length).toBe(1);
-        expect(bookings[0]).toMatchObject({ user: "alice", startTime: "10:00", endTime: "12:00" });
+    it("should throw error for invalid departureTime format", () => {
+      expect(() => {
+        busSystem.createBusSchedule({
+          scheduleId: "1",
+          route: "Route 101",
+          busId: "B123",
+          departureTime: "invalid-time",
+          arrivalTime: "2025-06-15 10:00:00",
+          stops: [
+            { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+          ],
+          status: "scheduled",
+        });
+      }).toThrowError("Invalid date-time format");
     });
 
-    test.only("Should fail to book a full room", () => {
-        system.bookRoom("alice", "B202", "2025-03-25", "10:00", "12:00");
-        system.bookRoom("bob", "B202", "2025-03-25", "10:00", "12:00");
-        const result = system.bookRoom("charlie", "B202", "2025-03-25", "10:00", "12:00");
-        
-        expect(result).toBe(false);
-        
-        // Verify no extra reservation exists
-        const bookings = system.getRoomBookings("B202", "2025-03-25");
-        expect(bookings.length).toBe(2);
+    it("should throw error for invalid stopTime format", () => {
+      expect(() => {
+        busSystem.createBusSchedule({
+          scheduleId: "1",
+          route: "Route 101",
+          busId: "B123",
+          departureTime: "2025-06-15 08:00:00",
+          arrivalTime: "2025-06-15 10:00:00",
+          stops: [
+            {
+              stopId: "S1",
+              stopName: "Central Station",
+              stopTime: "invalid-time",
+            },
+          ],
+          status: "scheduled",
+        });
+      }).toThrowError("Invalid stop time format");
     });
 
-    test("Should cancel a booking and remove it from the list", () => {
-        system.bookRoom("alice", "B202", "2025-03-25", "10:00", "12:00");
-        const result = system.cancelBooking("alice", "B202", "2025-03-25", "10:00");
-        
-        expect(result).toBe(true);
+    it("should throw error for invalid status", () => {
+      expect(() => {
+        busSystem.createBusSchedule({
+          scheduleId: "1",
+          route: "Route 101",
+          busId: "B123",
+          departureTime: "2025-06-15 08:00:00",
+          arrivalTime: "2025-06-15 10:00:00",
+          stops: [
+            { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+          ],
+          status: "invalid-status",
+        });
+      }).toThrowError("Invalid schedule status");
+    });
+  });
 
-        // Verify booking is removed
-        const bookings = system.getRoomBookings("B202", "2025-03-25");
-        expect(bookings.length).toBe(0);
+  describe("updateBusSchedule", () => {
+    it("should throw error if schedule does not exist", () => {
+      // This case is already covered, but it will explicitly cover line 80
+      expect(() => {
+        busSystem.updateBusSchedule("nonexistent-id", { status: "ongoing" });
+      }).toThrowError("Schedule not found");
     });
 
-    test("Should not cancel a non-existent booking", () => {
-        const result = system.cancelBooking("alice", "B202", "2025-03-25", "10:00");
-        expect(result).toBe(false);
+    it("should throw error if no changes are detected", () => {
+      // This case is already covered, but it will explicitly cover lines 86 and 91-95
+      busSystem.createBusSchedule({
+        scheduleId: "1",
+        route: "Route 101",
+        busId: "B123",
+        departureTime: "2025-06-15 08:00:00",
+        arrivalTime: "2025-06-15 10:00:00",
+        stops: [
+          { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+        ],
+        status: "scheduled",
+      });
+
+      expect(() => {
+        // Attempting to update with the same values, which should trigger the "No changes detected" error
+        busSystem.updateBusSchedule("1", {
+          departureTime: "2025-06-15 08:00:00", // Same value
+          arrivalTime: "2025-06-15 10:00:00", // Same value
+          stops: [
+            { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" }, // Same value
+          ],
+          status: "scheduled", // Same value
+        });
+      }).toThrowError("No changes detected");
     });
 
-    test("Should not cancel within 24 hours", () => {
-        jest.useFakeTimers().setSystemTime(new Date("2025-03-24T09:00:00"));
-        system.bookRoom("alice", "B202", "2025-03-25", "10:00", "12:00");
+    it("should throw error if no changes are detected", () => {
+      // This case is already covered, but it will explicitly cover lines 86 and 91-95
+      busSystem.createBusSchedule({
+        scheduleId: "1",
+        route: "Route 101",
+        busId: "B123",
+        departureTime: "2025-06-15 08:00:00",
+        arrivalTime: "2025-06-15 10:00:00",
+        stops: [
+          { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+        ],
+        status: "scheduled",
+      });
 
-        jest.useFakeTimers().setSystemTime(new Date("2025-03-25T08:00:00")); // Only 2 hours left
-        const result = system.cancelBooking("alice", "B202", "2025-03-25", "10:00");
-        
-        expect(result).toBe(false);
-        jest.useRealTimers();
+      expect(() => {
+        // Attempting to update with the same values, which should trigger the "No changes detected" error
+        busSystem.updateBusSchedule("1", {
+          departureTime: "2025-06-15 08:00:00", // Same value
+          arrivalTime: "2025-06-15 10:00:00", // Same value
+          stops: [
+            { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" }, // Same value
+          ],
+          status: "scheduled", // Same value
+        });
+      }).toThrowError("No changes detected");
     });
 
-    test("Should reschedule a booking correctly", () => {
-        system.bookRoom("alice", "B202", "2025-03-25", "10:00", "12:00");
-        const result = system.rescheduleBooking("alice", "B202", "2025-03-25", "10:00", "2025-03-26", "11:00", "13:00");
+    
+    it("should update bus schedule successfully and merge details", () => {
+      busSystem.createBusSchedule({
+        scheduleId: "1",
+        route: "Route 101",
+        busId: "B123",
+        departureTime: "2025-06-15 08:00:00",
+        arrivalTime: "2025-06-15 10:00:00",
+        stops: [
+          { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+        ],
+        status: "scheduled",
+      });
 
-        expect(result).toBe(true);
+      const updatedSchedule = busSystem.updateBusSchedule("1", {
+        route: "Route 102", // Change the route
+        departureTime: "2025-06-15 09:00:00", // Change the departure time
+      });
 
-        // Ensure old booking was removed
-        expect(system.getRoomBookings("B202", "2025-03-25").length).toBe(0);
+      expect(updatedSchedule.route).toBe("Route 102");
+      expect(updatedSchedule.departureTime).toBe("2025-06-15 09:00:00");
+      expect(updatedSchedule.scheduleId).toBe("1"); // Ensure the scheduleId remains the same
+    });
+  });
 
-        // Ensure new booking was added
-        const newBookings = system.getRoomBookings("B202", "2025-03-26");
-        expect(newBookings.length).toBe(1);
-        expect(newBookings[0]).toMatchObject({ user: "alice", startTime: "11:00", endTime: "13:00" });
+  describe("getBusScheduleById", () => {
+    it("should return bus schedule by scheduleId", () => {
+      busSystem.createBusSchedule({
+        scheduleId: "1",
+        route: "Route 101",
+        busId: "B123",
+        departureTime: "2025-06-15 08:00:00",
+        arrivalTime: "2025-06-15 10:00:00",
+        stops: [
+          { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+        ],
+        status: "scheduled",
+      });
+
+      const schedule = busSystem.getBusScheduleById("1");
+      expect(schedule.scheduleId).toBe("1");
     });
 
-    test("Should not reschedule if the original booking doesn't exist", () => {
-        const result = system.rescheduleBooking("alice", "B202", "2025-03-25", "10:00", "2025-03-26", "11:00", "13:00");
-        expect(result).toBe(false);
+    it("should throw error if scheduleId does not exist", () => {
+      expect(() => {
+        busSystem.getBusScheduleById("nonexistent-id");
+      }).toThrowError("Schedule not found");
     });
+  });
+
+  describe("getSchedulesByStatus", () => {
+    it("should return schedules with a specific status", () => {
+      busSystem.createBusSchedule({
+        scheduleId: "1",
+        route: "Route 101",
+        busId: "B123",
+        departureTime: "2025-06-15 08:00:00",
+        arrivalTime: "2025-06-15 10:00:00",
+        stops: [
+          { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
+        ],
+        status: "scheduled",
+      });
+
+      busSystem.createBusSchedule({
+        scheduleId: "2",
+        route: "Route 102",
+        busId: "B124",
+        departureTime: "2025-06-15 09:00:00",
+        arrivalTime: "2025-06-15 11:00:00",
+        stops: [
+          { stopId: "S2", stopName: "Park Avenue", stopTime: "09:30:00" },
+        ],
+        status: "completed",
+      });
+
+      const scheduledSchedules = busSystem.getSchedulesByStatus("scheduled");
+      expect(scheduledSchedules.length).toBe(1);
+      expect(scheduledSchedules[0].scheduleId).toBe("1");
+
+      const completedSchedules = busSystem.getSchedulesByStatus("completed");
+      expect(completedSchedules.length).toBe(1);
+      expect(completedSchedules[0].scheduleId).toBe("2");
+    });
+
+    it("should throw error for invalid status", () => {
+      expect(() => {
+        busSystem.getSchedulesByStatus("invalid-status");
+      }).toThrowError("Invalid schedule status");
+    });
+  });
 });

@@ -1,71 +1,113 @@
-class ReservationSystem {
+const R = require("ramda");
+
+class BusScheduleSystem {
   constructor() {
-      this.reservations = []; // Store reservations
-      this.rooms = {
-          "A101": 1, // Private room (only one booking allowed)
-          "B202": 2  // Shared room (two users can book)
-      };
+    this.schedules = [];
   }
 
-  bookRoom(user, room, date, startTime, endTime) {
-      const reservationStart = new Date(`${date} ${startTime}`);
-      const reservationEnd = new Date(`${date} ${endTime}`);
-
-      if (reservationStart < new Date()) {
-          return false;
-      }
-
-      let count = 0;
-      for (let res of this.reservations) {
-          if (res.room === room && res.date === date) {
-              const existingStart = new Date(`${res.date} ${res.startTime}`);
-              const existingEnd = new Date(`${res.date} ${res.endTime}`);
-
-              if (
-                  (reservationStart < existingEnd && reservationEnd > existingStart)
-              ) {
-                  count++;
-                  if (count >= this.rooms[room]) {
-                      return false;
-                  }
-              }
-          }
-      }
-
-      this.reservations.push({ user, room, date, startTime, endTime });
-      return true;
+  isValidDateTime(dateTimeString) {
+    return /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(dateTimeString);
   }
 
-  cancelBooking(user, room, date, startTime) {
-      const now = new Date();
-      const reservation = this.reservations.find(res =>
-          res.user === user && res.room === room && res.date === date && res.startTime === startTime
-      );
-
-      if (!reservation) {
-          return false;
-      }
-
-      const reservationTime = new Date(`${date} ${startTime}`);
-      const hoursDiff = (reservationTime - now) / (1000 * 60 * 60);
-
-      if (hoursDiff < 24) {
-          return false;
-      }
-
-      this.reservations = this.reservations.filter(res => res !== reservation);
-      return true;
+  isValidStopTime(stopTime) {
+    return /^\d{2}:\d{2}:\d{2}$/.test(stopTime);
   }
 
-  rescheduleBooking(user, room, oldDate, oldStartTime, newDate, newStartTime, newEndTime) {
-      const success = this.cancelBooking(user, room, oldDate, oldStartTime);
-      if (!success) return false;
-      return this.bookRoom(user, room, newDate, newStartTime, newEndTime);
+  isValidStatus(status) {
+    return ["scheduled", "ongoing", "completed"].includes(status);
   }
 
-  getRoomBookings(room, date) {
-      return this.reservations.filter(res => res.room === room && res.date === date);
+  createBusSchedule({
+    scheduleId,
+    route,
+    busId,
+    departureTime,
+    arrivalTime,
+    stops,
+    status,
+  }) {
+    if (
+      !this.isValidDateTime(departureTime) ||
+      !this.isValidDateTime(arrivalTime)
+    ) {
+      throw new Error("Invalid date-time format");
+    }
+    if (!R.all((stop) => this.isValidStopTime(stop.stopTime), stops)) {
+      throw new Error("Invalid stop time format");
+    }
+    if (!this.isValidStatus(status)) {
+      throw new Error("Invalid schedule status");
+    }
+
+    const schedule = {
+      scheduleId,
+      route,
+      busId,
+      departureTime,
+      arrivalTime,
+      stops,
+      status,
+    };
+
+    this.schedules.push(schedule);
+    return schedule;
+  }
+
+  updateBusSchedule(scheduleId, updatedDetails) {
+    const scheduleIndex = R.findIndex(
+      R.propEq("scheduleId", scheduleId),
+      this.schedules
+    );
+    if (scheduleIndex === -1) throw new Error("Schedule not found");
+
+    const existingSchedule = this.schedules[scheduleIndex];
+
+    const validateDetails = (details) => {
+      if (
+        details.departureTime &&
+        !this.isValidDateTime(details.departureTime)
+      ) {
+        throw new Error("Invalid date-time format");
+      }
+      if (details.arrivalTime && !this.isValidDateTime(details.arrivalTime)) {
+        throw new Error("Invalid date-time format");
+      }
+      if (
+        details.stops &&
+        !R.all((stop) => this.isValidStopTime(stop.stopTime), details.stops)
+      ) {
+        throw new Error("Invalid stop time format");
+      }
+      if (details.status && !this.isValidStatus(details.status)) {
+        throw new Error("Invalid schedule status");
+      }
+    };
+
+    validateDetails(updatedDetails);
+
+    const updatedSchedule = R.mergeRight(existingSchedule, updatedDetails);
+
+    if (R.equals(existingSchedule, updatedSchedule)) {
+      throw new Error("No changes detected");
+    }
+
+    this.schedules[scheduleIndex] = updatedSchedule;
+    return updatedSchedule;
+  }
+
+  getBusScheduleById(scheduleId) {
+    const schedule = R.find(R.propEq("scheduleId", scheduleId), this.schedules);
+    if (!schedule) throw new Error("Schedule not found");
+    return schedule;
+  }
+
+  getSchedulesByStatus(status) {
+    if (!this.isValidStatus(status)) throw new Error("Invalid schedule status");
+    return R.pipe(
+      R.filter(R.propEq("status", status)),
+      R.sortBy(R.prop("departureTime"))
+    )(this.schedules);
   }
 }
 
-module.exports = { ReservationSystem };
+module.exports = { BusScheduleSystem };
