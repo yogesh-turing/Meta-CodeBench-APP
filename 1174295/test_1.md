@@ -109,30 +109,24 @@ const ChildComponent = () => {
 
 Team leader provided following code review comments:   
 
-    ### Code Review
+    1. **Inefficient Data Processing**: In `ChildComponent`, sorting and filtering are done inside a `useEffect` hook, which can be inefficient. This sorting and filtering logic should be moved outside of the `useEffect` and only be triggered when necessary. Additionally, sorting and filtering should ideally be done in the Redux action or selector if the sorted/filtered data is used elsewhere.
 
-      1. **Resource Leaks in `fetchData`:**
-        - In the `App` component, you use `useEffect` to fetch data, but there is no cleanup or error handling. If the fetch fails, it's not handled which might cause unhandled promise rejections. Consider adding error handling logic and proper cleanup if necessary.
+    2. **Incorrect Syntax for JSX**: In `ChildComponent`, the `map` function is missing a closing parenthesis for its callback function. It should be `data.map(item => ( ... ))`. This is a syntax error that will prevent the component from rendering correctly.
 
-      2. **Inefficient Sorting and Filtering:**
-        - The `ChildComponent` does unnecessary sort and filter operations within the `useEffect` hook on every render. Sorting should only occur once when the data changes, and filtering should be part of data processing if relevant to the UI display.
-        
-      3. **Typo in Fetch URL:**
-        - In the `App` component, there is a stray word "file" next to `await fetch('/data.json');`, which seems to be an error. This is a syntax issue and should be removed to ensure the fetch call operates correctly.
+    3. **Error Handling for Fetch**: In `App`, the `fetchData` function lacks error handling. It’s important to handle potential errors during data fetching to prevent the application from crashing and to provide feedback to the user. Use try-catch blocks for async operations.
 
-      4. **JSX Syntax Error:**
-        - In `ChildComponent`, there is a missing arrow function arrow (`=>`) in the `map` function rendering the `li` elements. It should be `data.map(item => ( /* JSX */ ))`.
+    4. **Redundant Code**: The file reference in `const data = await fetch('/data.json'); file` seems like a typo or leftover code. Ensure that such typos are removed to maintain code clarity and prevent potential runtime errors.
 
-      5. **Missing `prop-types`:**
-        - The components do not validate their props using `prop-types`. Although not mandatory, using `prop-types` would ensure that the components receive props of the appropriate types, improving maintainability and catching potential type-related bugs.
+    5. **Export Consistency**: The action type `SET_DATA` is exported but not imported in `reducer.js`. Ensure consistent imports and exports across files to maintain modularity and prevent undefined errors.
 
-      6. **Hardcoded API Path:**
-        - The data fetch in `App` component uses a hardcoded path (`'/data.json'`). In a real-world application, consider using environment variables or configuration files to maintain such URLs, which facilitates changes across different environments (development, production).
-
-      By addressing these issues, the application will not only perform better but also be more robust and maintainable.
+    6. **Use of Hardcoded Paths**: The fetch URL `/data.json` is hardcoded. Consider using environment variables or configuration files to manage URLs, especially for different environments (development, production, etc.), to enhance flexibility and maintainability.
 
 Following is the issue with the code review:
-    Inefficient data processing in useEffect: The code review identifies that sorting and filtering are inefficient, but it doesn't specifically mention using useMemo to memoize the data processing or suggest moving the logic to the render function if it's for display purposes. Score: 1/2
+    
+    3: **Lack of `try/catch` error handling in `App.js`**:   
+    The code review correctly noted that `fetchData` lacks error handling, but it did not mention loading states or type safety (i.e., PropTypes).  
+    **Score: 1/2** (points for error handling but missing loading state and type safety mention)
 
 
 Can you please elaborate on what mistake team leader make in code review with respect to base code. Do not return the code.
+Make sure to return 2-4 lines only.
