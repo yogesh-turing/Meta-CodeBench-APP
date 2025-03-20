@@ -1,106 +1,88 @@
 ```javascript
-// Action types
-export const SET_DATA = 'SET_DATA';
+	// FetchDataComponent.vue
+<template>
+  <div>
+    <DisplayDataComponent :fetchedData="fetchedData" />
+  </div>
+</template>
 
-// Action creator
-export const setData = (data) => ({
-  type: SET_DATA,
-  payload: data
-});
-```
-```javascript
-//redux/reducer.js:
+<script>
 
-// Initial state
-const initialState = {
-  data: []
-};
 
-// Reducer
-const reducer = (state = initialState, action) => {
-  switch (action.type) {
-    case SET_DATA:
-      return {
-        ...state,
-        data: action.payload
-      };
-    default:
-      return state;
+export default {
+  components: {
+    DisplayDataComponent 
+  },
+  data() {
+    return {
+      fetchedData: null,
+      apiKey: 'yaskadsnkndc',
+      url: `https://api.example.com/data?api_key=${apiKey}`
+    };
+  },
+  created() {
+    this.fetchData();
+  },
+  methods: {
+    fetchData() {
+      fetch(this.url)
+        .then((response) => {
+          return response.json(); /
+        })
+        .then((data) => {
+          this.fetchedData = data; 
+
+        })
+
+    }
   }
 };
-
-export default reducer;
-
+</script>
 ```
-
 ```javascript
-//store.js
-import { createStore } from 'redux';
-import reducer from './reducer';
+<template>
+  <div>
+    <h1>Welcome to Home</h1>
+    <!-- Wrapping FetchDataComponent here -->
+    <FetchDataComponent />
+  </div>
+</template>
 
-const store = createStore(reducer);
+<script>
 
-export default store;
-```
+import moment from 'moment'; 
 
-```javascript
-import React, { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
-import { setData } from './redux/actions';
+import FetchDataComponent from './FetchDataComponent.vue'; 
 
-const App = () => {
-  const dispatch = useDispatch();
+export default {
+  components: {
+    FetchDataComponent 
+  },
+  created() {
+    const formattedDate = moment().format('YYYY-MM-DD'); 
 
-  useEffect(() => {
-  
-    const fetchData = async () => {
-      const data = await fetch('/data.json'); file
-      const json = await data.json();
-      dispatch(setData(json)); 
-    };
-
-    fetchData();
-  }, [dispatch]);
-
-  return (
-    <div>
-      <h1>App Component</h1>
-      <ChildComponent />
-    </div>
-  );
+    this.formattedDate = formattedDate; // Assigning to a reactive data property
+  }
 };
+</script>
 
-export default App;
 ```
 
 ```javascript
-//ChildComponent .js
-import React, { useEffect } from 'react';
-import { useSelector } from 'react-redux';
+<template>
+  <div>
+    <h1>Fetched Data</h1>
+    <pre>{{ fetchedData }}</pre>
+  </div>
+</template>
 
-const ChildComponent = () => {
-  const data = useSelector(state => state.data);
-
-  useEffect(() => {
-    const sortedData = [...data].sort((a, b) => a.name.localeCompare(b.name)); 
-    const filteredData = sortedData.filter(item => item.age > 30); // Filtering (inefficient)
-
-    
-    const mappedData = filteredData.map(item => item.name.toUpperCase());
-
-    console.log('Mapped Data:', mappedData);
-  }, [data]);
-
-  return (
-    <div>
-      <h2>Child Component</h2>
-      <ul>
-        {data.map(item = (
-          <li key={item.id}>{item.name} - {item.age}</li>
-        ))}
-      </ul>
-    </div>
-  );
+<script>
+export default {
+  props: {
+    fetchedData: {
+      type: Object, 
+    }
+  }
 };
-
+</script>
 ```
