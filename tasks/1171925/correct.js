@@ -1,96 +1,69 @@
-const checkType = require("check-type").init();
-
-function processUserActivity(data, windowDays = 30) {
-  if (!Array.isArray(data)) {
-    throw new Error("Invalid type: data must be an array");
-  }
-
-  const currentDate = new Date();
-  const windowMilliseconds = windowDays * 24 * 60 * 60 * 1000;
-
-  function validateActivityObject(activity) {
-    const schema = {
-      timestamp: String,
-      action: String,
-      postId: Number,
-      likes: Number,
-      comments: Number,
+class ReservationSystem {
+  constructor() {
+    this.reservations = []; // Store reservations
+    this.rooms = {
+      "A101": 1, // Private room (only one booking allowed)
+      "B202": 2  // Shared room (two users can book)
     };
-
-    for (const [key, type] of Object.entries(schema)) {
-      if (!checkType(activity[key]).is(type.name.toLowerCase())) {
-        return false;
-      }
-    }
-
-    return true;
   }
 
-  function validateUserObject(user) {
-    if (
-      !checkType(user.userId).is("number") ||
-      !checkType(user.userName).is("string") ||
-      !Array.isArray(user.activity)
-    ) {
+  bookRoom(user, room, date, startTime, endTime) {
+    const reservationStart = new Date(`${date} ${startTime}`);
+    const reservationEnd = new Date(`${date} ${endTime}`);
+
+    if (reservationStart < new Date()) {
       return false;
     }
 
-    return user.activity.every(validateActivityObject);
+    let count = 0;
+    for (let res of this.reservations) {
+      if (res.room === room && res.date === date) {
+        const resStart = new Date(`${date} ${res.startTime}`);
+        const resEnd = new Date(`${date} ${res.endTime}`);
+
+        if ((reservationStart < resEnd && reservationEnd > resStart)) {
+          count++;
+          if (count >= this.rooms[room]) {
+            return false;
+          }
+        }
+      }
+    }
+
+    this.reservations.push({ user, room, date, startTime, endTime });
+    return true;
   }
 
-  if (!data.every(validateUserObject)) {
-    throw new Error("Invalid type");
+  cancelBooking(user, room, date, startTime) {
+    const reservation = this.reservations.find(res =>
+      res.user === user && res.room === room && res.date === date && res.startTime === startTime
+    );
+
+    if (!reservation) {
+      return false;
+    }
+
+    const reservationTime = new Date(`${date} ${startTime}`);
+    const now = new Date();
+    const hoursDiff = (reservationTime - now) / (1000 * 60 * 60);
+
+    if (hoursDiff < 24) {
+      return false;
+    }
+
+    this.reservations = this.reservations.filter(res => res !== reservation);
+    return true;
   }
 
-  const filteredData = data
-    .filter((user) => {
-      if (user.activity.length === 0) return false;
+  rescheduleBooking(user, room, oldDate, oldStartTime, newDate, newStartTime, newEndTime) {
+    const success = this.cancelBooking(user, room, oldDate, oldStartTime);
+    if (!success) return false;
+    return this.bookRoom(user, room, newDate, newStartTime, newEndTime);
+  }
 
-      const hasNonShareActions = user.activity.some(
-        (act) => act.action !== "share"
-      );
-      if (!hasNonShareActions) return false;
-
-      const recentActivity = user.activity.some((act) => {
-        const activityDate = new Date(act.timestamp);
-        return currentDate - activityDate <= windowMilliseconds;
-      });
-
-      return recentActivity;
-    })
-    .map((user) => {
-      const nonShareActivities = user.activity.filter(
-        (act) => act.action !== "share"
-      );
-      const sortedActivities = nonShareActivities.sort(
-        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
-      );
-
-      const totalLikes = sortedActivities.reduce(
-        (sum, act) => sum + act.likes,
-        0
-      );
-      const totalComments = sortedActivities.reduce(
-        (sum, act) => sum + act.comments,
-        0
-      );
-      const activityCount = sortedActivities.length;
-
-      const totalEngagementScore = totalLikes * 0.5 + totalComments * 0.3;
-
-      return {
-        userId: user.userId,
-        userName: user.userName,
-        totalEngagementScore,
-        activityCount,
-        avgLikes: activityCount > 0 ? totalLikes / activityCount : 0,
-        avgComments: activityCount > 0 ? totalComments / activityCount : 0,
-      };
-    });
-
-  return filteredData.sort(
-    (a, b) => b.totalEngagementScore - a.totalEngagementScore
-  );
+  getRoomBookings(room, date) {
+    return this.reservations.filter(res => res.room === room && res.date === date);
+  }
 }
 
-module.exports = { processUserActivity };
+module.exports = { ReservationSystem };

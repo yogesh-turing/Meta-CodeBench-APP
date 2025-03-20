@@ -1,90 +1,99 @@
-const checkType = require("check-type");
-
-function processUserActivity(data, windowDays = 30) {
-  if (!Array.isArray(data)) {
-    throw new Error("Invalid type: data must be an array");
+class ReservationSystem {
+  constructor() {
+      this.reservations = [];
+      this.rooms = {
+          "A101": 1,
+          "B202": 2
+      };
   }
 
-  const currentDate = new Date();
-  const windowMilliseconds = windowDays * 24 * 60 * 60 * 1000;
+  bookRoom(user, room, date, startTime, endTime) {
+      if (!this.rooms[room]) return false;
 
-  function validateActivityObject(activity) {
-    if (!activity || typeof activity !== 'object') {
-      return false;
-    }
+      const reservationStart = new Date(`${date} ${startTime}`);
+      const reservationEnd = new Date(`${date} ${endTime}`);
 
-    const schema = {
-      timestamp: String,
-      action: String,
-      postId: Number,
-      likes: Number,
-      comments: Number
-    };
-
-    for (const [key, type] of Object.entries(schema)) {
-      if (!checkType(activity[key]).is(type.name.toLowerCase())) {
-        return false;
+      if (reservationStart >= reservationEnd || reservationStart < new Date()) {
+          return false;
       }
-    }
 
-    return true;
+      const existingBookings = this.getRoomBookings(room, date);
+      const maxBookings = this.rooms[room];
+
+      if (existingBookings.length >= maxBookings) {
+          return false;
+      }
+
+      for (const booking of existingBookings) {
+          const bookingStart = new Date(`${date} ${booking.startTime}`);
+          const bookingEnd = new Date(`${date} ${booking.endTime}`);
+
+          if (!(reservationEnd <= bookingStart || reservationStart >= bookingEnd)) {
+              return false;
+          }
+      }
+
+      this.reservations.push({ user, room, date, startTime, endTime });
+      return true;
   }
 
-  function validateUserObject(user) {
-    if (!user || typeof user !== 'object') {
-      return false;
-    }
-
-    if (!checkType(user.userId).is('number') ||
-        !checkType(user.userName).is('string') ||
-        !Array.isArray(user.activity)) {
-      return false;
-    }
-
-    return user.activity.every(validateActivityObject);
-  }
-
-  if (!data.every(validateUserObject)) {
-    throw new Error("Invalid type");
-  }
-
-  const filteredData = data
-    .filter(user => {
-      if (user.activity.length === 0) return false;
-
-      const hasNonShareActions = user.activity.some(act => act.action !== "share");
-      if (!hasNonShareActions) return false;
-
-      const recentActivity = user.activity.some(act => {
-        const activityDate = new Date(act.timestamp);
-        return currentDate - activityDate <= windowMilliseconds;
-      });
-
-      return recentActivity;
-    })
-    .map(user => {
-      const nonShareActivities = user.activity.filter(act => act.action !== "share");
-      const sortedActivities = nonShareActivities.sort(
-        (a, b) => new Date(a.timestamp) - new Date(b.timestamp)
+  cancelBooking(user, room, date, startTime) {
+      const reservation = this.reservations.find(res =>
+          res.user === user && res.room === room && 
+          res.date === date && res.startTime === startTime
       );
 
-      const totalLikes = sortedActivities.reduce((sum, act) => sum + act.likes, 0);
-      const totalComments = sortedActivities.reduce((sum, act) => sum + act.comments, 0);
-      const activityCount = sortedActivities.length;
+      if (!reservation) {
+          return false;
+      }
 
-      const totalEngagementScore = totalLikes * 0.5 + totalComments * 0.3;
+      const now = new Date();
+      const reservationStart = new Date(`${date} ${startTime}`);
+      const hoursDiff = (reservationStart - now) / (1000 * 60 * 60);
 
-      return {
-        userId: user.userId,
-        userName: user.userName,
-        totalEngagementScore,
-        activityCount,
-        avgLikes: activityCount > 0 ? totalLikes / activityCount : 0,
-        avgComments: activityCount > 0 ? totalComments / activityCount : 0,
-      };
-    });
+      if (hoursDiff < 24) {
+          return false;
+      }
 
-  return filteredData.sort((a, b) => b.totalEngagementScore - a.totalEngagementScore);
+      this.reservations = this.reservations.filter(res => res !== reservation);
+      return true;
+  }
+
+  rescheduleBooking(user, room, oldDate, oldStartTime, newDate, newStartTime, newEndTime) {
+      const reservation = this.reservations.find(res =>
+          res.user === user && res.room === room &&
+          res.date === oldDate && res.startTime === oldStartTime
+      );
+
+      if (!reservation) {
+          return false;
+      }
+
+      const now = new Date();
+      const oldReservationStart = new Date(`${oldDate} ${oldStartTime}`);
+      const hoursDiff = (oldReservationStart - now) / (1000 * 60 * 60);
+
+      if (hoursDiff < 24) {
+          return false;
+      }
+
+      const tempReservations = [...this.reservations];
+      this.reservations = this.reservations.filter(res => res !== reservation);
+
+      const bookingSuccess = this.bookRoom(user, room, newDate, newStartTime, newEndTime);
+      if (!bookingSuccess) {
+          this.reservations = tempReservations;
+          return false;
+      }
+
+      return true;
+  }
+
+  getRoomBookings(room, date) {
+      return this.reservations.filter(res => 
+          res.room === room && res.date === date
+      );
+  }
 }
 
-module.exports = { processUserActivity };
+module.exports = { ReservationSystem };
