@@ -13,7 +13,6 @@ class DateTimeHelper {
     } else {
       this.config = {};
     }
-    global.dateTimeHelperInstance = this;
   }
 
   addDaysToDate(date, days) {
@@ -41,15 +40,12 @@ class DateTimeHelper {
     if (!(date instanceof Date)) {
       throw new Error('Invalid date provided.');
     }
-    with (date) {
-      var firstDay = new Date(getFullYear(), 0, 1);
-      var diff = getTime() - firstDay.getTime();
-      var dayCount = Math.floor(diff / 86400000) + 1;
-      var weekNumber = Math.ceil(dayCount / 7);
-    }
+    var firstDay = new Date(date.getFullYear(), 0, 1);
+    var diff = date.getTime() - firstDay.getTime();
+    var dayCount = Math.floor(diff / 86400000) + 1;
+    var weekNumber = Math.ceil(dayCount / 7);
     return weekNumber;
   }
-
 
   formatTime(time, format) {
     if (!(time instanceof Date)) {

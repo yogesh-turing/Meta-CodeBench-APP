@@ -1,5 +1,5 @@
 For the following base code:
-
+```javascript
 const fs = require('fs');
 
 class DateTimeHelper {
@@ -15,7 +15,6 @@ class DateTimeHelper {
     } else {
       this.config = {};
     }
-    global.dateTimeHelperInstance = this;
   }
 
   addDaysToDate(date, days) {
@@ -43,15 +42,12 @@ class DateTimeHelper {
     if (!(date instanceof Date)) {
       throw new Error('Invalid date provided.');
     }
-    with (date) {
-      var firstDay = new Date(getFullYear(), 0, 1);
-      var diff = getTime() - firstDay.getTime();
-      var dayCount = Math.floor(diff / 86400000) + 1;
-      var weekNumber = Math.ceil(dayCount / 7);
-    }
+    var firstDay = new Date(date.getFullYear(), 0, 1);
+    var diff = date.getTime() - firstDay.getTime();
+    var dayCount = Math.floor(diff / 86400000) + 1;
+    var weekNumber = Math.ceil(dayCount / 7);
     return weekNumber;
   }
-
 
   formatTime(time, format) {
     if (!(time instanceof Date)) {
@@ -128,19 +124,19 @@ class DateTimeHelper {
 }
 
 module.exports = { DateTimeHelper };
+```
+---
+
+The code review should include following points:
+
+  1. The code review should point out callback hell in methods like loadConfigFromFile, and scheduleMaintenanceWindow use nested callbacks.  
+  2. The code review should point out not sanitizing JSON inputs JSON strings are directly parsed in the constructor, subtractDaysFromDate, and formatTime without rigorous validation.  
+  3. The code review should point out that `_formatTimeWithCallback` function performs irrelevant file system operations (stat and readdir) that have nothing to do with time formatting. This creates unnecessary I/O overhead.  
+  4. The code review should point out that using `__dirname` without proper sanitization can lead to path traversal attacks.
+  5. The code review should point out variable hoisting - variables are declared using var instead of let or const, leading to hoisting issues.  
+  6. The code review should point out silent failures in certain error cases (like JSON parsing in the constructor), errors are caught and only logged or silently defaulted, which can mask underlying issues during production runtime.  
+  7. The code review should point out that in `loadConfigFromFile` function, the calling `fs.stat` after successful file reading is not needed.  
+  8. The code review should point point out that calling async function (`loadConfigFromFile`) in constructor is dangerous. 
 
 
-Team leader provided following code review comments:   
-
-        Code Review for DateTimeHelper class:
-
-        - Global State Risk: Using global.dateTimeHelperInstance creates a global singleton, which is generally considered a bad practice as it makes testing difficult, creates tight coupling, and can lead to race conditions in concurrent operations.
-        - Callback Hell & Async Handling: The class mixes synchronous and asynchronous operations inconsistently. The constructor loads config asynchronously but doesn't wait for completion, leading to potential race conditions. Methods like formatTime and scheduleMaintenanceWindow use nested callbacks, making error handling complex and code harder to maintain.
-        - Unnecessary File Operations: _formatTimeWithCallback performs irrelevant file system operations (fs.stat and fs.readdir) that have nothing to do with time formatting. This creates unnecessary I/O overhead and potential points of failure.
-        - Path Traversal Vulnerability: scheduleMaintenanceWindow and loadConfigFromFile use file paths without proper sanitization, potentially allowing directory traversal attacks. Using __dirname directly with concatenation is unsafe.
-        With Statement: The getWeekOfYear method uses the deprecated with statement, which is considered harmful as it can lead to scope confusion and is forbidden in strict mode.
-        - Inconsistent Error Handling: Some methods throw errors directly while others use callbacks. The formatTime method silently catches JSON parsing errors and continues execution, which could mask issues.
-        - Memory Leak Risk: The class doesn't provide any cleanup mechanism for file handles or way to remove the global instance, potentially leading to memory leaks in long-running applications.
-
-Can you please help to check if team leader’s review has addressed the points.
-Also provide the score for each point, so maximum score of 2 points should be given if point correctly address the issue.
+Please provide the code review. Please return it in markdown format, no code.
