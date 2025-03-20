@@ -1,114 +1,138 @@
-For given base code:
+For the following base code:
 
-import React, { useState, useEffect } from 'react';
+```javascript
+// Action types
+export const SET_DATA = 'SET_DATA';
 
-// Custom Hook - Defined inefficiently
-const useFetchData = (id) => {
-  const [data, setData] = useState(null);
-
-  useEffect(() => {
-    const fetchDataFromIndexedDB = async () => {
-      const db = await indexedDB.open('myDatabase', 1);
-      const tx = db.transaction('myStore', 'readonly');
-      const store = tx.objectStore('myStore');
-      const request = store.get(id);
-
-      request.onsuccess = (event) => {
-        setData(event.target.result);
-      };
-    };
-
-    fetchDataFromIndexedDB();
-  }, [id]); 
-
-  return data;
-};
-
-const StaleStateComponent = ({ id }) => {
-  const data = useFetchData(id);
-  const [counter, setCounter] = useState(0);
-
-  useEffect(() => {
-    const timer = setInterval(() = {
-      setCounter(counter + 1); 
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [counter]);
-
-  return (
-    <div>
-      <h1>Stale State Component</h1>
-      <p>Data from IndexedDB: {JSON.stringify(data) }</p>
-      <p>Counter: {counter}</p>
-    </div>
-  );
-};
-
+// Action creator
+export const setData = (data) => ({
+  type: SET_DATA,
+  payload: data
+});
 ```
 ```javascript
-import React, { useState } from 'react';
+//redux/reducer.js:
+
+// Initial state
+const initialState = {
+  data: []
+};
+
+// Reducer
+const reducer = (state = initialState, action) => {
+  switch (action.type) {
+    case SET_DATA:
+      return {
+        ...state,
+        data: action.payload
+      };
+    default:
+      return state;
+  }
+};
+
+export default reducer;
+
+```
+
+```javascript
+//store.js
+import { createStore } from 'redux';
+import reducer from './reducer';
+
+const store = createStore(reducer);
+
+export default store;
+```
+
+```javascript
+import React, { useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { setData } from './redux/actions';
 
 const App = () => {
-  const [message] = useState('Hello World!');
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+  
+    const fetchData = async () => {
+      const data = await fetch('/data.json'); file
+      const json = await data.json();
+      dispatch(setData(json)); 
+    };
+
+    fetchData();
+  }, [dispatch]);
 
   return (
     <div>
       <h1>App Component</h1>
-      <p>{message}</p>
+      <ChildComponent />
     </div>
   );
 };
 
 export default App;
+```
 
+```javascript
+//ChildComponent .js
+import React, { useEffect } from 'react';
+import { useSelector } from 'react-redux';
+
+const ChildComponent = () => {
+  const data = useSelector(state => state.data);
+
+  useEffect(() => {
+    const sortedData = [...data].sort((a, b) => a.name.localeCompare(b.name)); 
+    const filteredData = sortedData.filter(item => item.age > 30); // Filtering (inefficient)
+
+    
+    const mappedData = filteredData.map(item => item.name.toUpperCase());
+
+    console.log('Mapped Data:', mappedData);
+  }, [data]);
+
+  return (
+    <div>
+      <h2>Child Component</h2>
+      <ul>
+        {data.map(item = (
+          <li key={item.id}>{item.name} - {item.age}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+```
 
 Team leader provided following code review comments:   
 
-    Code Review - React Application
+    ### Code Review
 
-    Critical Issues:
+      1. **Resource Leaks in `fetchData`:**
+        - In the `App` component, you use `useEffect` to fetch data, but there is no cleanup or error handling. If the fetch fails, it's not handled which might cause unhandled promise rejections. Consider adding error handling logic and proper cleanup if necessary.
 
-    1. Stale Closure in Timer (Bug)
-      - The interval timer in StaleStateComponent uses a stale closure by directly referencing 'counter' in setInterval.
-      - This will cause the counter to increment only once as it captures the initial value (0).
-      - Should use the functional update form: setCounter(prev => prev + 1)
+      2. **Inefficient Sorting and Filtering:**
+        - The `ChildComponent` does unnecessary sort and filter operations within the `useEffect` hook on every render. Sorting should only occur once when the data changes, and filtering should be part of data processing if relevant to the UI display.
+        
+      3. **Typo in Fetch URL:**
+        - In the `App` component, there is a stray word "file" next to `await fetch('/data.json');`, which seems to be an error. This is a syntax issue and should be removed to ensure the fetch call operates correctly.
 
-    2. IndexedDB Implementation 
-      - The useFetchData hook doesn't handle database errors or connection failures
-      - IndexedDB operations are not properly closed/cleanup after use
-      - Could have reused the connection by caching it.
-      - Missing error boundaries for potential database operation failures
-      - The IndexedDB connection is recreated on every id change without proper cleanup. Should establish connection once and reuse it, or properly close connections
-      -  Lack of PropTypes usage and the absence of data structure validation for IndexedDB
+      4. **JSX Syntax Error:**
+        - In `ChildComponent`, there is a missing arrow function arrow (`=>`) in the `map` function rendering the `li` elements. It should be `data.map(item => ( /* JSX */ ))`.
 
+      5. **Missing `prop-types`:**
+        - The components do not validate their props using `prop-types`. Although not mandatory, using `prop-types` would ensure that the components receive props of the appropriate types, improving maintainability and catching potential type-related bugs.
 
-    3. Effect Dependencies (Bad Practice)
-      - The useEffect in StaleStateComponent depends on 'counter' which creates unnecessary re-renders
-      - The timer should not have any dependencies as it's meant to run independently
+      6. **Hardcoded API Path:**
+        - The data fetch in `App` component uses a hardcoded path (`'/data.json'`). In a real-world application, consider using environment variables or configuration files to maintain such URLs, which facilitates changes across different environments (development, production).
 
-    4. Component Structure (Inefficiency)
-      - The App component is overly simplified and doesn't utilize the useState hook effectively
-      - Since the message state never changes, it should be a constant instead of state
-      
-    5. Missing export statement for the `StaleStateComponent`.
-    6. The `setInterval` function contains a syntax error: `setInterval(() = { ... });` should be `setInterval(() => { ... });`. This would lead to a runtime error preventing the counter from incrementing.
+      By addressing these issues, the application will not only perform better but also be more robust and maintainable.
+
+Following is the issue with the code review:
+    Inefficient data processing in useEffect: The code review identifies that sorting and filtering are inefficient, but it doesn't specifically mention using useMemo to memoize the data processing or suggest moving the logic to the render function if it's for display purposes. Score: 1/2
 
 
-Following are the point that should be addressed/pointed out in code review
-
-    Does the code review identify a typographical error in StaleStateComponent with the incorrect setInterval syntax (= { instead of => {), which will cause a syntax error? (0/2)
-
-    Does the code review highlight Inefficient IndexedDB Usage: opening a database connection and starting a transaction every time the id changes is inefficient, and does it identify that IndexedDB connections and transactions aren't properly cleaned up in useFetchData? (0/2)
-
-    Does the code review point out that the useFetchData hook lacks error handling for IndexedDB operations? If an error occurs during the database transaction or data retrieval, it will fail silently. Also, does it identify the lack of PropTypes usage and the absence of data structure validation for IndexedDB? (0/2)
-
-    Does the code review recognize that the StaleStateComponent uses a stale closure by directly referencing counter, causing the counter to increment only once? (0/2)
-
-    Does the code review note that the export statement is missing for the StaleStateComponent component? (0/2)
-
-    Does the code review identify that the StaleStateComponent will re-render every second due to the counter state, even when the data hasn't changed? It should consider separating the counter logic into a different component or using memo/useMemo for optimization. Also, does it point out that the message state in the App component is initialized but never updated, making it redundant? (0/2)
-
-
-Can you please help to check if team leader’s review has addressed the points.
-Also provide the score for each point, so maximum score of 2 points should be given if point correctly address the issue.
+Can you please elaborate on what mistake team leader make in code review with respect to base code. Do not return the code.

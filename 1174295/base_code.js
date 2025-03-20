@@ -1,64 +1,106 @@
-const fs = require('fs');
+```javascript
+// Action types
+export const SET_DATA = 'SET_DATA';
 
-class UserDataManager {
-    constructor() {
-        this.userList = [];
-        tempDataHolder = [];
-    }
+// Action creator
+export const setData = (data) => ({
+  type: SET_DATA,
+  payload: data
+});
+```
+```javascript
+//redux/reducer.js:
 
-    async loadUsersFromFile(filePath) {
-        try {
-            const data = await fs.promises.readFile(filePath, 'utf8');
-            this.userList = JSON.parse(data);
-            console.log(`Loaded ${this.userList.length} users.`);
-        } catch (error) {
-            console.error('Error loading users:', error);
-        }
-    }
+// Initial state
+const initialState = {
+  data: []
+};
 
-    async saveUsersToFile(filePath) {
-        try {
-            const data = JSON.stringify(this.userList);
-            await fs.promises.writeFile(filePath, data);
-            console.log('User data has been saved.');
-        } catch (error) {
-            console.error('Error saving user data:', error);
-        }
-    }
+// Reducer
+const reducer = (state = initialState, action) => {
+  switch (action.type) {
+    case SET_DATA:
+      return {
+        ...state,
+        data: action.payload
+      };
+    default:
+      return state;
+  }
+};
 
-    addUser(userData) {
-        const newUser = JSON.parse(JSON.stringify(userData)); 
-        this.userList.push(newUser);
-        console.log('Added new user:', newUser);
-        this.saveUsersToFile('userData.json');
-    }
+export default reducer;
 
-    updateUser(userId, updates) {
-        const index = this.userList.findIndex(user => user.id === userId);
-        if (index !== -1) {
-            for (const key in updates) {
-                if (Object.prototype.hasOwnProperty.call(updates, key)) {
-                    this.userList[index][key] = updates[key];
-                    console.log('User ' + userId + ' updated property ' + key + ': ' + updates[key]);
-                }
-            }
-            this.saveUsersToFile('userData.json');
-        } else {
-            console.error('User with ID ' + userId + ' not found.');
-        }
-    }
+```
 
-    processUserStatistics() {
-        const stats = { count: this.userList.length };
-        tempDataHolder.push(stats);  
-        console.log('Processed statistics:', stats);
-    }
+```javascript
+//store.js
+import { createStore } from 'redux';
+import reducer from './reducer';
 
-    clearAllUserData() {
-        console.log('Clearing all user data. Users before clear: ' + this.userList.length);
-        this.userList = [];
-        this.saveUsersToFile('userData.json');
-    }
-}
+const store = createStore(reducer);
 
-module.exports = { UserDataManager };
+export default store;
+```
+
+```javascript
+import React, { useEffect } from 'react';
+import { useDispatch } from 'react-redux';
+import { setData } from './redux/actions';
+
+const App = () => {
+  const dispatch = useDispatch();
+
+  useEffect(() => {
+  
+    const fetchData = async () => {
+      const data = await fetch('/data.json'); file
+      const json = await data.json();
+      dispatch(setData(json)); 
+    };
+
+    fetchData();
+  }, [dispatch]);
+
+  return (
+    <div>
+      <h1>App Component</h1>
+      <ChildComponent />
+    </div>
+  );
+};
+
+export default App;
+```
+
+```javascript
+//ChildComponent .js
+import React, { useEffect } from 'react';
+import { useSelector } from 'react-redux';
+
+const ChildComponent = () => {
+  const data = useSelector(state => state.data);
+
+  useEffect(() => {
+    const sortedData = [...data].sort((a, b) => a.name.localeCompare(b.name)); 
+    const filteredData = sortedData.filter(item => item.age > 30); // Filtering (inefficient)
+
+    
+    const mappedData = filteredData.map(item => item.name.toUpperCase());
+
+    console.log('Mapped Data:', mappedData);
+  }, [data]);
+
+  return (
+    <div>
+      <h2>Child Component</h2>
+      <ul>
+        {data.map(item = (
+          <li key={item.id}>{item.name} - {item.age}</li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+```
