@@ -1,5 +1,5 @@
-// const { processUserActivity } = require("./solution");
-const { processUserActivity } = require(process.env.TARGET_FILE);
+const { processUserActivity } = require("./correct");
+// const { processUserActivity } = require(process.env.TARGET_FILE);
 
 describe("processUserActivity", () => {
   it("should handle empty activity arrays correctly", () => {
