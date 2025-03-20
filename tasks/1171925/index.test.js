@@ -1,4 +1,4 @@
-const { BusScheduleSystem } = require('./model_c');
+const { BusScheduleSystem } = require("./Solution");
 
 describe("BusScheduleSystem", () => {
   let busSystem;
@@ -114,35 +114,7 @@ describe("BusScheduleSystem", () => {
         });
       }).toThrowError("No changes detected");
     });
-
-    it("should throw error if no changes are detected", () => {
-      // This case is already covered, but it will explicitly cover lines 86 and 91-95
-      busSystem.createBusSchedule({
-        scheduleId: "1",
-        route: "Route 101",
-        busId: "B123",
-        departureTime: "2025-06-15 08:00:00",
-        arrivalTime: "2025-06-15 10:00:00",
-        stops: [
-          { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" },
-        ],
-        status: "scheduled",
-      });
-
-      expect(() => {
-        // Attempting to update with the same values, which should trigger the "No changes detected" error
-        busSystem.updateBusSchedule("1", {
-          departureTime: "2025-06-15 08:00:00", // Same value
-          arrivalTime: "2025-06-15 10:00:00", // Same value
-          stops: [
-            { stopId: "S1", stopName: "Central Station", stopTime: "08:30:00" }, // Same value
-          ],
-          status: "scheduled", // Same value
-        });
-      }).toThrowError("No changes detected");
-    });
-
-    
+        
     it("should update bus schedule successfully and merge details", () => {
       busSystem.createBusSchedule({
         scheduleId: "1",
