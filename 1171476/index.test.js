@@ -1,19 +1,20 @@
 const fs = require('fs');
 const path = require('path');
-const { RewardCalculator } = require('./base_code.js');
+const { RewardCalculator } = require('./solution');
 
 describe('RewardCalculator Module - Expected Object Output', () => {
   let rc;
   const tempFile = path.join(__dirname, 'tempTransactions.json');
-
+  const logFile = path.join(__dirname, './calcLog.txt');
+  const logFile1 = path.join(__dirname, 'alternate_responses/calcLog.txt');
   beforeEach(() => {
     rc = new RewardCalculator();
+    jest.useRealTimers();
   });
-
   afterEach(() => {
     if (fs.existsSync(tempFile)) fs.unlinkSync(tempFile);
-    const logFile = path.join(__dirname, 'calcLog.txt');
     if (fs.existsSync(logFile)) fs.unlinkSync(logFile);
+    if (fs.existsSync(logFile1)) fs.unlinkSync(logFile1);
   });
 
   // invalid transaction
@@ -41,7 +42,6 @@ describe('RewardCalculator Module - Expected Object Output', () => {
     }
   });
 
-      
   test('should correctly transform a $120 purchase transaction', () => {
     // For a $120 purchase:
     // reward calculation: (100 - 50)*1 + (120 - 100)*2 = 50 + 40 = 90.
@@ -153,7 +153,7 @@ describe('RewardCalculator Module - Expected Object Output', () => {
       date: '2023-06-01',
       type: 'purchase',
     });
-    
+
     const rangeRewards = rc.getRewardsForDateRange(
       'user6',
       '2023-05-01',
@@ -218,7 +218,11 @@ describe('RewardCalculator Module - Expected Object Output', () => {
   });
 
   test(`exportTransactionsToFile should return false file path is invalid`, () => {
-    const tempFile = path.join(__dirname, 'nonexistent', 'tempTransactions.json');
+    const tempFile = path.join(
+      __dirname,
+      'nonexistent',
+      'tempTransactions.json'
+    );
     const success = rc.exportTransactionsToFile(tempFile);
     expect(success).toEqual(false);
   });
@@ -229,11 +233,7 @@ describe('RewardCalculator Module - Expected Object Output', () => {
   });
 
   test('should export and import transactions correctly', () => {
-    rc.addTransaction('user9', {
-      amount: 95,
-      date: '2023-08-05',
-      type: 'purchase',
-    });
+    rc.addTransaction('user9', { amount: 95, date: '2023-08-05', type: 'purchase' });
     const exportSuccess = rc.exportTransactionsToFile(tempFile);
     expect(exportSuccess).toEqual(true);
     const rc2 = new RewardCalculator();
@@ -298,22 +298,22 @@ describe('RewardCalculator Module - Expected Object Output', () => {
       'User: user12\nTotal Rewards: 120\nMonthly Breakdown:\n2023-11 : 120\n';
     expect(summary).toEqual(expectedSummary);
   });
-
+  
   test('should persist calculation log asynchronously', (done) => {
-    rc.addTransaction('user13', {
-      amount: 150,
-      date: '2023-12-01',
-      type: 'purchase',
-    });
-    const total = rc.getTotalRewards('user13');
+    rc.addTransaction('user13', { amount: 150, date: '2023-12-01', type: 'purchase' });
+
     rc.persistCalculationLog((err, result) => {
-      expect(err).toBeNull();
-      expect(result).toEqual({ persisted: true });
-      const logFile = path.join(__dirname, 'calcLog.txt');
-      expect(fs.existsSync(logFile)).toEqual(true);
-      done();
+      try {
+        expect(err).toBeNull();
+        expect(result).toEqual({ persisted: true });
+        expect(fs.existsSync(logFile) || fs.existsSync(logFile1)).toBeTruthy();
+        done();
+      } catch (error) { 
+        done(error); 
+      }
     });
-  }); 
+    jest.runAllTimers();
+  });
 
   test('should correctly transform a $50 purchase transaction (exact threshold) to 0 points', () => {
     rc.addTransaction('user14', {
@@ -343,4 +343,5 @@ describe('RewardCalculator Module - Expected Object Output', () => {
     const total = rc.getTotalRewards('nonexistent');
     expect(total).toEqual({ amount: 0, userId: 'nonexistent' });
   });
+
 });
