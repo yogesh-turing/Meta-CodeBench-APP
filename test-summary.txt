@@ -1,6 +1,18 @@
 TEST SUMMARY
 ============
 
-1171952:
-correct    : 15/15 tests passed [PASSED]
+1171913:
+base       : 6/8 tests passed [FAILED]
+correct    : 8/8 tests passed [PASSED]
+incorrect  : 6/8 tests passed [FAILED]
+model_a    : 8/8 tests passed [PASSED]
+model_b    : 8/8 tests passed [PASSED]
+model_c    : 8/8 tests passed [PASSED]
+model_d    : 8/8 tests passed [PASSED]
+model_e    : 8/8 tests passed [PASSED]
+model_f    : 6/8 tests passed [FAILED]
+model_g    : 6/8 tests passed [FAILED]
+model_h    : 6/8 tests passed [FAILED]
+model_i    : 6/8 tests passed [FAILED]
+model_j    : 6/8 tests passed [FAILED]
 

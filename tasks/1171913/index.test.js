@@ -1,4 +1,4 @@
-const { generateProjectQuery } = require('./model_c');
+const { generateProjectQuery } = require('./model_f');
 
 describe("generateProjectQuery", () => {
   test("returns base query when no filters are provided", () => {
@@ -13,10 +13,9 @@ describe("generateProjectQuery", () => {
     expect(result.params).toEqual(["12345"]);
   });
 
-  test("filters by status 'current'", () => {
-    const result = generateProjectQuery(null, null, "current");
-    console.log(result)
-    expect(result.query).toContain("completed_at IS NULL");
+  test("filters by status 'recent_former'", () => {
+    const result = generateProjectQuery(null, null, "recent_former");
+    expect(result.query).toContain("completed_at IS NOT NULL AND completed_at >= NOW() - INTERVAL 18 MONTH");
     expect(result.params).toEqual([]);
   });
 
@@ -30,7 +29,7 @@ describe("generateProjectQuery", () => {
     const result = generateProjectQuery("dir");
     
     // Verify that the WHERE clause contains two LIKE conditions.
-    expect(result.query).toMatch(/LOWER$name$ LIKE \?/);
+    expect(result.query).toMatch(/LOWER\(name\) LIKE \?/);
     // Check that both parameters are present
     expect(result.params).toEqual(["dir%", "% dir%"]);
   });

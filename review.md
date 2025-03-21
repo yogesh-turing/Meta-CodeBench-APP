@@ -17,3 +17,24 @@ Unit test:
     ```
 
 Once I get correct unit test cases, I will continue with remaining evaluations.
+
+
+
+
+
+
+
+
+
+////
+
+The correct test case is:
+
+  test("filters by queryName with prefix matching conditions", () => {
+    const result = generateProjectQuery("dir");
+    
+    // Verify that the WHERE clause contains two LIKE conditions.
+    expect(result.query).toMatch(/LOWER\(name\) LIKE \?/);
+    // Check that both parameters are present
+    expect(result.params).toEqual(["dir%", "% dir%"]);
+  });
