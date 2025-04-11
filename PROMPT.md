@@ -1,233 +1,61 @@
 Base Code:
 ```javascript
-
-const express = require('express');
-const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
-
-const app = express();
-const PORT = process.env.PORT || 5000;
-let server;
-let mongod;
-let User, Role;
-app.use(express.json());
-
-const initializeModels = () => {
-    const UserSchema = new mongoose.Schema({
-        name: { type: String, required: true },
-        email: { type: String, required: true, unique: true },
-        age: Number,
-    }, { timestamps: true });
-
-    User = mongoose.model('User', UserSchema);
-
-    const RoleSchema = new mongoose.Schema({
-        name: { type: String, required: true },
-        permissions: [String],
-    }, { timestamps: true });
-
-    Role = mongoose.model('Role', RoleSchema);
-};
-
-const intializeRoutes = (routes) => {
-    routes.forEach(route => {
-        app[route.method](route.path, route.handler);
-    });
-}
-
-const initializeUserAPIs = () => {
-    const userRoutes = [
-        {
-            path: '/api/users',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    const user = await User.create(req.body);
-                    res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const users = await User.find();
-                    res.json(users);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-                    res.json(user);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
-                        new: true,
-                        runValidators: true,
-                    });
-                    if (!updated) return res.status(404).json({ error: 'User not found' });
-                    res.json(updated);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    const deleted = await User.findByIdAndDelete(req.params.id);
-                    if (!deleted) return res.status(404).json({ error: 'User not found' });
-                    res.json({ message: 'User deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        }
-    ];
-    intializeRoutes(userRoutes);
-};
-
-const initializeRoleAPIs = () => {
-    const roleRoutes = [
-        {
-            path: '/api/roles',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    const role = await Role.create(req.body);
-                    res.status(201).json(role);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const roles = await Role.find();
-                    res.json(roles);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const role = await Role.findById(req.params.id);
-                    if (!role) return res.status(404).json({ error: 'Role not found' });
-                    res.json(role);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    const updated = await Role.findByIdAndUpdate(req.params.id, req.body, {
-                        new: true,
-                        runValidators: true,
-                    });
-                    if (!updated) return res.status(404).json({ error: 'Role not found' });
-                    res.json(updated);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    const deleted = await Role.findByIdAndDelete(req.params.id);
-                    if (!deleted) return res.status(404).json({ error: 'Role not found' });
-                    res.json({ message: 'Role deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        }
-    ];
-
-    intializeRoutes(roleRoutes);
-
-}
-
-const startServer = async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
-    console.log('Connected to in-memory MongoDB');
-    initializeModels();
-    initializeUserAPIs();
-    initializeRoleAPIs();
-    server = app.listen(PORT);
-};
-
-const stopServer = async () => {
-    if (server) await server.close(); 
-    if (mongoose.connection.readyState) {
-      await mongoose.disconnect();
+class Event {
+    constructor(start, end, popularity) {
+        this.start = start;
+        this.end = end;
+        this.popularity = popularity;
     }
-    if (mongod) await mongod.stop(); 
-};
+}
 
-module.exports = { app, startServer, stopServer };
-
+class EventScheduler {
+    static maxPopularityScore(events) {
+        // Function to find the maximum total popularity score achievable 
+        // by attending non-overlapping events
+    }
+}
+module.exports = { Event, EventScheduler };
 ```
-
 Prompt:
+Create a function called maxPopularityScore for the EventScheduler class. This function determines the maximum total popularity score obtainable by attending a set of events during non-overlapping time intervals. 
 
-Enhance the user APIs to accept role_id.
+Input:
+- An integer N representing the number of events.
+- An array of N objects, where each object contains:
+- start: A non-negative integer indicating the event's start time.
+- end: A non-negative integer indicating the event's end time.
+- popularity: A non-negative integer indicating the event's popularity score.
 
-1. POST Users API 
-    - It should accept role_id.
-    - Check if role_id is valid and correct. Throw an error if it is invalid. 
-    - Throw an error if the role is not present.
-    - It should set role objects on users.
+Output:
+- Return the maximum total popularity score achievable by attending non-overlapping events.
+- Return -1 if the input is invalid (e.g., if an event's end time is less than its start time).
+- Return 0 if the input is empty or null.
 
-2. PUT Users API
-    - It should accept role_id.
-    - Check if role_id is valid and correct. Throw an error if it is invalid. 
-    - Throw an error if the role is not present.
-    - It should set a new role object for users.
+Constraints:
+- Events may overlap partially or completely.
+- An attendee can only attend one event at any given time.
+- The goal is to select the set of non-overlapping events that maximize the total popularity score.
 
-3. GET Users API
-    - It should return all users with a role object on each user.
-    - The client should be able to send role_id in the query to get users with that role_id only.
+Example Input:
+```
+const N = 4;
+const events = [
+  { start: 1, end: 3, popularity: 5 },
+  { start: 2, end: 5, popularity: 6 },
+  { start: 4, end: 6, popularity: 5 },
+  { start: 6, end: 7, popularity: 4 }
+];
+```
+Example Output: 14
 
-4. GET User API
-    - It should return all users with a role object on each user.
+Explanation:
+- Attend Event 1 (From time 1 to 3, popularity = 5).
+- Attend Event 3 (From time 4 to 6, popularity = 5).
+- Attend Event 4 (From time 6 to 7, popularity = 4).
+- Total Popularity = 5 + 5 + 4 = 14.
 
-5. PUT role API
-    - If the role is changed all the users with the changed role should be updated with the new role object.
-
-6. DELETE role API
-    - If role is deleted it should update all users having deleted role with role = null.
+Notes:
+- Ensure invalid inputs, such as an end time earlier than the start time, are handled correctly by returning -1.
+- If the input is empty or null, return 0.
+- Do not modify the function or class names.
+- Use additional helper functions or imports if necessary.
