@@ -1,38 +1,287 @@
-class MaximizeProfit {
-  maxProfit(stockPrices, k) {
-    if (!stockPrices || stockPrices.length < 2 || k <= 0) return 0;
-    
-    const n = stockPrices.length;
-    
-    // If k is larger than n/2, we can make as many transactions as we want
-    // because we can't make more than n/2 transactions in n days
-    if (k >= Math.floor(n/2)) {
-      let profit = 0;
-      for (let i = 1; i < n; i++) {
-        if (stockPrices[i] > stockPrices[i-1]) {
-          profit += stockPrices[i] - stockPrices[i-1];
-        }
-      }
-      return profit;
-    }
-    
-    // dp[i][j] represents maximum profit using at most i transactions up to day j
-    const dp = Array(k + 1).fill().map(() => Array(n).fill(0));
-    
-    for (let i = 1; i <= k; i++) {
-      let maxDiff = -stockPrices[0];
-      for (let j = 1; j < n; j++) {
-        // Maximum of:
-        // 1. Previous day's profit with same number of transactions
-        // 2. Current day's price plus the maximum profit we could have made by
-        //    buying on any previous day and making i-1 transactions before that
-        dp[i][j] = Math.max(dp[i][j-1], stockPrices[j] + maxDiff);
-        maxDiff = Math.max(maxDiff, dp[i-1][j] - stockPrices[j]);
-      }
-    }
-    
-    return dp[k][n-1];
-  }
+const express = require('express');
+const mongoose = require('mongoose');
+const { MongoMemoryServer } = require('mongodb-memory-server');
+const { ObjectId } = mongoose.Types;
+
+const app = express();
+const PORT = process.env.PORT || 5000;
+let server;
+let mongod;
+let User, Role;
+app.use(express.json());
+
+const initializeModels = () => {
+    const UserSchema = new mongoose.Schema({
+        name: { type: String, required: true },
+        email: { type: String, required: true, unique: true },
+        age: Number,
+        role: { type: mongoose.Schema.Types.ObjectId, ref: 'Role' }
+    }, { timestamps: true });
+
+    User = mongoose.model('User', UserSchema);
+
+    const RoleSchema = new mongoose.Schema({
+        name: { type: String, required: true },
+        permissions: [String],
+    }, { timestamps: true });
+
+    Role = mongoose.model('Role', RoleSchema);
+};
+
+const intializeRoutes = (routes) => {
+    routes.forEach(route => {
+        app[route.method](route.path, route.handler);
+    });
 }
 
-module.exports = { MaximizeProfit };
+const initializeUserAPIs = () => {
+    const userRoutes = [
+        {
+            path: '/api/users',
+            method: 'post',
+            handler: async (req, res) => {
+                try {
+                    const { role_id, ...userData } = req.body;
+                    
+                    if (role_id) {
+                        if (!ObjectId.isValid(role_id)) {
+                            return res.status(400).json({ error: 'Invalid role_id format' });
+                        }
+                        
+                        const role = await Role.findById(role_id);
+                        if (!role) {
+                            return res.status(404).json({ error: 'Role not found' });
+                        }
+                        
+                        userData.role = role_id;
+                    }
+
+                    const user = await User.create(userData);
+                    const populatedUser = await User.findById(user._id).populate('role');
+                    res.status(201).json(populatedUser);
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users',
+            method: 'get',
+            handler: async (req, res) => {
+                try {
+                    const { role_id } = req.query;
+                    const query = {};
+                    
+                    if (role_id) {
+                        if (!ObjectId.isValid(role_id)) {
+                            return res.status(400).json({ error: 'Invalid role_id format' });
+                        }
+                        query.role = role_id;
+                    }
+
+                    const users = await User.find(query).populate('role');
+                    res.json(users);
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id',
+            method: 'get',
+            handler: async (req, res) => {
+                try {
+                    const user = await User.findById(req.params.id).populate('role');
+                    if (!user) return res.status(404).json({ error: 'User not found' });
+                    res.json(user);
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id',
+            method: 'put',
+            handler: async (req, res) => {
+                try {
+                    const { role_id, ...updateData } = req.body;
+
+                    if (role_id) {
+                        if (!ObjectId.isValid(role_id)) {
+                            return res.status(400).json({ error: 'Invalid role_id format' });
+                        }
+
+                        const role = await Role.findById(role_id);
+                        if (!role) {
+                            return res.status(404).json({ error: 'Role not found' });
+                        }
+
+                        updateData.role = role_id;
+                    }
+
+                    const updated = await User.findByIdAndUpdate(
+                        req.params.id,
+                        updateData,
+                        { new: true, runValidators: true }
+                    ).populate('role');
+
+                    if (!updated) return res.status(404).json({ error: 'User not found' });
+                    res.json(updated);
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id',
+            method: 'delete',
+            handler: async (req, res) => {
+                try {
+                    const deleted = await User.findByIdAndDelete(req.params.id);
+                    if (!deleted) return res.status(404).json({ error: 'User not found' });
+                    res.json({ message: 'User deleted' });
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        }
+    ];
+    intializeRoutes(userRoutes);
+};
+
+const initializeRoleAPIs = () => {
+    const roleRoutes = [
+        {
+            path: '/api/roles',
+            method: 'post',
+            handler: async (req, res) => {
+                try {
+                    const role = await Role.create(req.body);
+                    res.status(201).json(role);
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/roles',
+            method: 'get',
+            handler: async (req, res) => {
+                try {
+                    const roles = await Role.find();
+                    res.json(roles);
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/roles/:id',
+            method: 'get',
+            handler: async (req, res) => {
+                try {
+                    const role = await Role.findById(req.params.id);
+                    if (!role) return res.status(404).json({ error: 'Role not found' });
+                    res.json(role);
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/roles/:id',
+            method: 'put',
+            handler: async (req, res) => {
+                try {
+                    const session = await mongoose.startSession();
+                    await session.startTransaction();
+
+                    try {
+                        const updated = await Role.findByIdAndUpdate(
+                            req.params.id,
+                            req.body,
+                            { new: true, runValidators: true, session }
+                        );
+
+                        if (!updated) {
+                            await session.abortTransaction();
+                            return res.status(404).json({ error: 'Role not found' });
+                        }
+
+                        await User.updateMany(
+                            { role: req.params.id },
+                            { $set: { role: updated._id } },
+                            { session }
+                        );
+
+                        await session.commitTransaction();
+                        res.json(updated);
+                    } catch (error) {
+                        await session.abortTransaction();
+                        throw error;
+                    } finally {
+                        session.endSession();
+                    }
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/roles/:id',
+            method: 'delete',
+            handler: async (req, res) => {
+                try {
+                    const session = await mongoose.startSession();
+                    await session.startTransaction();
+
+                    try {
+                        const deleted = await Role.findByIdAndDelete(req.params.id, { session });
+                        if (!deleted) {
+                            await session.abortTransaction();
+                            return res.status(404).json({ error: 'Role not found' });
+                        }
+
+                        await User.updateMany(
+                            { role: req.params.id },
+                            { $set: { role: null } },
+                            { session }
+                        );
+
+                        await session.commitTransaction();
+                        res.json({ message: 'Role deleted and users updated' });
+                    } catch (error) {
+                        await session.abortTransaction();
+                        throw error;
+                    } finally {
+                        session.endSession();
+                    }
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        }
+    ];
+
+    intializeRoutes(roleRoutes);
+}
+
+const startServer = async () => {
+    mongod = await MongoMemoryServer.create();
+    await mongoose.connect(mongod.getUri());
+    console.log('Connected to in-memory MongoDB');
+    initializeModels();
+    initializeUserAPIs();
+    initializeRoleAPIs();
+    server = app.listen(PORT);
+};
+
+const stopServer = async () => {
+    if (server) await server.close(); 
+    if (mongoose.connection.readyState) {
+      await mongoose.disconnect();
+    }
+    if (mongod) await mongod.stop(); 
+};
+
+module.exports = { app, startServer, stopServer };

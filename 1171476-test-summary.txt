@@ -1,0 +1,16 @@
+Test Summary for 1171476
+========================================
+
+base_code           : 13/23 tests [FAILED]
+solution            : 23/23 tests [PASSED]
+incorrect_solution  : 22/23 tests [FAILED]
+model1              : 23/23 tests [PASSED]
+model10             : 21/23 tests [FAILED]
+model2              : 22/23 tests [FAILED]
+model3              : 23/23 tests [PASSED]
+model4              : 23/23 tests [PASSED]
+model5              : 21/23 tests [FAILED]
+model6              : 21/23 tests [FAILED]
+model7              : 21/23 tests [FAILED]
+model8              : 22/23 tests [FAILED]
+model9              : 21/23 tests [FAILED]

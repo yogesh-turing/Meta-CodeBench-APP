@@ -22,6 +22,10 @@
   },
   "dependencies": {
     "date-fns": "^4.1.0",
-    "moment": "^2.30.1"
+    "express": "^5.1.0",
+    "moment": "^2.30.1",
+    "mongodb-memory-server": "^10.1.4",
+    "mongoose": "^8.13.2",
+    "supertest": "^7.1.0"
   }
 }
