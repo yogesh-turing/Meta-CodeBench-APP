@@ -1,315 +1,196 @@
 const request = require('supertest');
-const mongoose = require('mongoose');
-const { app, startServer, stopServer } = require('./model_f');
+const { ObjectId } = require('mongodb');
+const { app, startServer, stopServer } = require('./base');
 
 let createdUserId;
+let usersCollection;
+
 
 beforeAll(async () => {
-  await startServer();
+  const { db } = await startServer();
+  usersCollection = db.collection('users');
 });
 
 afterAll(async () => {
   await stopServer();
 });
 
-describe('Roles API', () => {
-    test('Create a role - success', async () => {
-      const res = await request(app)
-        .post('/api/roles')
-        .send({ name: 'Admin', permissions: ['read', 'write', 'delete'] });
-  
-      expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty('_id');
-      expect(res.body.name).toBe('Admin');
-      createdRoleId = res.body._id;
-    });
-  
-    test('Create a role - missing fields', async () => {
-      const res = await request(app).post('/api/roles').send({});
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty('error');
-    });
-  
-    test('Get all roles', async () => {
-      const res = await request(app).get('/api/roles');
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
-    });
-  
-    test('Get role by ID - success', async () => {
-      const res = await request(app).get(`/api/roles/${createdRoleId}`);
-      expect(res.status).toBe(200);
-      expect(res.body._id).toBe(createdRoleId);
-    });
-  
-    test('Get role by ID - invalid ID', async () => {
-      const res = await request(app).get('/api/roles/invalid-id');
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty('error');
-    });
-  
-    test('Get role by ID - non-existent', async () => {
-      const res = await request(app).get('/api/roles/000000000000000000000000');
-      expect(res.status >= 400).toBe(true);
-    });
-  
-    test('Update role - success', async () => {
-      const res = await request(app)
-        .put(`/api/roles/${createdRoleId}`)
-        .send({ name: 'Admin Updated' });
-      expect(res.status).toBe(200);
-      expect(res.body.name).toBe('Admin Updated');
-    });
-  
-    test('Update role - invalid ID', async () => {
-      const res = await request(app).put('/api/roles/invalid-id').send({ name: 'Test' });
-      expect(res.status).toBe(400);
-    });
-  
-    test('Update role - non-existent', async () => {
-      const res = await request(app)
-        .put('/api/roles/000000000000000000000000')
-        .send({ name: 'Ghost' });
-      expect(res.status >= 400).toBe(true);
-    });
-  
-    test('Delete role - success', async () => {
-      const res = await request(app).delete(`/api/roles/${createdRoleId}`);
-      expect(res.status).toBe(200);
-      expect(res.body.message).toBe('Role deleted');
-    });
-  
-    test('Delete role - already deleted', async () => {
-      const res = await request(app).delete(`/api/roles/${createdRoleId}`);
-      expect(res.status).toBe(404);
-    });
-  
-    test('Delete role - invalid ID', async () => {
-      const res = await request(app).delete('/api/roles/invalid-id');
-      expect(res.status).toBe(500);
-    });
+describe('Users API', () => {
+
+  test('Create a user - success', async () => {
+    const res = await request(app)
+      .post('/api/users')
+      .send({ name: 'Alice', email: 'alice@example.com', age: 30 });
+    expect(res.status).toBe(201);
+    expect(res.body).toHaveProperty('_id');
+    expect(res.body.name).toBe('Alice');
+    createdUserId = res.body._id; // Store the created user ID for later tests
   });
 
-
-  describe('Users API', () => {
-
-    let createdRoleId;
-
-    test('Create a user - success', async () => {
-      const res = await request(app)
-        .post('/api/users')
-        .send({ name: 'Alice', email: 'alice@example.com', age: 30 });
-  
-      expect(res.status).toBe(201);
-      expect(res.body).toHaveProperty('_id');
-      expect(res.body.name).toBe('Alice');
-      createdUserId = res.body._id;
-    });
-  
-    test('Create a user - missing fields', async () => {
-      const res = await request(app).post('/api/users').send({ email: 'bob@example.com' });
-      expect(res.status).toBe(400);
-      expect(res.body).toHaveProperty('error');
-    });
-  
-    test('Create a user - duplicate email', async () => {
-      const res = await request(app)
-        .post('/api/users')
-        .send({ name: 'Duplicate', email: 'alice@example.com' });
-      expect(res.status).toBe(400);
-    });
-
-    test('Create a user - with invalid role', async () => {
-        const res = await request(app)
-            .post('/api/users')
-            .send({
-                name: 'Bob',
-                email: 'bob@example.com',
-                role_id: 'invalid-role-id',
-            })
-        expect(res.status).toBe(400);
-        expect(res.body).toHaveProperty('error');
-    });
-
-    test('Create a user - with not existing role', async () => {
-        const res = await request(app)
-            .post('/api/users')
-            .send({
-                name: 'Bob',
-                email: 'bob@example.com',
-                role_id: new mongoose.Types.ObjectId().toString(),
-            })
-        // status 404 or 400
-        expect(res.status >= 400).toBe(true);
-    });
-
-    test('Create a user - with valid role', async () => {
-        const res = await request(app)
-            .post('/api/roles')
-            .send({ name: 'User', permissions: ['read'] });
-        expect(res.status).toBe(201);
-        expect(res.body).toHaveProperty('_id');
-        const roleId = res.body._id;
-        createdRoleId = roleId;
-        const userRes = await request(app)
-            .post('/api/users')
-            .send({
-                name: 'Bob',
-                email: 'bob@example.com',
-                role_id: roleId,
-            })
-        expect(userRes.status).toBe(201);
-        expect(userRes.body).toHaveProperty('_id');
-        expect(userRes.body.role._id).toBe(roleId);
-
-        // get all users and check if the user is created with the correct role
-        const allUsersRes = await request(app).get('/api/users');
-        expect(allUsersRes.status).toBe(200);
-        expect(Array.isArray(allUsersRes.body)).toBe(true);
-        expect(allUsersRes.body.length).toBeGreaterThan(0);
-
-        // get user by ID and check if the user is created with the correct role
-        const userByIdRes = await request(app).get(`/api/users/${userRes.body._id}`);
-        expect(userByIdRes.status).toBe(200);
-        expect(userByIdRes.body._id).toBe(userRes.body._id);
-        expect(userByIdRes.body.role._id).toBe(roleId);
-        expect(userByIdRes.body.name).toBe('Bob');
-        expect(userByIdRes.body.role.name).toBe('User');
-        expect(userByIdRes.body.role.permissions).toEqual(['read']);
-    });
-  
-    test('Get all users', async () => {
-      const res = await request(app).get('/api/users');
-      expect(res.status).toBe(200);
-      expect(Array.isArray(res.body)).toBe(true);
-      expect(res.body.length).toBeGreaterThan(0);
-    });
-
-    test('Get all users - with invalid role_id', async () => {
-        const res = await request(app).get('/api/users?role_id=invalid-role-id');
-        expect(res.status).toBe(400);
-    });
-
-    test('Get all users - with valid role_id', async () => {
-        const res = await request(app).get(`/api/users?role_id=${createdRoleId}`);
-        expect(res.status).toBe(200);
-        expect(Array.isArray(res.body)).toBe(true);
-        expect(res.body.length).toBeGreaterThan(0);
-        expect(res.body[0].role._id).toBe(createdRoleId);
-    });
-  
-    test('Get user by ID - success', async () => {
-      const res = await request(app).get(`/api/users/${createdUserId}`);
-      expect(res.status).toBe(200);
-      expect(res.body._id).toBe(createdUserId);
-    });
-  
-    test('Get user by ID - invalid ID', async () => {
-      const res = await request(app).get(`/api/users/invalid-id`);
-      expect(res.status).toBe(500);
-      expect(res.body).toHaveProperty('error');
-    });
-  
-    test('Get user by ID - non-existent', async () => {
-      const res = await request(app).get(`/api/users/000000000000000000000000`);
-      expect(res.status >= 400).toBe(true);
-    });
-  
-    test('Update user - success', async () => {
-      const res = await request(app)
-        .put(`/api/users/${createdUserId}`)
-        .send({ name: 'Alice Updated' });
-      expect(res.status).toBe(200);
-      expect(res.body.name).toBe('Alice Updated');
-    });
-  
-    test('Update user - invalid ID', async () => {
-      const res = await request(app).put('/api/users/invalid-id').send({ name: 'Test' });
-      expect(res.status).toBe(400);
-    });
-  
-    test('Update user - non-existent', async () => {
-      const res = await request(app)
-        .put(`/api/users/000000000000000000000000`)
-        .send({ name: 'Ghost' });
-      expect(res.status >= 400).toBe(true);
-    });
-
-    test('Update user - with invalid role', async () => {
-        const res = await request(app)
-            .put(`/api/users/${createdUserId}`)
-            .send({
-                name: 'Bob',
-                role_id: 'invalid-role-id',
-            })
-        expect(res.status).toBe(400);
-        expect(res.body).toHaveProperty('error');
-    });
-
-    test('Update user - with not existing role', async () => {
-        const res = await request(app)
-            .put(`/api/users/${createdUserId}`)
-            .send({
-                name: 'Bob',
-                role_id: new mongoose.Types.ObjectId().toString(),
-            })
-        expect(res.status >= 400).toBe(true);
-    });
-
-    test('Update user - with valid role', async () => {
-
-        // create new role
-        const res = await request(app)
-            .post('/api/roles')
-            .send({ name: 'Admin', permissions: ['read', 'write', 'delete'] });
-        expect(res.status).toBe(201);
-        expect(res.body).toHaveProperty('_id');
-
-        const roleId = res.body._id;
-        createdRoleId = roleId;
-        const userRes = await request(app)
-            .put(`/api/users/${createdUserId}`)
-            .send({
-                name: 'Bob',
-                role_id: roleId,
-            })
-        expect(userRes.status).toBe(200);
-        expect(userRes.body).toHaveProperty('_id');
-        expect(userRes.body.role._id).toBe(roleId);
-        expect(userRes.body.name).toBe('Bob');
-        expect(userRes.body.role.name).toBe('Admin');
-        expect(userRes.body.role.permissions).toEqual(['read', 'write', 'delete']);
-
-        // get all users and check if the user is updated with the correct role
-        const allUsersRes = await request(app).get('/api/users');
-        expect(allUsersRes.status).toBe(200);
-        expect(Array.isArray(allUsersRes.body)).toBe(true);
-        expect(allUsersRes.body.length).toBeGreaterThan(0);
-        expect(allUsersRes.body[0].role._id).toBe(roleId);
-        expect(allUsersRes.body[0].name).toBe('Bob');
-
-        // get user by ID and check if the user is updated with the correct role
-        const userByIdRes = await request(app).get(`/api/users/${createdUserId}`);
-        expect(userByIdRes.status).toBe(200);
-        expect(userByIdRes.body._id).toBe(createdUserId);
-        expect(userByIdRes.body.role._id).toBe(roleId);
-        expect(userByIdRes.body.name).toBe('Bob');
-    });
-  
-    test('Delete user - success', async () => {
-      const res = await request(app).delete(`/api/users/${createdUserId}`);
-      expect(res.status).toBe(200);
-      expect(res.body.message).toBe('User deleted');
-    });
-  
-    test('Delete user - already deleted', async () => {
-      const res = await request(app).delete(`/api/users/${createdUserId}`);
-      expect(res.status).toBe(404);
-    });
-  
-    test('Delete user - invalid ID', async () => {
-      const res = await request(app).delete('/api/users/invalid-id');
-      expect(res.status).toBe(500);
-    });
+  test('Create a user - missing fields', async () => {
+    const res = await request(app).post('/api/users').send({ email: 'bob@example.com' });
+    expect(res.status).toBe(400);
+    expect(res.body).toHaveProperty('error');
   });
+
+  test('Create a user - duplicate email', async () => {
+    const res = await request(app)
+      .post('/api/users')
+      .send({ name: 'Duplicate', email: 'alice@example.com' });
+    expect(res.status).toBe(400);
+  });
+
+  test('Get all users - success', async () => {
+    const res = await request(app).get('/api/users');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body)).toBe(true);
+    expect(res.body.length).toBeGreaterThan(0);
+  });
+
+  test('Get user by ID - success', async () => {
+    const res = await request(app).get(`/api/users/${createdUserId}`);
+    expect(res.status).toBe(200);
+    expect(res.body._id).toBe(createdUserId);
+  });
+
+  test('Get user by ID - invalid ID', async () => {
+    const res = await request(app).get(`/api/users/invalid-id`);
+    expect(res.status).toBe(500);
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('Get user by ID - non-existent', async () => {
+    const res = await request(app).get(`/api/users/000000000000000000000000`);
+    expect(res.status >= 400).toBe(true);
+  });
+
+  test('Update user - success', async () => {
+    const res = await request(app)
+      .put(`/api/users/${createdUserId}`)
+      .send({ name: 'Alice Updated' });
+    expect(res.status).toBe(200);
+    expect(res.body.name).toBe('Alice Updated');
+  });
+
+  test('Update user - invalid ID', async () => {
+    const res = await request(app).put('/api/users/invalid-id').send({ name: 'Test' });
+    expect(res.status).toBe(400);
+  });
+
+  test('Update user - non-existent', async () => {
+    const res = await request(app)
+      .put(`/api/users/000000000000000000000000`)
+      .send({ name: 'Ghost' });
+    expect(res.status >= 400).toBe(true);
+  });
+
+  test('Delete user - success', async () => {
+    const res = await request(app).delete(`/api/users/${createdUserId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('User deleted');
+  });
+
+  test('Delete user - already deleted', async () => {
+    const res = await request(app).delete(`/api/users/${createdUserId}`);
+    expect(res.status).toBe(404);
+  });
+
+  test('Delete user - invalid ID', async () => {
+    const res = await request(app).delete('/api/users/invalid-id');
+    expect(res.status).toBe(500);
+  });
+
+  test('Send MFA code - success', async () => {
+    const res = await request(app).post(`/api/users/${createdUserId}/mfa/send`);
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('MFA code sent');
+    const user = await usersCollection.findOne({ _id: new ObjectId(createdUserId) });
+    expect(user).toHaveProperty('mfaCode');
+    expect(user).toHaveProperty('mfaExpiry');
+    expect(user).toHaveProperty('verified', false);
+  });
+
+  test('Send MFA code - invalid user ID', async () => {
+    const res = await request(app).post('/api/users/invalid-id/mfa/send');
+    expect(res.status).toBe(500); // Invalid ObjectId format
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('Send MFA code - non-existent user', async () => {
+    const res = await request(app).post('/api/users/000000000000000000000000/mfa/send');
+    expect(res.status).toBe(404); // User not found
+    expect(res.body.error).toBe('User not found');
+  });
+
+  test('Send MFA code - user already has an active code', async () => {
+    await request(app).post(`/api/users/${createdUserId}/mfa/send`);
+    const res = await request(app).post(`/api/users/${createdUserId}/mfa/send`);
+    expect(res.status).toBe(200); // Should still allow sending a new code
+    expect(res.body.message).toBe('MFA code sent');
+  });
+
+  test('Send MFA code - missing user ID in URL', async () => {
+    const res = await request(app).post('/api/users//mfa/send');
+    expect(res.status).toBe(404); // Invalid route
+  });
+
+  test('Verify MFA code - success', async () => {
+    const user = await usersCollection.findOne({ _id: new ObjectId(createdUserId) });
+    const res = await request(app)
+      .post(`/api/users/${createdUserId}/mfa/verify`)
+      .send({ email: user.email, code: user.mfaCode });
+    expect(res.status).toBe(200);
+    expect(res.body.message).toBe('User verified successfully');
+  });
+
+  test('Verify MFA code - invalid user ID', async () => {
+    const res = await request(app)
+      .post('/api/users/invalid-id/mfa/verify')
+      .send({ email: 'test@example.com', code: '123456' });
+    expect(res.status).toBe(500); // Invalid ObjectId format
+    expect(res.body).toHaveProperty('error');
+  });
+
+  test('Verify MFA code - non-existent user', async () => {
+    const res = await request(app)
+      .post('/api/users/000000000000000000000000/mfa/verify')
+      .send({ email: 'ghost@example.com', code: '123456' });
+    expect(res.status).toBe(404); // User not found
+    expect(res.body.error).toBe('User not found');
+  });
+
+  test('Verify MFA code - already verified', async () => {
+    await request(app).post(`/api/users/${createdUserId}/mfa/send`);
+    await request(app)
+      .post(`/api/users/${createdUserId}/mfa/verify`)
+      .send({ email: 'alice@example.com', code: '123456' });
+    const res = await request(app)
+      .post(`/api/users/${createdUserId}/mfa/verify`)
+      .send({ email: 'alice@example.com', code: '123456' });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('User already verified');
+  });
+
+  test('Verify MFA code - expired code', async () => {
+    const user = await usersCollection.findOne({ _id: new ObjectId(createdUserId) });
+    await usersCollection.updateOne(
+      { _id: new ObjectId(createdUserId) },
+      { $set: { mfaExpiry: Date.now() - 1000 } } // Set expiry in the past
+    );
+    const res = await request(app)
+      .post(`/api/users/${createdUserId}/mfa/verify`)
+      .send({ email: user.email, code: user.mfaCode });
+    expect(res.status).toBe(410);
+    expect(res.body.error).toBe('Code expired');
+  });
+
+  test('Verify MFA code - invalid code', async () => {
+    const user = await usersCollection.findOne({ _id: new ObjectId(createdUserId) });
+    const res = await request(app)
+      .post(`/api/users/${createdUserId}/mfa/verify`)
+      .send({ email: user.email, code: 'wrong-code' });
+    expect(res.status).toBe(401);
+    expect(res.body.error).toBe('Invalid code');
+  });
+
+});

@@ -1,38 +1,30 @@
 const express = require('express');
-const mongoose = require('mongoose');
+const { MongoClient, ObjectId } = require('mongodb');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const { ObjectId } = mongoose.Types;
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 let server;
 let mongod;
-let User, Role;
+let db;
+let usersCollection;
+let client;
+
 app.use(express.json());
 
-const initializeModels = () => {
-    const UserSchema = new mongoose.Schema({
-        name: { type: String, required: true },
-        email: { type: String, required: true, unique: true },
-        age: Number,
-        role: { type: mongoose.Schema.Types.ObjectId, ref: 'Role' }
-    }, { timestamps: true });
-
-    User = mongoose.model('User', UserSchema);
-
-    const RoleSchema = new mongoose.Schema({
-        name: { type: String, required: true },
-        permissions: [String],
-    }, { timestamps: true });
-
-    Role = mongoose.model('Role', RoleSchema);
+const initializeModels = async () => {
+    usersCollection = db.collection('users');
+    await usersCollection.createIndex({ email: 1 }, { unique: true });
 };
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
         app[route.method](route.path, route.handler);
     });
-}
+};
+
+const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
+const CODE_EXPIRY_MS = 5 * 60 * 1000;
 
 const initializeUserAPIs = () => {
     const userRoutes = [
@@ -41,23 +33,15 @@ const initializeUserAPIs = () => {
             method: 'post',
             handler: async (req, res) => {
                 try {
-                    const { role_id, ...userData } = req.body;
-                    
-                    if (role_id && !ObjectId.isValid(role_id)) {
-                        return res.status(400).json({ error: 'Invalid role_id format' });
+                    if (!req.body.name || !req.body.email || !req.body.age) {
+                        return res.status(400).json({ error: 'Missing required fields' });
                     }
-
-                    if (role_id) {
-                        const role = await Role.findById(role_id);
-                        if (!role) {
-                            return res.status(404).json({ error: 'Role not found' });
-                        }
-                        userData.role = role_id;
+                    const result = await usersCollection.insertOne(req.body);
+                    if (result.insertedId) {
+                        const user = await usersCollection.findOne({ _id: result.insertedId });
+                        return res.status(201).json(user);
                     }
-
-                    const user = await User.create(userData);
-                    const populatedUser = await User.findById(user._id).populate('role');
-                    res.status(201).json(populatedUser);
+                    res.status(400).json({ error: 'User not created' });
                 } catch (err) {
                     res.status(400).json({ error: err.message });
                 }
@@ -68,17 +52,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const { role_id } = req.query;
-                    let query = {};
-                    
-                    if (role_id) {
-                        if (!ObjectId.isValid(role_id)) {
-                            return res.status(400).json({ error: 'Invalid role_id format' });
-                        }
-                        query.role = role_id;
-                    }
-
-                    const users = await User.find(query).populate('role');
+                    const users = await usersCollection.find().toArray();
                     res.json(users);
                 } catch (err) {
                     res.status(500).json({ error: err.message });
@@ -90,7 +64,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const user = await User.findById(req.params.id).populate('role');
+                    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
                 } catch (err) {
@@ -103,28 +77,13 @@ const initializeUserAPIs = () => {
             method: 'put',
             handler: async (req, res) => {
                 try {
-                    const { role_id, ...updateData } = req.body;
-
-                    if (role_id) {
-                        if (!ObjectId.isValid(role_id)) {
-                            return res.status(400).json({ error: 'Invalid role_id format' });
-                        }
-
-                        const role = await Role.findById(role_id);
-                        if (!role) {
-                            return res.status(404).json({ error: 'Role not found' });
-                        }
-                        updateData.role = role_id;
-                    }
-
-                    const updated = await User.findByIdAndUpdate(
-                        req.params.id,
-                        updateData,
-                        { new: true, runValidators: true }
-                    ).populate('role');
-
-                    if (!updated) return res.status(404).json({ error: 'User not found' });
-                    res.json(updated);
+                    const result = await usersCollection.findOneAndUpdate(
+                        { _id: new ObjectId(req.params.id) },
+                        { $set: req.body },
+                        { returnDocument: 'after' }
+                    );
+                    if (!result) return res.status(404).json({ error: 'User not found' });
+                    res.json(result);
                 } catch (err) {
                     res.status(400).json({ error: err.message });
                 }
@@ -135,9 +94,93 @@ const initializeUserAPIs = () => {
             method: 'delete',
             handler: async (req, res) => {
                 try {
-                    const deleted = await User.findByIdAndDelete(req.params.id);
-                    if (!deleted) return res.status(404).json({ error: 'User not found' });
+                    const result = await usersCollection.deleteOne({ _id: new ObjectId(req.params.id) });
+                    if (result.deletedCount === 0) return res.status(404).json({ error: 'User not found' });
                     res.json({ message: 'User deleted' });
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id/mfa/send',
+            method: 'post',
+            handler: async (req, res) => {
+                try {
+                    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
+                    if (!user) {
+                        return res.status(404).json({ error: 'User not found' });
+                    }
+
+                    const mfaCode = generateCode();
+                    const mfaExpiry = new Date(Date.now() + CODE_EXPIRY_MS);
+
+                    await usersCollection.updateOne(
+                        { _id: new ObjectId(req.params.id) },
+                        {
+                            $set: {
+                                mfaCode,
+                                mfaExpiry,
+                                verified: false
+                            }
+                        }
+                    );
+
+                    res.status(200).json({ message: 'MFA code sent' });
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id/mfa/verify',
+            method: 'post',
+            handler: async (req, res) => {
+                try {
+                    const { email, code } = req.body;
+
+                    if (!email || !code) {
+                        return res.status(400).json({ error: 'Email and code are required' });
+                    }
+
+                    const user = await usersCollection.findOne({
+                        _id: new ObjectId(req.params.id),
+                        email: email
+                    });
+
+                    if (!user) {
+                        return res.status(404).json({ error: 'User not found' });
+                    }
+
+                    if (user.verified) {
+                        return res.status(400).json({ error: 'User already verified' });
+                    }
+
+                    if (!user.mfaCode || !user.mfaExpiry) {
+                        return res.status(401).json({ error: 'Invalid code' });
+                    }
+
+                    if (new Date() > new Date(user.mfaExpiry)) {
+                        return res.status(410).json({ error: 'Code expired' });
+                    }
+
+                    if (user.mfaCode !== code) {
+                        return res.status(401).json({ error: 'Invalid code' });
+                    }
+
+                    await usersCollection.updateOne(
+                        { _id: new ObjectId(req.params.id) },
+                        {
+                            $set: {
+                                mfaCode: null,
+                                mfaExpiry: null,
+                                verified: true,
+                                verified_at: new Date()
+                            }
+                        }
+                    );
+
+                    res.status(200).json({ message: 'User verified successfully' });
                 } catch (err) {
                     res.status(500).json({ error: err.message });
                 }
@@ -147,123 +190,21 @@ const initializeUserAPIs = () => {
     intializeRoutes(userRoutes);
 };
 
-const initializeRoleAPIs = () => {
-    const roleRoutes = [
-        {
-            path: '/api/roles',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    const role = await Role.create(req.body);
-                    res.status(201).json(role);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const roles = await Role.find();
-                    res.json(roles);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const role = await Role.findById(req.params.id);
-                    if (!role) return res.status(404).json({ error: 'Role not found' });
-                    res.json(role);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    const session = await mongoose.startSession();
-                    await session.withTransaction(async () => {
-                        const updated = await Role.findByIdAndUpdate(
-                            req.params.id,
-                            req.body,
-                            { new: true, runValidators: true, session }
-                        );
-                        
-                        if (!updated) {
-                            throw new Error('Role not found');
-                        }
-
-                        await User.updateMany(
-                            { role: req.params.id },
-                            { $set: { role: updated._id } },
-                            { session }
-                        );
-
-                        res.json(updated);
-                    });
-                    session.endSession();
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    const session = await mongoose.startSession();
-                    await session.withTransaction(async () => {
-                        const deleted = await Role.findByIdAndDelete(req.params.id, { session });
-                        if (!deleted) {
-                            throw new Error('Role not found');
-                        }
-
-                        await User.updateMany(
-                            { role: req.params.id },
-                            { $set: { role: null } },
-                            { session }
-                        );
-
-                        res.json({ message: 'Role deleted and users updated' });
-                    });
-                    session.endSession();
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        }
-    ];
-
-    intializeRoutes(roleRoutes);
-}
-
 const startServer = async () => {
     mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
+    client = new MongoClient(mongod.getUri());
+    await client.connect();
+    db = client.db();
     console.log('Connected to in-memory MongoDB');
-    initializeModels();
+    await initializeModels();
     initializeUserAPIs();
-    initializeRoleAPIs();
     server = app.listen(PORT);
 };
 
 const stopServer = async () => {
-    if (server) await server.close(); 
-    if (mongoose.connection.readyState) {
-      await mongoose.disconnect();
-    }
-    if (mongod) await mongod.stop(); 
+    if (server) await server.close();
+    if (mongod) await mongod.stop();
+    if (client) await client.close();
 };
 
-module.exports = { app, startServer, stopServer };
+module.exports = { app, startServer, stopServer, db };
