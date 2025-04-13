@@ -1,32 +1,31 @@
 Base Code:
 ```javascript
 const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 let server;
 let mongod;
-let db;
-let usersCollection;
-let client;
-
+let User;
 app.use(express.json());
 
-const initializeModels = async () => {
-    usersCollection = db.collection('users');
-    await usersCollection.createIndex({ email: 1 }, { unique: true });
+const initializeModels = () => {
+    const UserSchema = new mongoose.Schema({
+        name: { type: String, required: true },
+        email: { type: String, required: true, unique: true },
+        age: Number
+    }, { timestamps: true });
+
+    User = mongoose.model('User', UserSchema);
 };
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
         app[route.method](route.path, route.handler);
     });
-};
-
-const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
-const CODE_EXPIRY_MS = 5 * 60 * 1000; // 5 mins
+}
 
 const initializeUserAPIs = () => {
     const userRoutes = [
@@ -35,15 +34,8 @@ const initializeUserAPIs = () => {
             method: 'post',
             handler: async (req, res) => {
                 try {
-                    if (!req.body.name || !req.body.email || !req.body.age) {
-                        return res.status(400).json({ error: 'Missing required fields' });
-                    }
-                    const result = await usersCollection.insertOne(req.body);
-                    if (result.insertedId) {
-                        const user = await usersCollection.findOne({ _id: result.insertedId });
-                        return res.status(201).json(user);
-                    }
-                    res.status(400).json({ error: 'User not created' });
+                    const user = await User.create(req.body);
+                    res.status(201).json(user);
                 } catch (err) {
                     res.status(400).json({ error: err.message });
                 }
@@ -54,7 +46,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const users = await usersCollection.find().toArray();
+                    const users = await User.find();
                     res.json(users);
                 } catch (err) {
                     res.status(500).json({ error: err.message });
@@ -66,7 +58,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
+                    const user = await User.findById(req.params.id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
                 } catch (err) {
@@ -79,13 +71,12 @@ const initializeUserAPIs = () => {
             method: 'put',
             handler: async (req, res) => {
                 try {
-                    const result = await usersCollection.findOneAndUpdate(
-                        { _id: new ObjectId(req.params.id) },
-                        { $set: req.body },
-                        { returnDocument: 'after' }
-                    );
-                    if (!result) return res.status(404).json({ error: 'User not found' });
-                    res.json(result);
+                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
+                        new: true,
+                        runValidators: true,
+                    });
+                    if (!updated) return res.status(404).json({ error: 'User not found' });
+                    res.json(updated);
                 } catch (err) {
                     res.status(400).json({ error: err.message });
                 }
@@ -96,8 +87,8 @@ const initializeUserAPIs = () => {
             method: 'delete',
             handler: async (req, res) => {
                 try {
-                    const result = await usersCollection.deleteOne({ _id: new ObjectId(req.params.id) });
-                    if (result.deletedCount === 0) return res.status(404).json({ error: 'User not found' });
+                    const deleted = await User.findByIdAndDelete(req.params.id);
+                    if (!deleted) return res.status(404).json({ error: 'User not found' });
                     res.json({ message: 'User deleted' });
                 } catch (err) {
                     res.status(500).json({ error: err.message });
@@ -105,32 +96,36 @@ const initializeUserAPIs = () => {
             }
         },
         {
-            path: '/api/users/:id/mfa/send',
+            path: '/api/users/:id/addresses',
             method: 'post',
             handler: async (req, res) => {
                 try {
-                    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const code = generateCode();
-                    const expiry = Date.now() + CODE_EXPIRY_MS;
-
-                    await usersCollection.updateOne(
-                        { _id: new ObjectId(req.params.id) },
-                        { $set: { mfaCode: code, mfaExpiry: expiry, verified: false } }
-                    );
-
-                    res.json({ message: 'MFA code sent' });
+                    // TODO: Implement address creation logic
                 } catch (err) {
-                    res.status(500).json({ error: err.message });
+                    res.status(400).json({ error: err.message });
                 }
             }
         },
         {
-            path: '/api/users/:id/mfa/verify',
-            method: 'post',
+            path: '/api/users/:id/addresses/:addressId',
+            method: 'put',
             handler: async (req, res) => {
-                // TODO: Implement MFA verification logic
+                try {
+                    // TODO: Implement address creation logic
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id/addresses/:addressId',
+            method: 'delete',
+            handler: async (req, res) => {
+                try {
+                    // TODO: Implement address creation logic
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
             }
         }
     ];
@@ -139,20 +134,19 @@ const initializeUserAPIs = () => {
 
 const startServer = async () => {
     mongod = await MongoMemoryServer.create();
-    client = new MongoClient(mongod.getUri());
-    await client.connect();
-    db = client.db('testdb');
+    await mongoose.connect(mongod.getUri());
     console.log('Connected to in-memory MongoDB');
-    await initializeModels();
+    initializeModels();
     initializeUserAPIs();
     server = app.listen(PORT);
-    return { server, db }
 };
 
 const stopServer = async () => {
-    if (server) await server.close();
-    if (mongod) await mongod.stop();
-    if (client) await client.close();
+    if (server) await server.close(); 
+    if (mongoose.connection.readyState) {
+      await mongoose.disconnect();
+    }
+    if (mongod) await mongod.stop(); 
 };
 
 module.exports = { app, startServer, stopServer };
@@ -160,30 +154,26 @@ module.exports = { app, startServer, stopServer };
 
 Prompt:
 
-Please help to complete the MFA APIs.
-1. MFA Code Sending API (POST /api/users/:id/mfa/send)
-    The API should
-        - Generate a 6-digit MFA code.
-        - Set an expiry time for the code (e.g., 5 minutes from the current time).
-        - Save the code, expiry time, and set verified to false in the user's record.
-        - Check if the user exists by id. If the user does not exist, return a 404 Not Found error with the message "User not found".
-        - On success, return a 200 OK status with the message "MFA code sent".
-2. MFA Code Verification API (POST /api/users/:id/mfa/verify)
-    The API should
-        - Accept the Payload with following fields:
-            email: (string) User's email address.
-            code: (string) The MFA code sent to the user.
-        - Validate the provided email and code.
-        - Check if the user exists by id and email.
-        - If the user is already verified, return an error.
-        - If the code is expired, return an error.
-        - If the code does not match, return an error.
-        - If all validations pass, update the user:
-            - Set mfaCode and mfaExpiry to null.
-            - Set verified to true.
-            - Add a verified_at field with the current timestamp
-        - If the user does not exist, return a 404 Not Found error with the message "User not found".
-        - If the user is already verified, return a 400 Bad Request error with the message "User already verified".
-        - If the code is expired, return a 410 Gone error with the message "Code expired".
-        - If the code is invalid, return a 401 Unauthorized error with the message "Invalid code".
-        - On success, return a 200 OK status with the message "User verified successfully".
+Please help to complete the addresses APIs.
+
+*Address object:*
+- street (string, required).
+- city (string, required).
+- state (string, required).
+- postalCode (string, required).
+- country (string, required).
+- isPrimary (boolean, default: false).
+
+*Addresses API Endpoints:* 
+1. POST /api/users/:id/addresses: Add a new address for a user.
+2. PUT /api/users/:id/addresses/:addressId: Update a specific address for a user.
+3. DELETE /api/users/:id/addresses/:addressId: Delete a specific address for a user.
+
+- Make sure the user ID exists in the User collection.
+- Validate required fields for the address.
+- Allow only one primary address per user.
+- Set the first address as primary if no other addresses exist.
+- Properly handle cases where the user or address does not exist.
+- Return appropriate HTTP status codes and error messages.
+- Make sure that GET user API and GET all users API should return the user with all the addresses.
+- Return 400 if the ID is invalid and return 404 where the ID is valid but does not exist in the database.

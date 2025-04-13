@@ -6,25 +6,27 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 let server;
 let mongod;
-let User, Role;
+let User;
 app.use(express.json());
 
 const initializeModels = () => {
+    const AddressSchema = new mongoose.Schema({
+        street: { type: String, required: true },
+        city: { type: String, required: true },
+        state: { type: String, required: true },
+        postalCode: { type: String, required: true },
+        country: { type: String, required: true },
+        isPrimary: { type: Boolean, default: false }
+    });
+
     const UserSchema = new mongoose.Schema({
         name: { type: String, required: true },
         email: { type: String, required: true, unique: true },
         age: Number,
-        role: { type: mongoose.Schema.Types.ObjectId, ref: 'Role' }
+        addresses: [AddressSchema]
     }, { timestamps: true });
 
     User = mongoose.model('User', UserSchema);
-
-    const RoleSchema = new mongoose.Schema({
-        name: { type: String, required: true },
-        permissions: [String],
-    }, { timestamps: true });
-
-    Role = mongoose.model('Role', RoleSchema);
 };
 
 const intializeRoutes = (routes) => {
@@ -40,13 +42,7 @@ const initializeUserAPIs = () => {
             method: 'post',
             handler: async (req, res) => {
                 try {
-                    const { role_id, ...userData } = req.body;
-                    if (role_id) {
-                        const role = await Role.findById(role_id);
-                        if (!role) return res.status(400).json({ error: 'Invalid role_id' });
-                        userData.role = role._id;
-                    }
-                    const user = await User.create(userData);
+                    const user = await User.create(req.body);
                     res.status(201).json(user);
                 } catch (err) {
                     res.status(400).json({ error: err.message });
@@ -58,9 +54,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const { role_id } = req.query;
-                    const query = role_id ? { role: role_id } : {};
-                    const users = await User.find(query).populate('role');
+                    const users = await User.find();
                     res.json(users);
                 } catch (err) {
                     res.status(500).json({ error: err.message });
@@ -72,7 +66,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const user = await User.findById(req.params.id).populate('role');
+                    const user = await User.findById(req.params.id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
                 } catch (err) {
@@ -85,16 +79,10 @@ const initializeUserAPIs = () => {
             method: 'put',
             handler: async (req, res) => {
                 try {
-                    const { role_id, ...userData } = req.body;
-                    if (role_id) {
-                        const role = await Role.findById(role_id);
-                        if (!role) return res.status(400).json({ error: 'Invalid role_id' });
-                        userData.role = role._id;
-                    }
-                    const updated = await User.findByIdAndUpdate(req.params.id, userData, {
+                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
                         new: true,
                         runValidators: true,
-                    }).populate('role');
+                    });
                     if (!updated) return res.status(404).json({ error: 'User not found' });
                     res.json(updated);
                 } catch (err) {
@@ -114,89 +102,79 @@ const initializeUserAPIs = () => {
                     res.status(500).json({ error: err.message });
                 }
             }
+        },
+        {
+            path: '/api/users/:id/addresses',
+            method: 'post',
+            handler: async (req, res) => {
+                try {
+                    const user = await User.findById(req.params.id);
+                    if (!user) return res.status(404).json({ error: 'User not found' });
+
+                    const { street, city, state, postalCode, country, isPrimary } = req.body;
+                    if (!street || !city || !state || !postalCode || !country) {
+                        return res.status(400).json({ error: 'All address fields are required' });
+                    }
+
+                    if (isPrimary) {
+                        user.addresses.forEach(address => address.isPrimary = false);
+                    } else if (user.addresses.length === 0) {
+                        req.body.isPrimary = true;
+                    }
+
+                    user.addresses.push(req.body);
+                    await user.save();
+                    res.status(201).json(user);
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id/addresses/:addressId',
+            method: 'put',
+            handler: async (req, res) => {
+                try {
+                    const user = await User.findById(req.params.id);
+                    if (!user) return res.status(404).json({ error: 'User not found' });
+
+                    const address = user.addresses.id(req.params.addressId);
+                    if (!address) return res.status(404).json({ error: 'Address not found' });
+
+                    if (req.body.isPrimary) {
+                        user.addresses.forEach(addr => addr.isPrimary = false);
+                    }
+
+                    Object.assign(address, req.body);
+                    await user.save();
+                    res.json(user);
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id/addresses/:addressId',
+            method: 'delete',
+            handler: async (req, res) => {
+                try {
+                    const user = await User.findById(req.params.id);
+                    if (!user) return res.status(404).json({ error: 'User not found' });
+
+                    const address = user.addresses.id(req.params.addressId);
+                    if (!address) return res.status(404).json({ error: 'Address not found' });
+
+                    address.remove();
+                    await user.save();
+                    res.json({ message: 'Address deleted' });
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
         }
     ];
     intializeRoutes(userRoutes);
 };
-
-const initializeRoleAPIs = () => {
-    const roleRoutes = [
-        {
-            path: '/api/roles',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    const role = await Role.create(req.body);
-                    res.status(201).json(role);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const roles = await Role.find();
-                    res.json(roles);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const role = await Role.findById(req.params.id);
-                    if (!role) return res.status(404).json({ error: 'Role not found' });
-                    res.json(role);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    const updatedRole = await Role.findByIdAndUpdate(req.params.id, req.body, {
-                        new: true,
-                        runValidators: true,
-                    });
-                    if (!updatedRole) return res.status(404).json({ error: 'Role not found' });
-
-                    await User.updateMany({ role: updatedRole._id }, { role: updatedRole._id });
-
-                    res.json(updatedRole);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/roles/:id',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    const deletedRole = await Role.findByIdAndDelete(req.params.id);
-                    if (!deletedRole) return res.status(404).json({ error: 'Role not found' });
-
-                    await User.updateMany({ role: deletedRole._id }, { role: null });
-
-                    res.json({ message: 'Role deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        }
-    ];
-
-    intializeRoutes(roleRoutes);
-}
 
 const startServer = async () => {
     mongod = await MongoMemoryServer.create();
@@ -204,7 +182,6 @@ const startServer = async () => {
     console.log('Connected to in-memory MongoDB');
     initializeModels();
     initializeUserAPIs();
-    initializeRoleAPIs();
     server = app.listen(PORT);
 };
 

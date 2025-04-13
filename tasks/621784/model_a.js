@@ -1,30 +1,39 @@
 const express = require('express');
-const { MongoClient, ObjectId } = require('mongodb');
+const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 let server;
 let mongod;
-let db;
-let usersCollection;
-let client;
-
+let User;
 app.use(express.json());
 
-const initializeModels = async () => {
-    usersCollection = db.collection('users');
-    await usersCollection.createIndex({ email: 1 }, { unique: true });
+const initializeModels = () => {
+    const AddressSchema = new mongoose.Schema({
+        street: { type: String, required: true },
+        city: { type: String, required: true },
+        state: { type: String, required: true },
+        postalCode: { type: String, required: true },
+        country: { type: String, required: true },
+        isPrimary: { type: Boolean, default: false }
+    });
+
+    const UserSchema = new mongoose.Schema({
+        name: { type: String, required: true },
+        email: { type: String, required: true, unique: true },
+        age: Number,
+        addresses: [AddressSchema]
+    }, { timestamps: true });
+
+    User = mongoose.model('User', UserSchema);
 };
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
         app[route.method](route.path, route.handler);
     });
-};
-
-const generateCode = () => Math.floor(100000 + Math.random() * 900000).toString();
-const CODE_EXPIRY_MS = 5 * 60 * 1000;
+}
 
 const initializeUserAPIs = () => {
     const userRoutes = [
@@ -33,15 +42,8 @@ const initializeUserAPIs = () => {
             method: 'post',
             handler: async (req, res) => {
                 try {
-                    if (!req.body.name || !req.body.email || !req.body.age) {
-                        return res.status(400).json({ error: 'Missing required fields' });
-                    }
-                    const result = await usersCollection.insertOne(req.body);
-                    if (result.insertedId) {
-                        const user = await usersCollection.findOne({ _id: result.insertedId });
-                        return res.status(201).json(user);
-                    }
-                    res.status(400).json({ error: 'User not created' });
+                    const user = await User.create(req.body);
+                    res.status(201).json(user);
                 } catch (err) {
                     res.status(400).json({ error: err.message });
                 }
@@ -52,7 +54,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const users = await usersCollection.find().toArray();
+                    const users = await User.find();
                     res.json(users);
                 } catch (err) {
                     res.status(500).json({ error: err.message });
@@ -64,7 +66,10 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
+                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+                        return res.status(400).json({ error: 'Invalid user ID' });
+                    }
+                    const user = await User.findById(req.params.id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
                 } catch (err) {
@@ -77,13 +82,15 @@ const initializeUserAPIs = () => {
             method: 'put',
             handler: async (req, res) => {
                 try {
-                    const result = await usersCollection.findOneAndUpdate(
-                        { _id: new ObjectId(req.params.id) },
-                        { $set: req.body },
-                        { returnDocument: 'after' }
-                    );
-                    if (!result) return res.status(404).json({ error: 'User not found' });
-                    res.json(result);
+                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+                        return res.status(400).json({ error: 'Invalid user ID' });
+                    }
+                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
+                        new: true,
+                        runValidators: true,
+                    });
+                    if (!updated) return res.status(404).json({ error: 'User not found' });
+                    res.json(updated);
                 } catch (err) {
                     res.status(400).json({ error: err.message });
                 }
@@ -94,8 +101,11 @@ const initializeUserAPIs = () => {
             method: 'delete',
             handler: async (req, res) => {
                 try {
-                    const result = await usersCollection.deleteOne({ _id: new ObjectId(req.params.id) });
-                    if (result.deletedCount === 0) return res.status(404).json({ error: 'User not found' });
+                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+                        return res.status(400).json({ error: 'Invalid user ID' });
+                    }
+                    const deleted = await User.findByIdAndDelete(req.params.id);
+                    if (!deleted) return res.status(404).json({ error: 'User not found' });
                     res.json({ message: 'User deleted' });
                 } catch (err) {
                     res.status(500).json({ error: err.message });
@@ -103,84 +113,84 @@ const initializeUserAPIs = () => {
             }
         },
         {
-            path: '/api/users/:id/mfa/send',
+            path: '/api/users/:id/addresses',
             method: 'post',
             handler: async (req, res) => {
                 try {
-                    const user = await usersCollection.findOne({ _id: new ObjectId(req.params.id) });
-                    if (!user) {
-                        return res.status(404).json({ error: 'User not found' });
+                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+                        return res.status(400).json({ error: 'Invalid user ID' });
                     }
 
-                    const mfaCode = generateCode();
-                    const mfaExpiry = new Date(Date.now() + CODE_EXPIRY_MS);
+                    const user = await User.findById(req.params.id);
+                    if (!user) return res.status(404).json({ error: 'User not found' });
 
-                    await usersCollection.updateOne(
-                        { _id: new ObjectId(req.params.id) },
-                        {
-                            $set: {
-                                mfaCode,
-                                mfaExpiry,
-                                verified: false
-                            }
-                        }
-                    );
+                    const newAddress = req.body;
+                    if (user.addresses.length === 0) {
+                        newAddress.isPrimary = true;
+                    } else if (newAddress.isPrimary) {
+                        user.addresses.forEach(addr => addr.isPrimary = false);
+                    }
 
-                    res.status(200).json({ message: 'MFA code sent' });
+                    user.addresses.push(newAddress);
+                    await user.save();
+                    res.status(201).json(user);
                 } catch (err) {
-                    res.status(500).json({ error: err.message });
+                    res.status(400).json({ error: err.message });
                 }
             }
         },
         {
-            path: '/api/users/:id/mfa/verify',
-            method: 'post',
+            path: '/api/users/:id/addresses/:addressId',
+            method: 'put',
             handler: async (req, res) => {
                 try {
-                    const { email, code } = req.body;
-
-                    if (!email || !code) {
-                        return res.status(400).json({ error: 'Email and code are required' });
+                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+                        return res.status(400).json({ error: 'Invalid user ID' });
                     }
 
-                    const user = await usersCollection.findOne({
-                        _id: new ObjectId(req.params.id),
-                        email: email
-                    });
+                    const user = await User.findById(req.params.id);
+                    if (!user) return res.status(404).json({ error: 'User not found' });
 
-                    if (!user) {
-                        return res.status(404).json({ error: 'User not found' });
+                    const address = user.addresses.id(req.params.addressId);
+                    if (!address) return res.status(404).json({ error: 'Address not found' });
+
+                    const updatedAddress = req.body;
+                    if (updatedAddress.isPrimary && !address.isPrimary) {
+                        user.addresses.forEach(addr => addr.isPrimary = false);
                     }
 
-                    if (user.verified) {
-                        return res.status(400).json({ error: 'User already verified' });
+                    Object.assign(address, updatedAddress);
+                    await user.save();
+                    res.json(user);
+                } catch (err) {
+                    res.status(400).json({ error: err.message });
+                }
+            }
+        },
+        {
+            path: '/api/users/:id/addresses/:addressId',
+            method: 'delete',
+            handler: async (req, res) => {
+                try {
+                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+                        return res.status(400).json({ error: 'Invalid user ID' });
                     }
 
-                    if (!user.mfaCode || !user.mfaExpiry) {
-                        return res.status(401).json({ error: 'Invalid code' });
+                    const user = await User.findById(req.params.id);
+                    if (!user) return res.status(404).json({ error: 'User not found' });
+
+                    const address = user.addresses.id(req.params.addressId);
+                    if (!address) return res.status(404).json({ error: 'Address not found' });
+
+                    const wasPrimary = address.isPrimary;
+                    address.remove();
+
+                    if (wasPrimary && user.addresses.length > 0) {
+                        user.addresses[0].isPrimary = true;
                     }
 
-                    if (new Date() > new Date(user.mfaExpiry)) {
-                        return res.status(410).json({ error: 'Code expired' });
-                    }
-
-                    if (user.mfaCode !== code) {
-                        return res.status(401).json({ error: 'Invalid code' });
-                    }
-
-                    await usersCollection.updateOne(
-                        { _id: new ObjectId(req.params.id) },
-                        {
-                            $set: {
-                                mfaCode: null,
-                                mfaExpiry: null,
-                                verified: true,
-                                verified_at: new Date()
-                            }
-                        }
-                    );
-
-                    res.status(200).json({ message: 'User verified successfully' });
+                    await user.save();
+                    res.json(user);
                 } catch (err) {
                     res.status(500).json({ error: err.message });
                 }
@@ -192,19 +202,19 @@ const initializeUserAPIs = () => {
 
 const startServer = async () => {
     mongod = await MongoMemoryServer.create();
-    client = new MongoClient(mongod.getUri());
-    await client.connect();
-    db = client.db();
+    await mongoose.connect(mongod.getUri());
     console.log('Connected to in-memory MongoDB');
-    await initializeModels();
+    initializeModels();
     initializeUserAPIs();
     server = app.listen(PORT);
 };
 
 const stopServer = async () => {
-    if (server) await server.close();
-    if (mongod) await mongod.stop();
-    if (client) await client.close();
+    if (server) await server.close(); 
+    if (mongoose.connection.readyState) {
+      await mongoose.disconnect();
+    }
+    if (mongod) await mongod.stop(); 
 };
 
-module.exports = { app, startServer, stopServer, db };
+module.exports = { app, startServer, stopServer };
