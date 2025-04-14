@@ -1,29 +1,18 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const Joi = require('joi');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-let server;
-let mongod;
-let User;
+let server, mongod, User;
 app.use(express.json());
 
 const initializeModels = () => {
-    const AddressSchema = new mongoose.Schema({
-        street: { type: String, required: true },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        postalCode: { type: String, required: true },
-        country: { type: String, required: true },
-        isPrimary: { type: Boolean, default: false }
-    });
-
     const UserSchema = new mongoose.Schema({
         name: { type: String, required: true },
         email: { type: String, required: true, unique: true },
         age: Number,
-        addresses: [AddressSchema]
     }, { timestamps: true });
 
     User = mongoose.model('User', UserSchema);
@@ -31,8 +20,99 @@ const initializeModels = () => {
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
-        app[route.method](route.path, route.handler);
+        app[route.method](
+            route.path,
+            (req, res, next) => route.validation ? validationMiddleware(route, req, res, next) : next(),
+            (req, res) => {
+                try {
+                    route.handler(req, res);
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            });
     });
+}
+
+const validationMiddleware = (route, req, res, next) => {
+    const { validation } = route;
+    let errorDetails = [];
+
+    const applyValidation = (schema, data, type) => {
+        if (!schema) return {};
+        const { error, value } = schema.validate(data, { abortEarly: false });
+        if (error) {
+            errorDetails = error.details.map(detail => ({
+                field: detail.context.label || type,
+                message: detail.message
+            }));
+            return;
+        }
+        return value;
+    };
+
+    const normalizedEmail = (email) => email.trim().toLowerCase().replace(/\s+/g, '+');
+
+    if (validation.query) {
+        req.query.email = req.query.email ? normalizedEmail(req.query.email) : req.query.email;
+        req.query = applyValidation(Joi.object(validation.query), req.query, 'query');
+    }
+    if (validation.body) {
+        req.body.email = req.body.email ? normalizedEmail(req.body.email) : req.body.email;
+        req.body = applyValidation(Joi.object(validation.body), req.body, 'body');
+    }
+    if (validation.params) {
+        req.params = applyValidation(Joi.object(validation.params), req.params, 'params');
+    }
+
+    if (errorDetails.length > 0) {
+        return res.status(400).json({ errors: errorDetails });
+    }
+
+    req.validation = {
+        query: req.query,
+        body: req.body,
+        params: req.params
+    };
+
+    next();
+}
+
+const JoiObjectID = Joi.string().regex(/^[0-9a-fA-F]{24}$/);
+const VALIDATIONS = {
+    POST_USERS: {
+        body: {
+            name: Joi.string().required(),
+            email: Joi.string().required().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USERS: {
+        query: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
+    PATCH_USER: {
+        params: {
+            id: JoiObjectID.required()
+        },
+        body: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    DELETE_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
 }
 
 const initializeUserAPIs = () => {
@@ -40,138 +120,62 @@ const initializeUserAPIs = () => {
         {
             path: '/api/users',
             method: 'post',
+            validation: VALIDATIONS.POST_USERS,
             handler: async (req, res) => {
-                try {
-                    const user = await User.create(req.body);
-                    res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
+                const user = await User.create(req.validation.body);
+                res.status(201).json(user);
             }
         },
         {
             path: '/api/users',
             method: 'get',
+            validation: VALIDATIONS.GET_USERS,
             handler: async (req, res) => {
-                try {
-                    const users = await User.find();
-                    res.json(users);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
+                const query = req.validation.query || {};
+                const filter = {};
+                if (query.name) filter.name = query.name;
+                if (query.email) filter.email = query.email;
+                if (query.age) filter.age = query.age;
+
+                const users = await User.find(filter);
+                res.json(users);
             }
         },
         {
             path: '/api/users/:id',
             method: 'get',
+            validation: VALIDATIONS.GET_USER,
             handler: async (req, res) => {
-                try {
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-                    res.json(user);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
+                const id = req.validation.params.id;
+                const user = await User.findById(id);
+                if (!user) return res.status(404).json({ error: 'User not found' });
+                res.json(user);
             }
         },
         {
             path: '/api/users/:id',
-            method: 'put',
+            method: 'patch',
+            validation: VALIDATIONS.PATCH_USER,
             handler: async (req, res) => {
-                try {
-                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
-                        new: true,
-                        runValidators: true,
-                    });
-                    if (!updated) return res.status(404).json({ error: 'User not found' });
-                    res.json(updated);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
+                const id = req.validation.params.id;
+                const body = req.validation.body;
+                const updated = await User.findByIdAndUpdate(id, body, {
+                    new: true,
+                    runValidators: true,
+                });
+                if (!updated) return res.status(404).json({ error: 'User not found' });
+                res.json(updated);
             }
         },
         {
             path: '/api/users/:id',
             method: 'delete',
+            validation: VALIDATIONS.DELETE_USER,
             handler: async (req, res) => {
-                try {
-                    const deleted = await User.findByIdAndDelete(req.params.id);
-                    if (!deleted) return res.status(404).json({ error: 'User not found' });
-                    res.json({ message: 'User deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const address = req.body;
-                    if (!address.street || !address.city || !address.state || !address.postalCode || !address.country) {
-                        return res.status(400).json({ error: 'All address fields are required' });
-                    }
-
-                    if (address.isPrimary) {
-                        user.addresses.forEach(a => { a.isPrimary = false; });
-                    } else if (user.addresses.length === 0) {
-                        address.isPrimary = true;
-                    }
-
-                    user.addresses.push(address);
-                    await user.save();
-                    res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const address = user.addresses.id(req.params.addressId);
-                    if (!address) return res.status(404).json({ error: 'Address not found' });
-
-                    Object.assign(address, req.body);
-
-                    if (req.body.isPrimary) {
-                        user.addresses.forEach(a => { a.isPrimary = false; });
-                        address.isPrimary = true;
-                    }
-
-                    await user.save();
-                    res.json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const address = user.addresses.id(req.params.addressId);
-                    if (!address) return res.status(404).json({ error: 'Address not found' });
-
-                    address.remove();
-                    await user.save();
-                    res.json({ message: 'Address deleted' });
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
+                const id = req.validation.params.id;
+                const deleted = await User.findByIdAndDelete(id);
+                if (!deleted) return res.status(404).json({ error: 'User not found' });
+                res.json({ message: 'User deleted' });
             }
         }
     ];
@@ -188,11 +192,11 @@ const startServer = async () => {
 };
 
 const stopServer = async () => {
-    if (server) await server.close(); 
+    if (server) await server.close();
     if (mongoose.connection.readyState) {
-      await mongoose.disconnect();
+        await mongoose.disconnect();
     }
-    if (mongod) await mongod.stop(); 
+    if (mongod) await mongod.stop();
 };
 
 module.exports = { app, startServer, stopServer };

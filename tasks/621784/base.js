@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const Joi = require('joi');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -13,7 +14,7 @@ const initializeModels = () => {
     const UserSchema = new mongoose.Schema({
         name: { type: String, required: true },
         email: { type: String, required: true, unique: true },
-        age: Number
+        age: Number,
     }, { timestamps: true });
 
     User = mongoose.model('User', UserSchema);
@@ -21,8 +22,54 @@ const initializeModels = () => {
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
-        app[route.method](route.path, route.handler);
+        app[route.method](
+            route.path, 
+            (req, res, next) => route.validation ? validationMiddleware(route, req, res, next) : next(),
+            route.handler
+        );
     });
+}
+
+const validationMiddleware = (route, req, res, next) => {
+    // TODO: Implement validation middleware
+}
+
+const JoiObjectID = Joi.string().regex(/^[0-9a-fA-F]{24}$/);
+const VALIDATIONS = {
+    POST_USERS: {
+        body: {
+            name: Joi.string().required(),
+            email: Joi.string().required().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USERS: {
+        query: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
+    PATCH_USER: {
+        params: {
+            id: JoiObjectID.required()
+        },
+        body: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    DELETE_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
 }
 
 const initializeUserAPIs = () => {
@@ -30,99 +77,81 @@ const initializeUserAPIs = () => {
         {
             path: '/api/users',
             method: 'post',
+            validation: VALIDATIONS.POST_USERS,
             handler: async (req, res) => {
                 try {
-                    const user = await User.create(req.body);
+                    const user = await User.create(req.validation.body);
                     res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users',
             method: 'get',
+            validation: VALIDATIONS.GET_USERS,
             handler: async (req, res) => {
                 try {
-                    const users = await User.find();
+                    const query = req.validation.query || {};
+                    const filter = {};
+                    if (query.name) filter.name = query.name;
+                    if (query.email) filter.email = query.email;
+                    if (query.age) filter.age = query.age;
+
+                    const users = await User.find(filter);
                     res.json(users);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
             method: 'get',
+            validation: VALIDATIONS.GET_USER,
             handler: async (req, res) => {
                 try {
-                    const user = await User.findById(req.params.id);
+                    const id = req.validation.params.id;
+                    const user = await User.findById(id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
-            method: 'put',
+            method: 'patch',
+            validation: VALIDATIONS.PATCH_USER,
             handler: async (req, res) => {
                 try {
-                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
+                    const id = req.validation.params.id;
+                    const body = req.validation.body;
+                    const updated = await User.findByIdAndUpdate(id, body, {
                         new: true,
                         runValidators: true,
                     });
                     if (!updated) return res.status(404).json({ error: 'User not found' });
                     res.json(updated);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
             method: 'delete',
+            validation: VALIDATIONS.DELETE_USER,
             handler: async (req, res) => {
                 try {
-                    const deleted = await User.findByIdAndDelete(req.params.id);
+                    const id = req.validation.params.id;
+                    const deleted = await User.findByIdAndDelete(id);
                     if (!deleted) return res.status(404).json({ error: 'User not found' });
                     res.json({ message: 'User deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    // TODO: Implement address creation logic
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    // TODO: Implement address creation logic
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    // TODO: Implement address creation logic
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         }

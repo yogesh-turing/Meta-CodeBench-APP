@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const Joi = require('joi');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -10,20 +11,10 @@ let User;
 app.use(express.json());
 
 const initializeModels = () => {
-    const AddressSchema = new mongoose.Schema({
-        street: { type: String, required: true },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        postalCode: { type: String, required: true },
-        country: { type: String, required: true },
-        isPrimary: { type: Boolean, default: false }
-    });
-
     const UserSchema = new mongoose.Schema({
         name: { type: String, required: true },
         email: { type: String, required: true, unique: true },
         age: Number,
-        addresses: [AddressSchema]
     }, { timestamps: true });
 
     User = mongoose.model('User', UserSchema);
@@ -31,8 +22,112 @@ const initializeModels = () => {
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
-        app[route.method](route.path, route.handler);
+        app[route.method](
+            route.path, 
+            (req, res, next) => route.validation ? validationMiddleware(route, req, res, next) : next(),
+            route.handler
+        );
     });
+}
+
+const validationMiddleware = (route, req, res, next) => {
+    const validationResults = {};
+    const validationErrors = [];
+
+    // Helper function to normalize email fields
+    const normalizeEmail = (data) => {
+        if (data && data.email) {
+            data.email = data.email.toLowerCase().trim().replace(/\s+/g, '+');
+        }
+        return data;
+    };
+
+    // Helper function to validate data against schema
+    const validateData = (data, schema, type) => {
+        if (!schema || !data) return;
+
+        const normalizedData = type === 'body' ? normalizeEmail(data) : data;
+        const { error, value } = schema.validate(normalizedData, {
+            abortEarly: false,
+            stripUnknown: true,
+            allowUnknown: false
+        });
+
+        if (error) {
+            validationErrors.push(...error.details.map(detail => ({
+                type,
+                field: detail.path.join('.'),
+                message: detail.message
+            })));
+        } else {
+            validationResults[type] = value;
+        }
+    };
+
+    // Validate query parameters
+    if (route.validation.query) {
+        validateData(req.query, Joi.object(route.validation.query), 'query');
+    }
+
+    // Validate request body
+    if (route.validation.body) {
+        validateData(req.body, Joi.object(route.validation.body), 'body');
+    }
+
+    // Validate URL parameters
+    if (route.validation.params) {
+        validateData(req.params, Joi.object(route.validation.params), 'params');
+    }
+
+    // Handle validation errors
+    if (validationErrors.length > 0) {
+        return res.status(400).json({
+            error: 'Validation failed',
+            details: validationErrors
+        });
+    }
+
+    // Attach validation results to request object
+    req.validation = validationResults;
+    next();
+};
+
+const JoiObjectID = Joi.string().regex(/^[0-9a-fA-F]{24}$/);
+const VALIDATIONS = {
+    POST_USERS: {
+        body: {
+            name: Joi.string().required(),
+            email: Joi.string().required().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USERS: {
+        query: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
+    PATCH_USER: {
+        params: {
+            id: JoiObjectID.required()
+        },
+        body: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    DELETE_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
 }
 
 const initializeUserAPIs = () => {
@@ -40,158 +135,81 @@ const initializeUserAPIs = () => {
         {
             path: '/api/users',
             method: 'post',
+            validation: VALIDATIONS.POST_USERS,
             handler: async (req, res) => {
                 try {
-                    const user = await User.create(req.body);
+                    const user = await User.create(req.validation.body);
                     res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users',
             method: 'get',
+            validation: VALIDATIONS.GET_USERS,
             handler: async (req, res) => {
                 try {
-                    const users = await User.find();
+                    const query = req.validation.query || {};
+                    const filter = {};
+                    if (query.name) filter.name = query.name;
+                    if (query.email) filter.email = query.email;
+                    if (query.age) filter.age = query.age;
+
+                    const users = await User.find(filter);
                     res.json(users);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
             method: 'get',
+            validation: VALIDATIONS.GET_USER,
             handler: async (req, res) => {
                 try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-                        return res.status(400).json({ error: 'Invalid user ID' });
-                    }
-                    const user = await User.findById(req.params.id);
+                    const id = req.validation.params.id;
+                    const user = await User.findById(id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
-            method: 'put',
+            method: 'patch',
+            validation: VALIDATIONS.PATCH_USER,
             handler: async (req, res) => {
                 try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-                        return res.status(400).json({ error: 'Invalid user ID' });
-                    }
-                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
+                    const id = req.validation.params.id;
+                    const body = req.validation.body;
+                    const updated = await User.findByIdAndUpdate(id, body, {
                         new: true,
                         runValidators: true,
                     });
                     if (!updated) return res.status(404).json({ error: 'User not found' });
                     res.json(updated);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
             method: 'delete',
+            validation: VALIDATIONS.DELETE_USER,
             handler: async (req, res) => {
                 try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-                        return res.status(400).json({ error: 'Invalid user ID' });
-                    }
-                    const deleted = await User.findByIdAndDelete(req.params.id);
+                    const id = req.validation.params.id;
+                    const deleted = await User.findByIdAndDelete(id);
                     if (!deleted) return res.status(404).json({ error: 'User not found' });
                     res.json({ message: 'User deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-                        return res.status(400).json({ error: 'Invalid user ID' });
-                    }
-
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const newAddress = req.body;
-                    if (user.addresses.length === 0) {
-                        newAddress.isPrimary = true;
-                    } else if (newAddress.isPrimary) {
-                        user.addresses.forEach(addr => addr.isPrimary = false);
-                    }
-
-                    user.addresses.push(newAddress);
-                    await user.save();
-                    res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-                        return res.status(400).json({ error: 'Invalid user ID' });
-                    }
-
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const address = user.addresses.id(req.params.addressId);
-                    if (!address) return res.status(404).json({ error: 'Address not found' });
-
-                    if (req.body.isPrimary && !address.isPrimary) {
-                        user.addresses.forEach(addr => addr.isPrimary = false);
-                    }
-
-                    Object.assign(address, req.body);
-                    await user.save();
-                    res.json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-                        return res.status(400).json({ error: 'Invalid user ID' });
-                    }
-
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const address = user.addresses.id(req.params.addressId);
-                    if (!address) return res.status(404).json({ error: 'Address not found' });
-
-                    const wasPrimary = address.isPrimary;
-                    address.remove();
-
-                    if (wasPrimary && user.addresses.length > 0) {
-                        user.addresses[0].isPrimary = true;
-                    }
-
-                    await user.save();
-                    res.json(user);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         }

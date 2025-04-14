@@ -3,6 +3,7 @@ Base Code:
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const Joi = require('joi');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -15,7 +16,7 @@ const initializeModels = () => {
     const UserSchema = new mongoose.Schema({
         name: { type: String, required: true },
         email: { type: String, required: true, unique: true },
-        age: Number
+        age: Number,
     }, { timestamps: true });
 
     User = mongoose.model('User', UserSchema);
@@ -23,8 +24,54 @@ const initializeModels = () => {
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
-        app[route.method](route.path, route.handler);
+        app[route.method](
+            route.path, 
+            (req, res, next) => route.validation ? validationMiddleware(route, req, res, next) : next(),
+            route.handler
+        );
     });
+}
+
+const validationMiddleware = (route, req, res, next) => {
+    // TODO: Implement validation middleware
+}
+
+const JoiObjectID = Joi.string().regex(/^[0-9a-fA-F]{24}$/);
+const VALIDATIONS = {
+    POST_USERS: {
+        body: {
+            name: Joi.string().required(),
+            email: Joi.string().required().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USERS: {
+        query: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
+    PATCH_USER: {
+        params: {
+            id: JoiObjectID.required()
+        },
+        body: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    DELETE_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
 }
 
 const initializeUserAPIs = () => {
@@ -32,99 +79,81 @@ const initializeUserAPIs = () => {
         {
             path: '/api/users',
             method: 'post',
+            validation: VALIDATIONS.POST_USERS,
             handler: async (req, res) => {
                 try {
-                    const user = await User.create(req.body);
+                    const user = await User.create(req.validation.body);
                     res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users',
             method: 'get',
+            validation: VALIDATIONS.GET_USERS,
             handler: async (req, res) => {
                 try {
-                    const users = await User.find();
+                    const query = req.validation.query || {};
+                    const filter = {};
+                    if (query.name) filter.name = query.name;
+                    if (query.email) filter.email = query.email;
+                    if (query.age) filter.age = query.age;
+
+                    const users = await User.find(filter);
                     res.json(users);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
             method: 'get',
+            validation: VALIDATIONS.GET_USER,
             handler: async (req, res) => {
                 try {
-                    const user = await User.findById(req.params.id);
+                    const id = req.validation.params.id;
+                    const user = await User.findById(id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
-            method: 'put',
+            method: 'patch',
+            validation: VALIDATIONS.PATCH_USER,
             handler: async (req, res) => {
                 try {
-                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
+                    const id = req.validation.params.id;
+                    const body = req.validation.body;
+                    const updated = await User.findByIdAndUpdate(id, body, {
                         new: true,
                         runValidators: true,
                     });
                     if (!updated) return res.status(404).json({ error: 'User not found' });
                     res.json(updated);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         },
         {
             path: '/api/users/:id',
             method: 'delete',
+            validation: VALIDATIONS.DELETE_USER,
             handler: async (req, res) => {
                 try {
-                    const deleted = await User.findByIdAndDelete(req.params.id);
+                    const id = req.validation.params.id;
+                    const deleted = await User.findByIdAndDelete(id);
                     if (!deleted) return res.status(404).json({ error: 'User not found' });
                     res.json({ message: 'User deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    // TODO: Implement address creation logic
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    // TODO: Implement address creation logic
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    // TODO: Implement address creation logic
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
+                } catch (error) {
+                    res.status(400).json({ error: error.message });
                 }
             }
         }
@@ -154,26 +183,37 @@ module.exports = { app, startServer, stopServer };
 
 Prompt:
 
-Please help to complete the addresses APIs.
+Please complete the `validationMiddleware` function.
 
-*Address object:*
-- street (string, required).
-- city (string, required).
-- state (string, required).
-- postalCode (string, required).
-- country (string, required).
-- isPrimary (boolean, default: false).
+- This is generic middleware that gets executed on all APIs.
+- It should validate incoming HTTP request data (query parameters, request body, and URL parameters) against predefined schemas.
+-  The middleware should sanitize and normalize the data, ensuring it is in the correct format for subsequent middleware and route handlers.
 
-*Addresses API Endpoints:* 
-1. POST /api/users/:id/addresses: Add a new address for a user.
-2. PUT /api/users/:id/addresses/:addressId: Update a specific address for a user.
-3. DELETE /api/users/:id/addresses/:addressId: Delete a specific address for a user.
+The function should fulfill the following points:
 
-- Make sure the user ID exists in the User collection.
-- Validate required fields for the address.
-- Allow only one primary address per user.
-- Set the first address as primary if no other addresses exist.
-- Properly handle cases where the user or address does not exist.
-- Return appropriate HTTP status codes and error messages.
-- Make sure that GET user API and GET all users API should return the user with all the addresses.
-- Return 400 if the ID is invalid and return 404 where the ID is valid but does not exist in the database.
+1. Validation of Request Data:
+    - Query Parameters (req.query)
+    - Request Body (req.body)
+    - URL Parameters (req.params)
+    - Use a Joi schema-based validation library to define and enforce validation rules.
+2. Schema definition:
+    - Each route should define its validation schema for query, body, and URL parameters.
+    - The middleware should dynamically retrieve and apply the schema from the route configuration.
+3. Data Normalization:
+    - Normalize specific fields (e.g., email addresses) before validation:
+        - Convert email addresses to lowercase.
+        - Trim whitespace.
+        - Replace spaces with + in email addresses.
+    - Ensure the normalized data is passed to subsequent middleware or route handlers.
+4. Error Handling:
+    - If validation fails:
+        - Respond with a 400 Bad Request status code.
+        - Return the appropriate error message, which should mention this field having an issue.
+5. After successful validation set the results `validation` object on the request object. The `req.validation` object may look like 
+    {
+        query: <Query validation results>,
+        body: <Request body validation results>,
+        params: <Request URL params validation results>
+    }
+
+Note: Please make sure to return the complete code.

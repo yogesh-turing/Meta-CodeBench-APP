@@ -1,29 +1,18 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
+const Joi = require('joi');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-let server;
-let mongod;
-let User;
+let server, mongod, User;
 app.use(express.json());
 
 const initializeModels = () => {
-    const AddressSchema = new mongoose.Schema({
-        street: { type: String, required: true },
-        city: { type: String, required: true },
-        state: { type: String, required: true },
-        postalCode: { type: String, required: true },
-        country: { type: String, required: true },
-        isPrimary: { type: Boolean, default: false }
-    });
-
     const UserSchema = new mongoose.Schema({
         name: { type: String, required: true },
         email: { type: String, required: true, unique: true },
         age: Number,
-        addresses: [AddressSchema]
     }, { timestamps: true });
 
     User = mongoose.model('User', UserSchema);
@@ -31,8 +20,112 @@ const initializeModels = () => {
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
-        app[route.method](route.path, route.handler);
+        app[route.method](
+            route.path, 
+            (req, res, next) => route.validation ? validationMiddleware(route, req, res, next) : next(),
+            (req, res) => {
+                try {
+                    route.handler(req, res);
+                } catch (err) {
+                    res.status(500).json({ error: err.message });
+                }
+            });
     });
+}
+
+const validationMiddleware = (route, req, res, next) => {
+    const validationResults = {};
+
+    // Helper function to normalize email
+    const normalizeEmail = (email) => {
+        return email.toLowerCase().trim().replace(/\s+/g, '+');
+    };
+
+    // Validate and normalize request query parameters
+    if (route.validation.query) {
+        const querySchema = Joi.object(route.validation.query);
+        const queryData = { ...req.query };
+
+        // Normalize emails in query params
+        if (queryData.email) {
+            queryData.email = normalizeEmail(queryData.email);
+        }
+
+        const { error, value } = querySchema.validate(queryData, { abortEarly: false });
+        if (error) {
+            return res.status(400).json({ error: `Query validation failed: ${error.details.map(detail => detail.message).join(', ')}` });
+        }
+        validationResults.query = value;
+    }
+
+    // Validate and normalize request body
+    if (route.validation.body) {
+        const bodySchema = Joi.object(route.validation.body);
+        const bodyData = { ...req.body };
+
+        // Normalize emails in body
+        if (bodyData.email) {
+            bodyData.email = normalizeEmail(bodyData.email);
+        }
+
+        const { error, value } = bodySchema.validate(bodyData, { abortEarly: false });
+        if (error) {
+            return res.status(400).json({ error: `Body validation failed: ${error.details.map(detail => detail.message).join(', ')}` });
+        }
+        validationResults.body = value;
+    }
+
+    // Validate URL parameters
+    if (route.validation.params) {
+        const paramsSchema = Joi.object(route.validation.params);
+        const { error, value } = paramsSchema.validate(req.params, { abortEarly: false });
+        if (error) {
+            return res.status(400).json({ error: `Params validation failed: ${error.details.map(detail => detail.message).join(', ')}` });
+        }
+        validationResults.params = value;
+    }
+
+    // Set the validated and normalized data on the request object
+    req.validation = validationResults;
+    next();
+};
+
+const JoiObjectID = Joi.string().regex(/^[0-9a-fA-F]{24}$/);
+const VALIDATIONS = {
+    POST_USERS: {
+        body: {
+            name: Joi.string().required(),
+            email: Joi.string().required().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USERS: {
+        query: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    GET_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
+    PATCH_USER: {
+        params: {
+            id: JoiObjectID.required()
+        },
+        body: {
+            name: Joi.string().optional(),
+            email: Joi.string().optional().email(),
+            age: Joi.number().optional()
+        }
+    },
+    DELETE_USER: {
+        params: {
+            id: JoiObjectID.required()
+        }
+    },
 }
 
 const initializeUserAPIs = () => {
@@ -40,150 +133,62 @@ const initializeUserAPIs = () => {
         {
             path: '/api/users',
             method: 'post',
+            validation: VALIDATIONS.POST_USERS,
             handler: async (req, res) => {
-                try {
-                    const user = await User.create(req.body);
-                    res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
+                const user = await User.create(req.validation.body);
+                res.status(201).json(user);
             }
         },
         {
             path: '/api/users',
             method: 'get',
+            validation: VALIDATIONS.GET_USERS,
             handler: async (req, res) => {
-                try {
-                    const users = await User.find();
-                    res.json(users);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
+                const query = req.validation.query || {};
+                const filter = {};
+                if (query.name) filter.name = query.name;
+                if (query.email) filter.email = query.email;
+                if (query.age) filter.age = query.age;
+
+                const users = await User.find(filter);
+                res.json(users);
             }
         },
         {
             path: '/api/users/:id',
             method: 'get',
+            validation: VALIDATIONS.GET_USER,
             handler: async (req, res) => {
-                try {
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-                    res.json(user);
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
+                const id = req.validation.params.id;
+                const user = await User.findById(id);
+                if (!user) return res.status(404).json({ error: 'User not found' });
+                res.json(user);
             }
         },
         {
             path: '/api/users/:id',
-            method: 'put',
+            method: 'patch',
+            validation: VALIDATIONS.PATCH_USER,
             handler: async (req, res) => {
-                try {
-                    const updated = await User.findByIdAndUpdate(req.params.id, req.body, {
-                        new: true,
-                        runValidators: true,
-                    });
-                    if (!updated) return res.status(404).json({ error: 'User not found' });
-                    res.json(updated);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
+                const id = req.validation.params.id;
+                const body = req.validation.body;
+                const updated = await User.findByIdAndUpdate(id, body, {
+                    new: true,
+                    runValidators: true,
+                });
+                if (!updated) return res.status(404).json({ error: 'User not found' });
+                res.json(updated);
             }
         },
         {
             path: '/api/users/:id',
             method: 'delete',
+            validation: VALIDATIONS.DELETE_USER,
             handler: async (req, res) => {
-                try {
-                    const deleted = await User.findByIdAndDelete(req.params.id);
-                    if (!deleted) return res.status(404).json({ error: 'User not found' });
-                    res.json({ message: 'User deleted' });
-                } catch (err) {
-                    res.status(500).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses',
-            method: 'post',
-            handler: async (req, res) => {
-                try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
-                        return res.status(400).json({ error: 'Invalid user ID' });
-                    }
-
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const addressData = req.body;
-                    if (user.addresses.length === 0) {
-                        addressData.isPrimary = true;
-                    } else if (addressData.isPrimary) {
-                        user.addresses.forEach(addr => addr.isPrimary = false);
-                    }
-
-                    user.addresses.push(addressData);
-                    await user.save();
-                    res.status(201).json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'put',
-            handler: async (req, res) => {
-                try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id) || 
-                        !mongoose.Types.ObjectId.isValid(req.params.addressId)) {
-                        return res.status(400).json({ error: 'Invalid ID' });
-                    }
-
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const address = user.addresses.id(req.params.addressId);
-                    if (!address) return res.status(404).json({ error: 'Address not found' });
-
-                    Object.assign(address, req.body);
-
-                    if (req.body.isPrimary) {
-                        user.addresses.forEach(addr => {
-                            if (addr._id.toString() !== req.params.addressId) 
-                                addr.isPrimary = false;
-                        });
-                    }
-
-                    await user.save();
-                    res.json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
-            }
-        },
-        {
-            path: '/api/users/:id/addresses/:addressId',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    if (!mongoose.Types.ObjectId.isValid(req.params.id) ||
-                        !mongoose.Types.ObjectId.isValid(req.params.addressId)) {
-                        return res.status(400).json({ error: 'Invalid ID' });
-                    }
-
-                    const user = await User.findById(req.params.id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-
-                    const address = user.addresses.id(req.params.addressId);
-                    if (!address) return res.status(404).json({ error: 'Address not found' });
-
-                    address.remove();
-                    await user.save();
-                    res.json(user);
-                } catch (err) {
-                    res.status(400).json({ error: err.message });
-                }
+                const id = req.validation.params.id;
+                const deleted = await User.findByIdAndDelete(id);
+                if (!deleted) return res.status(404).json({ error: 'User not found' });
+                res.json({ message: 'User deleted' });
             }
         }
     ];
