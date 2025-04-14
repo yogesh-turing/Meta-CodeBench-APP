@@ -54,7 +54,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const users = await User.find();
+                    const users = await User.find().populate('addresses');
                     res.json(users);
                 } catch (err) {
                     res.status(500).json({ error: err.message });
@@ -66,7 +66,7 @@ const initializeUserAPIs = () => {
             method: 'get',
             handler: async (req, res) => {
                 try {
-                    const user = await User.findById(req.params.id);
+                    const user = await User.findById(req.params.id).populate('addresses');
                     if (!user) return res.status(404).json({ error: 'User not found' });
                     res.json(user);
                 } catch (err) {
@@ -111,18 +111,18 @@ const initializeUserAPIs = () => {
                     const user = await User.findById(req.params.id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
 
-                    const address = req.body;
-                    if (!address.street || !address.city || !address.state || !address.postalCode || !address.country) {
+                    const { street, city, state, postalCode, country, isPrimary } = req.body;
+                    if (!street || !city || !state || !postalCode || !country) {
                         return res.status(400).json({ error: 'All address fields are required' });
                     }
 
-                    if (address.isPrimary) {
-                        user.addresses.forEach(a => { a.isPrimary = false; });
+                    if (isPrimary) {
+                        user.addresses.forEach(address => address.isPrimary = false);
                     } else if (user.addresses.length === 0) {
-                        address.isPrimary = true;
+                        req.body.isPrimary = true; // Set the first address as primary
                     }
 
-                    user.addresses.push(address);
+                    user.addresses.push(req.body);
                     await user.save();
                     res.status(201).json(user);
                 } catch (err) {
@@ -141,13 +141,16 @@ const initializeUserAPIs = () => {
                     const address = user.addresses.id(req.params.addressId);
                     if (!address) return res.status(404).json({ error: 'Address not found' });
 
-                    Object.assign(address, req.body);
-
-                    if (req.body.isPrimary) {
-                        user.addresses.forEach(a => { a.isPrimary = false; });
-                        address.isPrimary = true;
+                    const { street, city, state, postalCode, country, isPrimary } = req.body;
+                    if (!street || !city || !state || !postalCode || !country) {
+                        return res.status(400).json({ error: 'All address fields are required' });
                     }
 
+                    if (isPrimary) {
+                        user.addresses.forEach(addr => addr.isPrimary = false);
+                    }
+
+                    Object.assign(address, req.body);
                     await user.save();
                     res.json(user);
                 } catch (err) {
@@ -160,13 +163,22 @@ const initializeUserAPIs = () => {
             method: 'delete',
             handler: async (req, res) => {
                 try {
-                    const user = await User.findById(req.params.id);
+                    let user = await User.findById(req.params.id);
                     if (!user) return res.status(404).json({ error: 'User not found' });
 
                     const address = user.addresses.id(req.params.addressId);
                     if (!address) return res.status(404).json({ error: 'Address not found' });
 
-                    address.remove();
+                    await User.updateOne(
+                        { _id: req.params.id },
+                        { $pull: { addresses: { _id: req.params.addressId } } }
+                    );
+                    user = await User.findById(req.params.id); // Refresh user data
+                    if (address.isPrimary && user.addresses.length > 0) {
+                        user.addresses[0].isPrimary = true; // Set the first address as primary if it was the only one
+                    } else if (user.addresses.length === 0) {
+                        user.isPrimary = false; // No addresses left, set primary to false
+                    }
                     await user.save();
                     res.json({ message: 'Address deleted' });
                 } catch (err) {

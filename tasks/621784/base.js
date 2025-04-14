@@ -1,157 +1,173 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const Joi = require('joi');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 let server;
 let mongod;
-let User;
+let Ticket;
 app.use(express.json());
 
 const initializeModels = () => {
-    const UserSchema = new mongoose.Schema({
-        name: { type: String, required: true },
-        email: { type: String, required: true, unique: true },
-        age: Number,
-    }, { timestamps: true });
-
-    User = mongoose.model('User', UserSchema);
+    const TicketSchema = new mongoose.Schema({
+        title: {
+            type: String,
+            required: true,
+            trim: true
+        },
+        description: {
+            type: String,
+            required: false,
+            trim: true
+        },
+        status: {
+          type: String,
+          enum: ['open', 'in-progress', 'completed', 'closed'],
+          default: 'open'
+        },
+        agentId: {
+          type: mongoose.Schema.Types.ObjectId,
+          ref: 'User',
+          required: false
+        },
+        archived: {
+          type: Boolean,
+          default: false
+        },
+        history: [{
+            changedBy: {
+                id: String,
+                role: String
+            },
+            from: String,
+            to: String,
+            changedAt: Date
+          }],
+        stats: {
+            timeInOpenStatus: Number,
+            timeInProgressStatus: Number,
+            timeInCompletedStatus: Number,
+            timeFromOpenToInProgress: Number,
+            timeFromOpenToCompleted: Number,
+            timeFromOpenToClosed: Number,
+            timeFromInProgressToCompleted: Number,
+            timeFromInProgressToClosed: Number,
+            timeFromInCompletedToClosed: Number
+        }
+      }, { timestamps: true });
+      
+      Ticket = mongoose.model('Ticket', TicketSchema);
 };
+
+const authMiddleware = (req, res, next) => {
+    if (req.headers['x-user-id'] === 'admin') {
+        req.user = { id: 'admin', role: 'admin' };
+    } else if (req.headers['x-user-id'] === 'agent') {
+        req.user = { id: 'agent', role: 'agent' };
+    } else {
+        return res.status(403).json({ error: 'Access denied' });
+    }
+    next();
+}
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
         app[route.method](
             route.path, 
-            (req, res, next) => route.validation ? validationMiddleware(route, req, res, next) : next(),
+            authMiddleware,
             route.handler
         );
     });
 }
 
-const validationMiddleware = (route, req, res, next) => {
-    // TODO: Implement validation middleware
-}
-
-const JoiObjectID = Joi.string().regex(/^[0-9a-fA-F]{24}$/);
-const VALIDATIONS = {
-    POST_USERS: {
-        body: {
-            name: Joi.string().required(),
-            email: Joi.string().required().email(),
-            age: Joi.number().optional()
-        }
-    },
-    GET_USERS: {
-        query: {
-            name: Joi.string().optional(),
-            email: Joi.string().optional().email(),
-            age: Joi.number().optional()
-        }
-    },
-    GET_USER: {
-        params: {
-            id: JoiObjectID.required()
-        }
-    },
-    PATCH_USER: {
-        params: {
-            id: JoiObjectID.required()
-        },
-        body: {
-            name: Joi.string().optional(),
-            email: Joi.string().optional().email(),
-            age: Joi.number().optional()
-        }
-    },
-    DELETE_USER: {
-        params: {
-            id: JoiObjectID.required()
-        }
-    },
-}
-
 const initializeUserAPIs = () => {
     const userRoutes = [
         {
-            path: '/api/users',
+            path: '/api/tickets',
             method: 'post',
-            validation: VALIDATIONS.POST_USERS,
             handler: async (req, res) => {
                 try {
-                    const user = await User.create(req.validation.body);
-                    res.status(201).json(user);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
+                    const ticket = await Ticket.create(req.body);
+                    ticket.stats = {
+                        timeInOpenStatus: 0,
+                        timeInProgressStatus: 0,
+                        timeInCompletedStatus: 0,
+                        timeFromOpenToInProgress: 0,
+                        timeFromOpenToCompleted: 0,
+                        timeFromOpenToClosed: 0,
+                        timeFromInProgressToCompleted: 0,
+                        timeFromInProgressToClosed: 0,
+                        timeFromInCompletedToClosed: 0
+                    };
+                    await ticket.save();
+                    res.status(201).json(ticket);
+                } catch (err) {
+                res.status(500).json({ error: 'Server error' });
                 }
             }
         },
         {
-            path: '/api/users',
+            path: '/api/tickets/:id',
             method: 'get',
-            validation: VALIDATIONS.GET_USERS,
             handler: async (req, res) => {
                 try {
-                    const query = req.validation.query || {};
-                    const filter = {};
-                    if (query.name) filter.name = query.name;
-                    if (query.email) filter.email = query.email;
-                    if (query.age) filter.age = query.age;
-
-                    const users = await User.find(filter);
-                    res.json(users);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
+                    const ticket = await Ticket.findById(req.params.id);
+                    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+                    res.status(200).json(ticket);
+                } catch (err) {
+                    res.status(500).json({ error: 'Server error' });
                 }
             }
         },
         {
-            path: '/api/users/:id',
+            path: '/api/tickets',
             method: 'get',
-            validation: VALIDATIONS.GET_USER,
             handler: async (req, res) => {
                 try {
-                    const id = req.validation.params.id;
-                    const user = await User.findById(id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-                    res.json(user);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
+                    const tickets = await Ticket.find();
+                    res.status(200).json(tickets);
+                } catch (err) {
+                    res.status(500).json({ error: 'Server error' });
                 }
             }
         },
         {
-            path: '/api/users/:id',
+            path: '/api/tickets/:id/status',
             method: 'patch',
-            validation: VALIDATIONS.PATCH_USER,
             handler: async (req, res) => {
                 try {
-                    const id = req.validation.params.id;
-                    const body = req.validation.body;
-                    const updated = await User.findByIdAndUpdate(id, body, {
-                        new: true,
-                        runValidators: true,
-                    });
-                    if (!updated) return res.status(404).json({ error: 'User not found' });
-                    res.json(updated);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
+                    const { id } = req.params;
+                    const { status } = req.body;
+                    const user = req.user;
+                    // TODO:
+                    // 1. Validate ObjectId
+                    // 2. Joi validate status
+                    // 3. Fetch ticket and reject if archived or not found
+                    // 4. Reject invalid transition (e.g. open -> closed)
+                    // 5. Only admin can close
+                    // 6. Prevent same-status updates
+                    // 7. Save new status and push history
+                    // 8. Return updated ticket
+                    res.status(200).json({ message: 'Ticket status updated' });
+                } catch (err) {
+                    res.status(500).json({ error: 'Server error' });
                 }
             }
         },
         {
-            path: '/api/users/:id',
+            path: '/api/tickets/:id',
             method: 'delete',
-            validation: VALIDATIONS.DELETE_USER,
             handler: async (req, res) => {
                 try {
-                    const id = req.validation.params.id;
-                    const deleted = await User.findByIdAndDelete(id);
-                    if (!deleted) return res.status(404).json({ error: 'User not found' });
-                    res.json({ message: 'User deleted' });
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
+                    const { id } = req.params;
+                    const ticket = await Ticket.findById(id);
+                    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+                    if (ticket.archived) return res.status(400).json({ error: 'Cannot delete archived ticket' });
+                    await Ticket.updateOne({ _id: id }, { archived: true });
+                    res.status(204).send();
+                } catch (err) {
+                    res.status(500).json({ error: 'Server error' });
                 }
             }
         }

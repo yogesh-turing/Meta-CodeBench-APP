@@ -3,158 +3,120 @@ Base Code:
 const express = require('express');
 const mongoose = require('mongoose');
 const { MongoMemoryServer } = require('mongodb-memory-server');
-const Joi = require('joi');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
-let server;
-let mongod;
-let User;
+let server, mongod, Ticket;
 app.use(express.json());
 
 const initializeModels = () => {
-    const UserSchema = new mongoose.Schema({
-        name: { type: String, required: true },
-        email: { type: String, required: true, unique: true },
-        age: Number,
-    }, { timestamps: true });
-
-    User = mongoose.model('User', UserSchema);
+    const TicketSchema = new mongoose.Schema({
+        title: { type: String, required: true, trim: true },
+        description: { type: String, required: false, trim: true },
+        status: { type: String, enum: ['open', 'in-progress', 'completed', 'closed'], default: 'open' },
+        agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false},
+        archived: { type: Boolean, default: false },
+        history: [{ changedBy: { id: String, role: String }, from: String, to: String, changedAt: Date, description: String }],
+        stats: {
+            timeInOpenStatus: Number, timeInProgressStatus: Number, timeInCompletedStatus: Number, timeFromOpenToInProgress: Number,
+            timeFromOpenToCompleted: Number, timeFromOpenToClosed: Number, timeFromInProgressToCompleted: Number, timeFromInProgressToClosed: Number, timeFromInCompletedToClosed: Number,
+        }
+      }, { timestamps: true });
+      Ticket = mongoose.model('Ticket', TicketSchema);
 };
+
+const authMiddleware = (req, res, next) => {
+    if (req.headers['x-user-id'] === 'admin') req.user = { id: 'admin', role: 'admin' };
+    else if (req.headers['x-user-id'] === 'agent') req.user = { id: 'agent', role: 'agent' };
+    else return res.status(403).json({ error: 'Access denied' });
+    next();
+}
 
 const intializeRoutes = (routes) => {
     routes.forEach(route => {
-        app[route.method](
-            route.path, 
-            (req, res, next) => route.validation ? validationMiddleware(route, req, res, next) : next(),
-            route.handler
-        );
+        app[route.method](route.path, authMiddleware, route.handler);
     });
-}
-
-const validationMiddleware = (route, req, res, next) => {
-    // TODO: Implement validation middleware
-}
-
-const JoiObjectID = Joi.string().regex(/^[0-9a-fA-F]{24}$/);
-const VALIDATIONS = {
-    POST_USERS: {
-        body: {
-            name: Joi.string().required(),
-            email: Joi.string().required().email(),
-            age: Joi.number().optional()
-        }
-    },
-    GET_USERS: {
-        query: {
-            name: Joi.string().optional(),
-            email: Joi.string().optional().email(),
-            age: Joi.number().optional()
-        }
-    },
-    GET_USER: {
-        params: {
-            id: JoiObjectID.required()
-        }
-    },
-    PATCH_USER: {
-        params: {
-            id: JoiObjectID.required()
-        },
-        body: {
-            name: Joi.string().optional(),
-            email: Joi.string().optional().email(),
-            age: Joi.number().optional()
-        }
-    },
-    DELETE_USER: {
-        params: {
-            id: JoiObjectID.required()
-        }
-    },
 }
 
 const initializeUserAPIs = () => {
     const userRoutes = [
         {
-            path: '/api/users',
+            path: '/api/tickets',
             method: 'post',
-            validation: VALIDATIONS.POST_USERS,
             handler: async (req, res) => {
                 try {
-                    const user = await User.create(req.validation.body);
-                    res.status(201).json(user);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
-                }
+                    const ticket = await Ticket.create(req.body);
+                    ticket.stats = {
+                        timeInOpenStatus: 0,
+                        timeInProgressStatus: 0,
+                        timeInCompletedStatus: 0,
+                        timeFromOpenToInProgress: 0,
+                        timeFromOpenToCompleted: 0,
+                        timeFromOpenToClosed: 0,
+                        timeFromInProgressToCompleted: 0,
+                        timeFromInProgressToClosed: 0,
+                        timeFromInCompletedToClosed: 0
+                    };
+                    ticket.history = [];
+                    await ticket.save();
+                    res.status(201).json(ticket);
+                } catch (err) { res.status(500).json({ error: 'Server error' }); }
             }
         },
         {
-            path: '/api/users',
+            path: '/api/tickets/:id',
             method: 'get',
-            validation: VALIDATIONS.GET_USERS,
             handler: async (req, res) => {
                 try {
-                    const query = req.validation.query || {};
-                    const filter = {};
-                    if (query.name) filter.name = query.name;
-                    if (query.email) filter.email = query.email;
-                    if (query.age) filter.age = query.age;
-
-                    const users = await User.find(filter);
-                    res.json(users);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
-                }
+                    const ticket = await Ticket.findById(req.params.id);
+                    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+                    res.status(200).json(ticket);
+                } catch (err) { res.status(500).json({ error: 'Server error' }); }
             }
         },
         {
-            path: '/api/users/:id',
+            path: '/api/tickets',
             method: 'get',
-            validation: VALIDATIONS.GET_USER,
             handler: async (req, res) => {
                 try {
-                    const id = req.validation.params.id;
-                    const user = await User.findById(id);
-                    if (!user) return res.status(404).json({ error: 'User not found' });
-                    res.json(user);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
-                }
+                    const tickets = await Ticket.find();
+                    res.status(200).json(tickets);
+                } catch (err) { res.status(500).json({ error: 'Server error' }); }
             }
         },
         {
-            path: '/api/users/:id',
+            path: '/api/tickets/:id/status',
             method: 'patch',
-            validation: VALIDATIONS.PATCH_USER,
             handler: async (req, res) => {
                 try {
-                    const id = req.validation.params.id;
-                    const body = req.validation.body;
-                    const updated = await User.findByIdAndUpdate(id, body, {
-                        new: true,
-                        runValidators: true,
-                    });
-                    if (!updated) return res.status(404).json({ error: 'User not found' });
-                    res.json(updated);
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
-                }
+                    const { id } = req.params;
+                    const { status } = req.body;
+                    const user = req.user;
+                    // TODO:
+                    // 1. Validate ObjectId
+                    // 2. Joi validate status
+                    // 3. Fetch ticket and reject if archived or not found
+                    // 4. Reject invalid transition (e.g. open -> closed, open -> completed etc.)
+                    // 5. Only admin can close
+                    // 6. Prevent same-status updates
+                    // 7. Save new status and push history
+                    // 8. Return updated ticket
+                    res.status(200).json({ message: 'Ticket status updated' });
+                } catch (err) { res.status(500).json({ error: 'Server error' }); }
             }
         },
         {
-            path: '/api/users/:id',
+            path: '/api/tickets/:id',
             method: 'delete',
-            validation: VALIDATIONS.DELETE_USER,
             handler: async (req, res) => {
                 try {
-                    const id = req.validation.params.id;
-                    const deleted = await User.findByIdAndDelete(id);
-                    if (!deleted) return res.status(404).json({ error: 'User not found' });
-                    res.json({ message: 'User deleted' });
-                } catch (error) {
-                    res.status(400).json({ error: error.message });
-                }
+                    const { id } = req.params;
+                    const ticket = await Ticket.findById(id);
+                    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
+                    if (ticket.archived) return res.status(400).json({ error: 'Cannot delete archived ticket' });
+                    await Ticket.updateOne({ _id: id }, { archived: true });
+                    res.status(204).send();
+                } catch (err) { res.status(500).json({ error: 'Server error' }); }
             }
         }
     ];
@@ -164,7 +126,6 @@ const initializeUserAPIs = () => {
 const startServer = async () => {
     mongod = await MongoMemoryServer.create();
     await mongoose.connect(mongod.getUri());
-    console.log('Connected to in-memory MongoDB');
     initializeModels();
     initializeUserAPIs();
     server = app.listen(PORT);
@@ -172,9 +133,7 @@ const startServer = async () => {
 
 const stopServer = async () => {
     if (server) await server.close(); 
-    if (mongoose.connection.readyState) {
-      await mongoose.disconnect();
-    }
+    if (mongoose.connection.readyState) await mongoose.disconnect();
     if (mongod) await mongod.stop(); 
 };
 
@@ -183,37 +142,39 @@ module.exports = { app, startServer, stopServer };
 
 Prompt:
 
-Please complete the `validationMiddleware` function.
+Please complete the update ticket status API that allows agents and admins to update the status of support tickets. The update process must include business rules, role validation, and history logging.
 
-- This is generic middleware that gets executed on all APIs.
-- It should validate incoming HTTP request data (query parameters, request body, and URL parameters) against predefined schemas.
--  The middleware should sanitize and normalize the data, ensuring it is in the correct format for subsequent middleware and route handlers.
-
-The function should fulfill the following points:
-
-1. Validation of Request Data:
-    - Query Parameters (req.query)
-    - Request Body (req.body)
-    - URL Parameters (req.params)
-    - Use a Joi schema-based validation library to define and enforce validation rules.
-2. Schema definition:
-    - Each route should define its validation schema for query, body, and URL parameters.
-    - The middleware should dynamically retrieve and apply the schema from the route configuration.
-3. Data Normalization:
-    - Normalize specific fields (e.g., email addresses) before validation:
-        - Convert email addresses to lowercase.
-        - Trim whitespace.
-        - Replace spaces with + in email addresses.
-    - Ensure the normalized data is passed to subsequent middleware or route handlers.
-4. Error Handling:
-    - If validation fails:
-        - Respond with a 400 Bad Request status code.
-        - Return the appropriate error message, which should mention this field having an issue.
-5. After successful validation set the results `validation` object on the request object. The `req.validation` object may look like 
+1. Allowed ticket status transitions
+    - `open` → `in-progress`
+    - `in-progress` → `completed`
+    - `completed` → `closed`
+    - `open` → `closed` (Not allowed directly)
+2. Only admins can close tickets. Use `req.user` to get user details.
+3. Cannot re-update to the same status.
+4. Archived tickets cannot be updated.
+5. Every status change must be logged in a history[] field on the ticket:
     {
-        query: <Query validation results>,
-        body: <Request body validation results>,
-        params: <Request URL params validation results>
+        changedBy: <user>,
+        from: <old status>,
+        to: <new status>,
+        changedAt: <currenct date>,
+        description: <string>
     }
+    The description should be in following format:
+        <User role> changed <field name> from <old value> to <new value> as <current date>
 
-Note: Please make sure to return the complete code.
+6. Store the following stats on the ticket:
+    {
+        timeInOpenStatus: Number,
+        timeInProgressStatus: Number,
+        timeInCompletedStatus: Number,
+        timeFromOpenToInProgress: Number,
+        timeFromOpenToCompleted: Number,
+        timeFromOpenToClosed: Number,
+        timeFromInProgressToCompleted: Number,
+        timeFromInProgressToClosed: Number,
+        timeFromInCompletedToClosed: Number,
+    }
+    The time should be in seconds.
+
+Note: Please return the complete code.
