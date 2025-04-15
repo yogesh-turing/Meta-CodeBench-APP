@@ -22,17 +22,17 @@ async function submitForm(driver, htmlContent, formValues) {
     try {
         // TODO: Complete the function
         // Load the HTML content into the Selenium WebDriver
+        // Validate the HTML content and form values
         // Fill all form fields based on formValues
         // - text inputs by id
         // - select dropdown by id
         // - radio buttons by name
         // - checkboxes by name
-
         // - Submit the form by clicking the button[type="submit"]
-
         // - Wait until the response appears in the #status paragraph
-        // - Parse the textContent, extract JSON and return it
-
+        const statusText = await driver.findElement(By.id("status")).getText();
+        const jsonResponse = JSON.parse(statusText.split("API Response: ")[1]);
+        return jsonResponse;
     } catch (error) {
         console.error("An error occurred:", error);
         return null;
@@ -43,8 +43,54 @@ async function submitForm(driver, htmlContent, formValues) {
     }
 };
 
+module.exports = {
+    submitForm
+};
 
-const htmlForm = `<html>
+```
+
+Prompt:
+
+I am building a JavaScript Selenium script to automate the submission of a user form embedded in an HTML string. 
+The form includes inputs of various types (text, select, radio, checkbox). 
+Once submitted, the form makes an API call using fetch(), and displays the result in a paragraph with id="status".
+
+
+Please help me to complete the script. 
+
+Complete the submitForm function so that:
+    - It loads the HTML form in the browser
+    - It validates the HTML content and form values
+    - It field is required, but if it is missing/null/empty in the formValues, it should throw an error.
+    - It fills in all the form fields correctly (text, select, radio, checkboxes)
+    - Submits the form
+    - Waits for the API response to appear in the #status paragraph
+    - Extracts the JSON object from the status paragraph
+    - Returns that JSON object
+
+`formValues` structure:
+```javascript
+    {
+        name: <string>,
+        email: <string>,
+        role: <string>, // "user" or "admin"
+        fav_language: <string>, // "JavaScript", "Python", "C#"
+        interests: <array of strings> // ["Coding", "Testing", "Automation"]
+    }
+```
+The solution should work with the following HTML. The required attribute may be present or absent on the HTML fields, so the script should be able to handle both cases.
+The HTML form is a simple user form with the following fields:
+- Name (text input)
+- Email (email input)
+- Role (select dropdown, options: "user", "admin")
+- Favorite Programming Language (radio buttons, options: "JavaScript", "Python", "C#")
+- Interests (checkboxes, options: "Coding", "Testing", "Automation")
+- Submit button (button[type="submit"])
+The fields may or may not have the required attribute.
+If any of the HTML fields are required but is missing/null/empty in the `formValues`, it should throw an error.
+
+```html
+<html>
     <body>
         <h2>User Form</h2>
         <form id="mockForm">
@@ -107,50 +153,7 @@ const htmlForm = `<html>
             });
         </script>
     </body>
-</html>`;
-
-const main = async () => {
-    const formValues = {
-        name: "John Doe",
-        email: "john.doe@example.com",
-        role: "admin",
-        fav_language: "Python",
-        interests: ["Coding", "Automation"]
-    };
-
-    const driver = await new Builder().forBrowser("chrome").build();
-
-    const response = await submitForm(driver, htmlForm, formValues);
-    console.log(response);
-
-    await driver.quit();
-};
-
-main();
-
-module.exports = {
-    submitForm
-};
-
+</html>
 ```
-
-Prompt:
-
-I am building a JavaScript Selenium script to automate the submission of a user form embedded in an HTML string. 
-The form includes inputs of various types (text, select, radio, checkbox). 
-Once submitted, the form makes an API call using fetch(), and displays the result in a paragraph with id="status".
-
-
-Please help me to complete the script. 
-
-Complete the submitForm function so that:
-    - It loads the HTML form in the browser
-    - It fills in all the form fields correctly (text, select, radio, checkboxes)
-    - Submits the form
-    - Waits for the API response to appear in the #status paragraph
-    - Extracts the JSON object from the status paragraph
-    - Returns that JSON object
-
-The HTML form and test runner are already provided.
 
 Complete the missing part in the submitForm function.
