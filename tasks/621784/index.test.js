@@ -1,414 +1,137 @@
-const request = require('supertest');
-const mongoose = require('mongoose');
-const { app, startServer, stopServer } = require('./model_a');
+const fs = require('fs-extra');
+const path = require('path');
+const { scheduleAndCleanFileStore } = require('./model_a');
 
-let createdTicketId;
+jest.mock('fs-extra');
 
-beforeAll(async () => {
-  await startServer();
-});
+describe('scheduleAndCleanFileStore', () => {
+    let logs = [];
 
-afterAll(async () => {
-  await stopServer();
-  await mongoose.connection.close();
-});
+    const logger = msg => logs.push(msg);
 
-describe('Tickets API', () => {
+    beforeEach(() => {
+        logs = [];
+        jest.useFakeTimers();
+        jest.clearAllTimers();
+        jest.clearAllMocks();
+    });
 
-  afterEach(() => {
-    jest.useRealTimers();
-  });
+    afterEach(() => {
+        jest.useRealTimers();
+    });
 
-  // Test: Create a ticket
-  test('Create a ticket - valid data', async () => {
-    const response = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Test Ticket',
-        description: 'This is a test ticket',
-        status: 'open',
-      });
-    expect(response.status).toBe(201);
-    expect(response.body).toHaveProperty('_id');
-    expect(response.body.title).toBe('Test Ticket');
-    expect(response.body.description).toBe('This is a test ticket');
-    createdTicketId = response.body._id;
-  });
+    test('schedules and deletes a file successfully after TTL', async () => {
+        fs.remove.mockResolvedValueOnce(); // simulate success
 
-  test('Create a ticket - missing required fields', async () => {
-    const response = await request(app).post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({});
-    expect(response.status).toBe(500);
-    expect(response.body).toHaveProperty('error');
-  });
+        const store = scheduleAndCleanFileStore({
+            tempDir: '/tmp',
+            ttl: 1000,
+            logger
+        });
 
-  test('Create a ticket - not authorized', async () => {
-    const response = await request(app).post('/api/tickets')
-      .set({ 'x-user-id': 'user' })
-      .send({
-        title: 'Unauthorized Ticket',
-        description: 'This ticket should not be created',
-        status: 'open',
-      });
-    expect(response.status).toBe(403);
-    expect(response.body).toHaveProperty('error', 'Access denied');
-  });
+        const filePath = '/tmp/testfile.txt';
+        store.schedule(filePath);
 
-  // Test: Get a ticket by ID
-  test('Get a ticket by ID - valid ID', async () => {
-    const response = await request(app)
-      .get(`/api/tickets/${createdTicketId}`)
-      .set({ 'x-user-id': 'admin' });
-    expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('_id', createdTicketId);
-  });
+        expect(store.getScheduled()).toContain(filePath);
+        jest.advanceTimersByTime(1000);
+        await Promise.resolve(); // flush promise
 
-  test('Get a ticket by ID - invalid ID format', async () => {
-    const response = await request(app).get('/api/tickets/invalid-id').set({ 'x-user-id': 'admin' });
-    expect(response.status >= 400).toBe(true);
-  });
+        expect(fs.remove).toHaveBeenCalledWith(filePath);
 
-  test('Get a ticket by ID - non-existent ID', async () => {
-    const response = await request(app).get('/api/tickets/' + new mongoose.Types.ObjectId()).set({ 'x-user-id': 'admin' });
-    expect(response.status).toBe(404);
-    expect(response.body).toHaveProperty('error', 'Ticket not found');
-  });
+        // add wait for fs.remove to resolve
+        await Promise.resolve(); // flush promise
+        expect(fs.remove).toHaveBeenCalledTimes(1);
+        expect(store.getScheduled()).not.toContain(filePath);
+        expect(logs).toContain(`Deleted: ${filePath}`);
+    });
 
-  test('Get a ticket by ID - not authorized', async () => {
-    const response = await request(app)
-      .get(`/api/tickets/${createdTicketId}`)
-      .set({ 'x-user-id': 'user' });
-    expect(response.status).toBe(403);
-    expect(response.body).toHaveProperty('error', 'Access denied');
-  });
+    test('retries deletion if fs.remove fails', async () => {
+        fs.remove
+            .mockRejectedValueOnce(new Error('EPERM: file in use'))
+            .mockResolvedValueOnce(); // succeed on 2nd try
 
-  // Test: Get all tickets
-  test('Get all tickets', async () => {
-    const response = await request(app).get('/api/tickets').set({ 'x-user-id': 'admin' });
-    expect(response.status).toBe(200);
-    expect(Array.isArray(response.body)).toBe(true);
-  });
+        const store = scheduleAndCleanFileStore({
+            tempDir: '/tmp',
+            ttl: 1000,
+            logger,
+            maxRetries: 3,
+            retryDelayStrategy: attempt => 500
+        });
 
-  test('Get all tickets - not authorized', async () => {
-    const response = await request(app).get('/api/tickets').set({ 'x-user-id': 'user' });
-    expect(response.status).toBe(403);
-    expect(response.body).toHaveProperty('error', 'Access denied');
-  });
+        const filePath = '/tmp/retryfile.txt';
+        store.schedule(filePath);
 
-  // Test: Update ticket status
-  test('Update ticket status - valid data', async () => {
-    const response = await request(app)
-      .patch(`/api/tickets/${createdTicketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'in-progress' });
-    expect(response.status).toBe(200);
-    expect(response.body).toHaveProperty('status', 'in-progress');
-  });
+        jest.advanceTimersByTime(1000); // trigger initial deletion
+        await Promise.resolve();
 
-  test('Update ticket status - invalid status', async () => {
-    const response = await request(app)
-      .patch(`/api/tickets/${createdTicketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'invalid-status' });
-    expect(response.status).toBe(400);
-  });
+        expect(fs.remove).toHaveBeenCalledTimes(1);
+        await Promise.resolve(); // flush promise
+        const index = logs.findIndex(l => l.includes('Retry 1 for'));
+        expect(index).toBeGreaterThan(-1); // check retry log
 
-  test('Update ticket status - non-existent ticket', async () => {
-    const response = await request(app)
-      .patch(`/api/tickets/${new mongoose.Types.ObjectId()}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'in-progress' });
-    expect(response.status).toBe(404);
-  });
+        jest.advanceTimersByTime(500); // trigger retry
+        await Promise.resolve();
 
-  test('Update ticket status - invalid ID format', async () => {
-    const response = await request(app)
-      .patch('/api/tickets/invalid-id/status')
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'in-progress' });
-    expect(response.status).toBe(400);
-  });
+        expect(fs.remove).toHaveBeenCalledTimes(2);
+        expect(logs).toContain(`Deleted: ${filePath}`);
+    });
 
-  test('Update ticket status - not authorized', async () => {
-    const response = await request(app)
-      .patch(`/api/tickets/${createdTicketId}/status`)
-      .set({ 'x-user-id': 'user' })
-      .send({ status: 'in-progress' });
-    expect(response.status).toBe(403);
-    expect(response.body).toHaveProperty('error', 'Access denied');
-  });
+    test('gives up after max retries', async () => {
+        fs.remove.mockRejectedValue(new Error('EACCESS'));
 
+        const store = scheduleAndCleanFileStore({
+            tempDir: '/tmp',
+            ttl: 1000,
+            logger,
+            maxRetries: 2,
+            retryDelayStrategy: attempt => 300
+        });
 
-  test('Update ticket status - only admin can close', async () => {
-    // Create a new ticket
-    const response = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Test Ticket',
-        description: 'This is a test ticket',
-        status: 'open',
-      });
-    const ticketId = response.body._id;
+        const filePath = '/tmp/failfile.txt';
+        store.schedule(filePath);
 
-    // Attempt to close the ticket as a non-admin user
-    const updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'user' })
-      .send({ status: 'closed' });
-    expect(updateResponse.status).toBe(403);
-  });
+        jest.advanceTimersByTime(1000); // initial
+        await Promise.resolve();
 
-  test('Update ticket status - ticket status transitions', async () => {
-    // Create a new ticket
-    const response = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Test Ticket',
-        description: 'This is a test ticket',
-        status: 'open',
-      });
-    const ticketId = response.body._id;
+        jest.advanceTimersByTime(300); // retry 1
+        await Promise.resolve();
 
-    // Update the ticket status to 'completed'
-    let updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'completed' });
-    expect(updateResponse.status).toBe(400);
+        jest.advanceTimersByTime(300); // retry 2
+        await Promise.resolve();
 
-    // Update the ticket status to 'closed'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'closed' });
-    expect(updateResponse.status).toBe(400);
+        expect(fs.remove).toHaveBeenCalledTimes(3);
+    });
 
-    // Update the ticket status to 'in-progress'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'in-progress' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('in-progress');
+    test('cancels a scheduled file deletion', () => {
+        const store = scheduleAndCleanFileStore({
+            tempDir: '/tmp',
+            ttl: 5000,
+            logger
+        });
 
-    // Update the ticket status to 'closed'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'closed' });
-    expect(updateResponse.status).toBe(400);
+        const filePath = '/tmp/killme.txt';
+        store.schedule(filePath);
 
-    // Update the ticket status to 'completed'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'completed' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('completed');
+        expect(store.getScheduled()).toContain(filePath);
 
-    // Update the ticket status to 'closed'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'closed' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('closed');
-  });
+        store.cancel(filePath);
 
-  test('Update ticket status - ticket history and stats check', async () => {
-    // Create a new ticket
-    const response = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Test Ticket',
-        description: 'This is a test ticket',
-        status: 'open',
-      });
-    const ticketId = response.body._id;
+        expect(store.getScheduled()).not.toContain(filePath);
+        expect(logs).toContain(`Cancelled deletion for ${filePath}`);
+    });
 
-    // Update the ticket status to 'in-progress'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'in-progress' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('in-progress');
+    test('skips schedule if filterFn returns false', () => {
+        const store = scheduleAndCleanFileStore({
+            tempDir: '/tmp',
+            ttl: 1000,
+            logger,
+            filterFn: (filePath) => !filePath.includes('skip')
+        });
 
-    // Update the ticket status to 'completed'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'completed' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('completed');
+        const filePath = '/tmp/skip-this.txt';
+        store.schedule(filePath);
 
-    // Update the ticket status to 'closed'
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'closed' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('closed');
-
-    ticketResponse = await request(app)
-      .get(`/api/tickets/${ticketId}`)
-      .set({ 'x-user-id': 'admin' });
-    expect(ticketResponse.status).toBe(200);
-    expect(ticketResponse.body.history).toHaveLength(3);
-    expect(ticketResponse.body.history[0].from).toBe('open');
-    expect(ticketResponse.body.history[0].to).toBe('in-progress');
-    expect(ticketResponse.body.history[0].changedBy).toEqual({ id: 'admin', role: 'admin' });
-    expect(ticketResponse.body.history[0].changedAt).toBeDefined();
-    
-    expect(ticketResponse.body.history[1].from).toBe('in-progress');
-    expect(ticketResponse.body.history[1].to).toBe('completed');
-    expect(ticketResponse.body.history[1].changedBy).toEqual({ id: 'admin', role: 'admin' });
-    expect(ticketResponse.body.history[1].changedAt).toBeDefined();
-
-    expect(ticketResponse.body.history[2].from).toBe('completed');
-    expect(ticketResponse.body.history[2].to).toBe('closed');
-    expect(ticketResponse.body.history[2].changedBy).toEqual({ id: 'admin', role: 'admin' });
-    expect(ticketResponse.body.history[2].changedAt).toBeDefined();
-    expect(ticketResponse.body.stats.timeFromOpenToInProgress > -1).toBe(true);
-    expect(ticketResponse.body.stats.timeInOpenStatus > -1).toBe(true);
-    expect(ticketResponse.body.stats.timeInProgressStatus > -1).toBe(true);
-    expect(ticketResponse.body.stats.timeFromOpenToCompleted > -1).toBe(true);
-    expect(ticketResponse.body.stats.timeFromInProgressToCompleted > -1).toBe(true);
-    expect(ticketResponse.body.stats.timeFromOpenToClosed > -1).toBe(true);
-    expect(ticketResponse.body.stats.timeFromInProgressToClosed > -1).toBe(true);
-    expect(ticketResponse.body.stats.timeFromInCompletedToClosed > -1).toBe(true);
-
-  });
-
-  test('Update ticket status - agent cannot close', async () => {
-    // Create a new ticket
-    const response = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Test Ticket',
-        description: 'This is a test ticket',
-        status: 'open',
-      });
-    const ticketId = response.body._id;
-
-    // Attempt to close the ticket as a non-admin user
-    let updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'agent' })
-      .send({ status: 'in-progress' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('in-progress');
-
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'agent' })
-      .send({ status: 'completed' });
-    expect(updateResponse.status).toBe(200);
-    expect(updateResponse.body.status).toBe('completed');
-
-    updateResponse = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'agent' })
-      .send({ status: 'closed' });
-    expect(updateResponse.status).toBe(403);
-  });
-
-  test('Update ticket status - same status', async () => {
-    const response = await request(app)
-      .patch(`/api/tickets/${createdTicketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'in-progress' });
-    expect(response.status).toBe(400);
-  });
-
-  test('Update ticket status - open to close', async () => {
-    // create a new ticket
-    const createResponse = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Test Ticket',
-        description: 'This is a test ticket',
-        status: 'open',
-      });
-    const ticketId = createResponse.body._id;
-
-    const response = await request(app)
-      .patch(`/api/tickets/${ticketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'closed' });
-    expect(response.status).toBe(400);
-  });
-
-  test('Update ticket status - archived ticket', async () => {
-    // Archive the ticket
-    const deleteResponse = await request(app).delete(`/api/tickets/${createdTicketId}`).set({ 'x-user-id': 'admin' });
-    expect(deleteResponse.status).toBe(204);
-
-    const response = await request(app)
-      .patch(`/api/tickets/${createdTicketId}/status`)
-      .set({ 'x-user-id': 'admin' })
-      .send({ status: 'in-progress' });
-    expect(response.status >= 400).toBe(true);
-  });
-
-  // Test: Delete a ticket
-  test('create a ticket for deletion', async () => {
-    const response = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Ticket to be deleted',
-        description: 'This ticket will be deleted',
-        status: 'open',
-      });
-    expect(response.status).toBe(201);
-    expect(response.body).toHaveProperty('_id');
-    expect(response.body.title).toBe('Ticket to be deleted');
-    expect(response.body.description).toBe('This ticket will be deleted');
-    createdTicketId = response.body._id;
-  });
-
-  test('Delete a ticket - valid ID', async () => {
-    const response = await request(app).delete(`/api/tickets/${createdTicketId}`).set({ 'x-user-id': 'admin' });
-    expect(response.status).toBe(204);
-  });
-
-  test('Delete a ticket - already deleted ticket', async () => {
-    const response = await request(app).delete(`/api/tickets/${createdTicketId}`).set({ 'x-user-id': 'admin' });
-    expect(response.status >= 400).toBe(true);
-  });
-
-  test('Delete a ticket - invalid ID format', async () => {
-    const response = await request(app).delete('/api/tickets/invalid-id').set({ 'x-user-id': 'admin' });
-    expect(response.status >= 400).toBe(true);
-  });
-
-  test('Delete a ticket - archived ticket', async () => {
-    // Create a new ticket and archive it
-    const ticketResponse = await request(app)
-      .post('/api/tickets')
-      .set({ 'x-user-id': 'admin' })
-      .send({
-        title: 'Archived Ticket',
-        description: 'This ticket will be archived',
-        status: 'open',
-        archived: true,
-      });
-    const archivedTicketId = ticketResponse.body._id;
-
-    const response = await request(app).delete(`/api/tickets/${archivedTicketId}`).set({ 'x-user-id': 'admin' });
-    expect(response.status).toBe(400);
-  });
-
-  test('Delete a ticket - not authorized', async () => {
-    const response = await request(app).delete(`/api/tickets/${createdTicketId}`).set({ 'x-user-id': 'user' });
-    expect(response.status).toBe(403);
-  });
+        expect(store.getScheduled()).not.toContain(filePath);
+        expect(logs).not.toContain(`Scheduled deletion for ${filePath}`);
+    });
 });

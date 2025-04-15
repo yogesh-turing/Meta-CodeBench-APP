@@ -1,206 +1,88 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const { MongoMemoryServer } = require('mongodb-memory-server');
+const fs = require('fs-extra');
+const path = require('path');
 
-const app = express();
-const PORT = process.env.PORT || 5000;
-let server, mongod, Ticket;
-app.use(express.json());
+/**
+ * Schedules cleanup of temp files using a pluggable deletion engine.
+ *
+ * @param {Object} options - Configuration object
+ * @param {string} options.tempDir - Directory to monitor for deletion
+ * @param {number} options.ttl - Time in ms after which files are deleted
+ * @param {Function} options.logger - A logging function
+ * @param {Function} [options.filterFn] - Optional filter function to select deletable files
+ * @param {number} [options.maxRetries=3] - Max number of retries for deletion
+ * @param {Function} [options.retryDelayStrategy] - Function returning delay between retries
+ * 
+ * @returns {Object} An object with methods:
+ *   - schedule(filePath: string): void
+ *   - cancel(filePath: string): void
+ *   - getScheduled(): string[]
+ */
+function scheduleAndCleanFileStore({
+    tempDir,
+    ttl,
+    logger,
+    filterFn = () => true,
+    maxRetries = 3,
+    retryDelayStrategy = attempt => 1000 * Math.pow(2, attempt), // exponential backoff
+}) {
+    const scheduled = new Map(); // filepath → timeoutRef
 
-const initializeModels = () => {
-    const TicketSchema = new mongoose.Schema({
-        title: { type: String, required: true, trim: true },
-        description: { type: String, required: false, trim: true },
-        status: { type: String, enum: ['open', 'in-progress', 'completed', 'closed'], default: 'open' },
-        agentId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: false},
-        archived: { type: Boolean, default: false },
-        history: [{ changedBy: { id: String, role: String }, from: String, to: String, changedAt: Date, description: String }],
-        stats: {
-            timeInOpenStatus: Number, timeInProgressStatus: Number, timeInCompletedStatus: Number, timeFromOpenToInProgress: Number,
-            timeFromOpenToCompleted: Number, timeFromOpenToClosed: Number, timeFromInProgressToCompleted: Number, timeFromInProgressToClosed: Number, timeFromInCompletedToClosed: Number,
+    const createDeletionTask = (filePath) => {
+        let attempts = 0;
+
+        async function attemptDelete(resolve, reject) {
+            if (attempts >= (maxRetries+1)) {
+                logger(`Max retries reached for ${filePath}`);
+                return reject(new Error('Max retries reached'));
+            }
+
+            try {
+                await fs.remove(filePath);
+                logger(`Deleted: ${filePath}`);
+                resolve(true);
+            } catch (err) {
+                attempts++;
+                logger(`Retry ${attempts} for ${filePath}: ${err.message}`);
+                setTimeout(() => attemptDelete(resolve, reject), retryDelayStrategy(attempts));
+            }
         }
-      }, { timestamps: true });
-      Ticket = mongoose.model('Ticket', TicketSchema);
-};
 
-const authMiddleware = (req, res, next) => {
-    if (req.headers['x-user-id'] === 'admin') req.user = { id: 'admin', role: 'admin' };
-    else if (req.headers['x-user-id'] === 'agent') req.user = { id: 'agent', role: 'agent' };
-    else return res.status(403).json({ error: 'Access denied' });
-    next();
-}
+        return () => new Promise(attemptDelete);
+    };
 
-const intializeRoutes = (routes) => {
-    routes.forEach(route => {
-        app[route.method](route.path, authMiddleware, route.handler);
-    });
-}
+    return {
+        schedule(filePath) {
+            if (!filterFn(filePath)) return;
+            if (scheduled.has(filePath)) return;
 
-const initializeUserAPIs = () => {
-    const userRoutes = [
-        {
-            path: '/api/tickets',
-            method: 'post',
-            handler: async (req, res) => {
+            const timeoutRef = setTimeout(async () => {
+                const deleteTask = createDeletionTask(filePath);
                 try {
-                    const ticket = await Ticket.create(req.body);
-                    ticket.stats = {
-                        timeInOpenStatus: 0,
-                        timeInProgressStatus: 0,
-                        timeInCompletedStatus: 0,
-                        timeFromOpenToInProgress: 0,
-                        timeFromOpenToCompleted: 0,
-                        timeFromOpenToClosed: 0,
-                        timeFromInProgressToCompleted: 0,
-                        timeFromInProgressToClosed: 0,
-                        timeFromInCompletedToClosed: 0
-                    };
-                    ticket.history = [];
-                    await ticket.save();
-                    res.status(201).json(ticket);
-                } catch (err) { res.status(500).json({ error: 'Server error' }); }
-            }
-        },
-        {
-            path: '/api/tickets/:id',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const ticket = await Ticket.findById(req.params.id);
-                    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
-                    res.status(200).json(ticket);
-                } catch (err) { res.status(500).json({ error: 'Server error' }); }
-            }
-        },
-        {
-            path: '/api/tickets',
-            method: 'get',
-            handler: async (req, res) => {
-                try {
-                    const tickets = await Ticket.find();
-                    res.status(200).json(tickets);
-                } catch (err) { res.status(500).json({ error: 'Server error' }); }
-            }
-        },
-        {
-            path: '/api/tickets/:id/status',
-            method: 'patch',
-            handler: async (req, res) => {
-                try {
-                    const { id } = req.params;
-                    const { status } = req.body;
-                    const user = req.user;
-        
-                    // Validate ObjectId
-                    if (!mongoose.Types.ObjectId.isValid(id)) {
-                        return res.status(400).json({ error: 'Invalid ticket ID' });
-                    }
-        
-                    // Validate status
-                    const allowedStatuses = ['open', 'in-progress', 'completed', 'closed'];
-                    if (!allowedStatuses.includes(status)) {
-                        return res.status(400).json({ error: 'Invalid status' });
-                    }
-        
-                    // Fetch ticket
-                    const ticket = await Ticket.findById(new mongoose.Types.ObjectId(id));
-                    if (!ticket) {
-                        return res.status(404).json({ error: 'Ticket not found' });
-                    }
-        
-                    // Check if ticket is archived
-                    if (ticket.archived) {
-                        return res.status(400).json({ error: 'Cannot update an archived ticket' });
-                    }
-        
-                    // Prevent same-status updates
-                    if (ticket.status === status) {
-                        return res.status(400).json({ error: 'Ticket is already in the specified status' });
-                    }
-        
-                    // Validate status transitions
-                    const validTransitions = {
-                        open: ['in-progress'],
-                        'in-progress': ['completed'],
-                        completed: ['closed'],
-                        closed: []
-                    };
-        
-                    if (!validTransitions[ticket.status].includes(status)) {
-                        return res.status(400).json({ error: `Invalid status transition from ${ticket.status} to ${status}` });
-                    }
-        
-                    // Only admins can close tickets
-                    if (status === 'closed' && user.role !== 'admin') {
-                        return res.status(403).json({ error: 'Only admins can close tickets' });
-                    }
-        
-                    // Update ticket status and log history
-                    const oldStatus = ticket.status;
-                    ticket.status = status;
-                    ticket.history.push({
-                        changedBy: user,
-                        from: oldStatus,
-                        to: status,
-                        changedAt: new Date(),
-                        description: `${user.role} changed status from ${oldStatus} to ${status} at ${new Date()}`
-                    });
-
-                    // Calculate time stats
-                    const now = new Date();
-                    if (oldStatus === 'open') {
-                        ticket.stats.timeInOpenStatus = Math.floor((now - ticket.createdAt) / 1000);
-                        ticket.stats.timeFromOpenToInProgress = Math.floor((now - ticket.createdAt) / 1000);
-                    } else if (oldStatus === 'in-progress') {
-                        ticket.stats.timeInProgressStatus = Math.floor((now - ticket.createdAt) / 1000);
-                        ticket.stats.timeFromInProgressToCompleted = Math.floor((now - ticket.createdAt) / 1000);
-                    } else if (oldStatus === 'closed') {
-                        ticket.stats.timeInCompletedStatus = Math.floor((now - ticket.createdAt) / 1000);
-                    }
-                    if (status === 'closed') {
-                        ticket.stats.timeFromOpenToClosed = Math.floor((now - ticket.createdAt) / 1000);
-                        ticket.stats.timeFromInProgressToClosed = Math.floor((now - ticket.createdAt) / 1000);
-                    }
-        
-                    await ticket.save();
-        
-                    res.status(200).json(ticket);
-                } catch (err) {
-                    console.error(err);
-                    res.status(500).json({ error: 'Server error' });
+                    await deleteTask();
+                } catch (e) {
+                    logger(`Failed final delete for ${filePath}: ${e.message}`);
+                } finally {
+                    scheduled.delete(filePath);
                 }
+            }, ttl);
+
+            scheduled.set(filePath, timeoutRef);
+            logger(`Scheduled deletion for ${filePath}`);
+        },
+
+        cancel(filePath) {
+            const ref = scheduled.get(filePath);
+            if (ref) {
+                clearTimeout(ref);
+                scheduled.delete(filePath);
+                logger(`Cancelled deletion for ${filePath}`);
             }
         },
-        {
-            path: '/api/tickets/:id',
-            method: 'delete',
-            handler: async (req, res) => {
-                try {
-                    const { id } = req.params;
-                    const ticket = await Ticket.findById(id);
-                    if (!ticket) return res.status(404).json({ error: 'Ticket not found' });
-                    if (ticket.archived) return res.status(400).json({ error: 'Cannot delete archived ticket' });
-                    await Ticket.updateOne({ _id: id }, { archived: true });
-                    res.status(204).send();
-                } catch (err) { res.status(500).json({ error: 'Server error' }); }
-            }
+
+        getScheduled() {
+            return Array.from(scheduled.keys());
         }
-    ];
-    intializeRoutes(userRoutes);
-};
+    };
+}
 
-const startServer = async () => {
-    mongod = await MongoMemoryServer.create();
-    await mongoose.connect(mongod.getUri());
-    initializeModels();
-    initializeUserAPIs();
-    server = app.listen(PORT);
-};
-
-const stopServer = async () => {
-    if (server) await server.close(); 
-    if (mongoose.connection.readyState) await mongoose.disconnect();
-    if (mongod) await mongod.stop(); 
-};
-
-module.exports = { app, startServer, stopServer };
+module.exports = { scheduleAndCleanFileStore };

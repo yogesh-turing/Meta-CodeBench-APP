@@ -20,18 +20,11 @@ async function submitForm(driver, htmlContent, formValues) {
     }
 
     try {
-        // TODO: Complete the function
-        // Load the HTML content into the Selenium WebDriver
-        // Fill all form fields based on formValues
-        // - text inputs by id
-        // - select dropdown by id
-        // - radio buttons by name
-        // - checkboxes by name
+        
+        // TODO: Implement the function to load the HTML content into the Selenium WebDriver
+        
 
-        // - Submit the form by clicking the button[type="submit"]
-
-        // - Wait until the response appears in the #status paragraph
-        // - Parse the textContent, extract JSON and return it
+        return json;
 
     } catch (error) {
         console.error("An error occurred:", error);
@@ -109,7 +102,8 @@ const htmlForm = `<html>
     </body>
 </html>`;
 
-const main = async () => {
+
+const main = async() => {
     const formValues = {
         name: "John Doe",
         email: "john.doe@example.com",
@@ -117,40 +111,40 @@ const main = async () => {
         fav_language: "Python",
         interests: ["Coding", "Automation"]
     };
-
     const driver = await new Builder().forBrowser("chrome").build();
 
     const response = await submitForm(driver, htmlForm, formValues);
     console.log(response);
 
     await driver.quit();
-};
+}
 
 main();
 
 module.exports = {
     submitForm
 };
+```
 
+Stack Trace:
+
+```javascript
+DevTools listening on ws://127.0.0.1:55459/devtools/browser/0db4ac36-ceb4-43a5-b8da-63a4b14434b1
+D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\node_modules\selenium-webdriver\lib\webdriver.js:2752
+        throw TypeError('each key must be a number or string; got ' + type)
+              ^
+
+TypeError: each key must be a number or string; got object
+    at D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\node_modules\selenium-webdriver\lib\webdriver.js:2752:15    
+    at Array.forEach (<anonymous>)
+    at WebElementPromise.sendKeys (D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\node_modules\selenium-webdriver\lib\webdriver.js:2747:32)
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+
+Node.js v22.14.0
 ```
 
 Prompt:
-
-I am building a JavaScript Selenium script to automate the submission of a user form embedded in an HTML string. 
-The form includes inputs of various types (text, select, radio, checkbox). 
-Once submitted, the form makes an API call using fetch(), and displays the result in a paragraph with id="status".
-
-
-Please help me to complete the script. 
-
-Complete the submitForm function so that:
-    - It loads the HTML form in the browser
-    - It fills in all the form fields correctly (text, select, radio, checkboxes)
-    - Submits the form
-    - Waits for the API response to appear in the #status paragraph
-    - Extracts the JSON object from the status paragraph
-    - Returns that JSON object
-
-The HTML form and test runner are already provided.
-
-Complete the missing part in the submitForm function.
+I am working on a JavaScript selenium script that helps submit details using a simple HTML form. But it's throwing an error, can you please help me to resolve this error?
+The `submitForm` function takes input as `driver` (a selenium driver), `htmlContent` (HTML string), `formValues` (JSON Object). 
+It loads HTML on the Selenium web page, then fills the form and submits it to an external API, The external API returns the response which is then displayed in a paragraph with `id='status'`. The function reads the content of the status paragraph and returns the JSON.
+Please make sure to return the complete code and it should run as expected.
