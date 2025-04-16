@@ -1,98 +1,137 @@
 ```javascript
 
-
 ```
+Model A: All pass
+Model B: 
+    TypeError: Invalid initialization vector
+        at Cipheriv.createCipherBase (node:internal/crypto/cipher:121:19)
+        at Cipheriv.createCipherWithIV (node:internal/crypto/cipher:133:3)
+        at new Cipheriv (node:internal/crypto/cipher:234:3)
+        at Object.createCipheriv (node:crypto:143:10)
+        at createCipheriv (D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\tasks\621234\model_a.js:31:27)
 
-The model throws an error when trying to run the code. The following line is causing the issue:
+
+    const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef', 'hex');
+    Issues with encoding parameter it should utf8
+Model C:
+Model D:
+Model E:
+    const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef', 'hex');
+    Issues with encoding parameter it should utf8
+
+Model F:
+        TypeError: Invalid initialization vector
+        at Cipheriv.createCipherBase (node:internal/crypto/cipher:121:19)
+        at Cipheriv.createCipherWithIV (node:internal/crypto/cipher:133:3)
+        at new Cipheriv (node:internal/crypto/cipher:234:3)
+        at Object.createCipheriv (node:crypto:143:10)
+        at createCipheriv (D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\tasks\621234\model_f.js:16:27)
+
+
+Model G:
+    returned incorrect message.
+    ● Crypto Wallet Management API › should return 404 for non-existent user wallet     
+
+    expect(received).toBe(expected) // Object.is equality
+
+    Expected: "Wallet not found for the specified user."
+    Received: "Wallet not found for the specified user"
+
+      183 |
+      184 |         expect(response.status).toBe(404);
+    > 185 |         expect(response.body.error).toBe('Wallet not found for the specified user.');
+          |                                     ^
+      186 |     });
+      187 |
+      188 |     it('should return 403 for invalid API key', async () => {
+
+      at Object.toBe (tasks/621234/index.test.js:185:37)
+
+Model H:
+    Same as B
+
+Model I:
+ Expected: "Wallet not found for the specified user."
+    Received: "Wallet not found for the specified user"
+
+Model J:
+    Same as B
+
+
+
+
+In create user API, the model throws following error:
 
 ```javascript
-    await driver.executeScript(`document.body.innerHTML = '${htmlContent.replace(/'/g, "\\'")}';`);
+TypeError: Invalid initialization vector
+        at Cipheriv.createCipherBase (node:internal/crypto/cipher:121:19)
+        at Cipheriv.createCipherWithIV (node:internal/crypto/cipher:133:3)
+        at new Cipheriv (node:internal/crypto/cipher:234:3)
+        at Object.createCipheriv (node:crypto:143:10)
+        at createCipheriv (D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\tasks\621234\model_e.js:31:27)
+        at encrypt (D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\tasks\621234\model_e.js:129:31)
 ```
-following error is thrown:
+
+The issue is in the way model sets the encryption key.
+```javascript
+const ENCRYPTION_KEY = Buffer.from(process.env.ENCRYPTION_KEY || '0123456789abcdef0123456789abcdef', 'hex');
+const ENCRYPTION_IV = Buffer.from(process.env.ENCRYPTION_IV || '0123456789abcdef', 'hex');
+```
+
+The encoding is incorrect. It should be 'utf8' instead of 'hex'.
+
+
+---------
+
+In the create user API, the model throws the following error:
 
 ```javascript
-    An error occurred: JavascriptError: javascript error: Invalid or unexpected token       
-      (Session info: chrome=135.0.7049.85)
+TypeError: Invalid initialization vector
+        at Cipheriv.createCipherBase (node:internal/crypto/cipher:121:19)
+        at Cipheriv.createCipherWithIV (node:internal/crypto/cipher:133:3)
+        at new Cipheriv (node:internal/crypto/cipher:234:3)
+        at Object.createCipheriv (node:crypto:143:10)
+        at createCipheriv (D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\tasks\621234\model_j.js:16:27)
+        at encrypt (D:\Clients\Turing\Meta\Meta-CodeBench-APP-1\tasks\621234\model_j.js:128:31)
 ```
 
-The `htmlContent` is injected into the DOM using executeScript. Special characters in htmlContent are not properly escaped, leading to invalid JavaScript syntax and the Invalid or unexpected token error.
 
-
-
-
-
-
-
-
-The model throws an error when trying to run the code. The following line is causing the issue:
+The issue is in the way the model sets the encryption key.
+```javascript
+    const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'base64'), Buffer.from(IV, 'base64'));
+```
+The encryption key in environment variable is not in base64 format.
 
 ```javascript
-    await driver.executeScript(`document.body.innerHTML = '${htmlContent.replace(/'/g, "\\'")}';`);
-```
-following error is thrown:
 
+
+
+
+---
+
+The wallet credit API returned the incorrect message, when API is called with a non-existent user.
+The expected message is:
+    "Wallet not found for the specified user."
+The received message is:
+    "Wallet not found for the specified user"
 ```javascript
-    An error occurred: JavascriptError: javascript error: Invalid or unexpected token       
-      (Session info: chrome=135.0.7049.85)
+
 ```
 
-The `htmlContent` is injected into the DOM using executeScript. Special characters in htmlContent are not properly escaped, leading to invalid JavaScript syntax and the Invalid or unexpected token error.
+
+
+The issues in the incorrect solution are as follows:
+
+Error Message Mismatch: The error messages returned by the API do not match the expected messages in the test cases. For example:
+
+    Expected: "Wallet not found for the specified user."
+    Received: "Wallet not found for the specified user"
+    
+Lack of Specificity: The API does not provide distinct error messages for cases like "Sender wallet not found" or "Recipient wallet not found," instead returning a generic message ("Wallet not found for the specified user") for both cases. This can lead to confusion for users trying to debug issues with their wallets.
 
 
 
 
 
 
-
-
-
-The model throws an error when trying to run the code. The following line is causing the issue:
-The following error is thrown:
-
-```javascript
- An error occurred: NoSuchElementError: no such element: Unable to locate element: {"method":"css selector","selector":"*[id="fav_language"]"}
-      (Session info: chrome=135.0.7049.85)
-```
-
-The HTML form does not contain an element with the id "fav_language". The code is trying to find an element with that id, but it does not exist in the HTML content. This leads to a NoSuchElementError when trying to locate the element using the CSS selector.
-
-
-
-
-The model did not threw error when name field is required and name in `formValues` is empty string.
-The model returned null instead of throwing an error.
-
-
-The model did not wait till API response is received and returned null instead of throwing an error.
-Paragraph with id="status" is already present in the HTML content, so the model did not wait for the API response to update the status message. The model should wait for the API response before checking the status message.
-
-The following line set `statusText` as empty string, which caused problem on next line.
-````javascript
-    let statusText = await driver.findElement(By.id("status")).getText();
-```
-
-..............
-
-
-The incorrrect solution did not wait till API response is received.
-Paragraph with id="status" is already present in the HTML content, so the incorrrect solution did not wait for the API response to update the status message. The incorrrect solution should wait for the API response before checking the status message.
-
-The following line set `statusText` as empty string, which caused problem on next line.
-```
-    let statusText = await driver.findElement(By.id("status")).getText();
-```
-
-The incorrrect solution assumed that name and email fields are required. In prompt it is mentioned that any of the fields may be required or optional. The incorrrect solution failed to handle role field for required.
-
-
-The incorrrect solution did not threw error when name field is required and name in `formValues` is empty string.
-The incorrrect solution returned null instead of throwing an error.
-
-
-
-
-
-The ideal solution addresses the issues in the incorrect solution as follows:
-- The ideal solution explicitly waits for the status element to be updated with the API response by re-locating the element after the form submission, avoiding stale element references and ensuring the response is properly captured.
-- Instead of assuming name and email are always required, the ideal solution checks the required attribute of each field dynamically and throws an error if a required field is empty.
-- The ideal solution validates all required fields (e.g., name, email, role, etc.) and throws appropriate errors when they are empty, ensuring compliance with the form's requirements.
+As compares with incorrect solution, the ideal solution improves upon the incorrect solution by providing precise and distinct error messages for different scenarios, such as "Sender wallet not found" and "Recipient wallet not found," instead of using a generic message. This enhances clarity and helps users debug issues more effectively.

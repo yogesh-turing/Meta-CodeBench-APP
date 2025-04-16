@@ -1,314 +1,440 @@
-const { Builder } = require("selenium-webdriver");
-const { submitForm } = require("./base");
-jest.setTimeout(10000); // Set timeout to 10 seconds
-const getNameField = (isRequired = true) => {
-    if (isRequired) {
-        return `<label for="name">Name:</label>
-                <input type="text" id="name" name="name" required>`;
-    } 
-    return `<label for="name">Name:</label>
-            <input type="text" id="name" name="name">`;
-};
+const fs = require('fs');
+const request = require('supertest');
+const { app } = require('./base'); 
 
-const getEmailField = (isRequired = true) => {
-    if (isRequired) {
-        return `<label for="email">Email:</label>
-                <input type="email" id="email" name="email" required>`;
-    } 
-    return `<label for="email">Email:</label>
-            <input type="email" id="email" name="email">`;
-}
+const API_KEY = 'abcd-1234-xyzx'; // Same API key as in the app
+const INVALID_API_KEY = 'wrong-api-key'; // Invalid API key for testing
 
-const getRoleField = (isRequired = true) => {
-    if (isRequired) {
-        return `<label for="role">Role:</label>
-                <select id="role" name="role" required>
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                </select>`;
-    } 
-    return `<label for="role">Role:</label>
-            <select id="role" name="role">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-            </select>`;
-}
-
-const getFavLanguageField = (isRequired = true) => {
-    if (isRequired) {
-        return `<label>Choose your favorite programming language:</label><br>
-                <input type="radio" id="javascript" name="fav_language" value="JavaScript" required>
-                <label for="javascript">JavaScript</label><br>
-                <input type="radio" id="python" name="fav_language" value="Python" required>
-                <label for="python">Python</label><br>
-                <input type="radio" id="csharp" name="fav_language" value="C#" required>
-                <label for="csharp">C#</label><br>`;
-    }
-    return `<label>Choose your favorite programming language:</label><br>
-            <input type="radio" id="javascript" name="fav_language" value="JavaScript">
-            <label for="javascript">JavaScript</label><br>
-            <input type="radio" id="python" name="fav_language" value="Python">
-            <label for="python">Python</label><br>
-            <input type="radio" id="csharp" name="fav_language" value="C#">
-            <label for="csharp">C#</label><br>`;
-}
-
-const getInterestsField = () => {
-    return `<label>Select your interests:</label><br>
-            <input type="checkbox" id="coding" name="interest" value="Coding">
-            <label for="coding">Coding</label><br>
-            <input type="checkbox" id="testing" name="interest" value="Testing">
-            <label for="testing">Testing</label><br>
-            <input type="checkbox" id="automation" name="interest" value="Automation">
-            <label for="automation">Automation</label><br>`;
-}
-
-
-
-const getHTMLString = (fields) => {
-    return `<html>
-    <body>
-        <h2>User Form</h2>
-        <form id="mockForm">
-            ${getNameField(fields.isRequired.name)}
-            <br><br>
-            
-            ${getEmailField(fields.isRequired.email)}
-            <br><br>
-
-            ${getRoleField(fields.isRequired.role)}
-            <br><br>
-
-            ${getFavLanguageField(fields.isRequired.fav_language)}
-            <br><br>
-
-            ${getInterestsField(fields.isRequired.interests)}
-            <br><br>
-
-            <button type="submit">Submit</button>
-        </form>
-        <p id="status"></p>
-        
-        <script>
-            document.getElementById("mockForm").addEventListener("submit", async function(event) {
-                event.preventDefault();
-                let name = document.getElementById("name").value;
-                let email = document.getElementById("email").value;
-                let role = document.getElementById("role").value;
-                let fav_language = document.querySelector('input[name="fav_language"]:checked')?.value || '';
-                let interests = Array.from(document.querySelectorAll('input[name="interest"]:checked')).map(cb => cb.value);
-
-                try {
-                    let response = await fetch("https://jsonplaceholder.typicode.com/posts", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ name, email, role, fav_language, interests })
-                    });
-                    let result = await response.json();
-                    document.getElementById("status").innerText = "API Response: " + JSON.stringify(result);
-                } catch (error) {
-                    document.getElementById("status").innerText = "API Error: " + error.message;
-                }
-            });
-        </script>
-    </body>
-    </html>`;
-}
-
-describe("submitForm", () => {
-    let driver;
+describe('Crypto Wallet Management API', () => {
+    let userId, walletId;
 
     beforeAll(async () => {
-        driver = await new Builder().forBrowser("chrome").build();
+        // API_KEY="abcd-1234-xyzx"
+        // create .env file on the root directory and add the API_KEY variable
+        const envs = [
+            "ENCRYPTION_KEY=\"0123456789abcdef0123456789abcdef\"",
+            "ENCRYPTION_IV=\"abcdef9876543210\"",
+            "IV=\"abcdef9876543210\"",
+            "API_KEY=\"abcd-1234-xyzx\"",
+            "API_KEYS=\"abcd-1234-xyzx\"",
+            "VALID_API_KEYS=\"abcd-1234-xyzx\"",
+        ]
+        fs.writeFileSync('.env', envs.join('\n'), 'utf8');
     });
 
     afterAll(async () => {
-        if (driver) {
-            await driver.quit();
-        }
+        // Clean up the .env file after tests
+        // fs.unlinkSync('.env');
     });
 
-    test("should submit the form and return the API response", async () => {
-        const formValues = {
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: "admin",
-            fav_language: "Python",
-            interests: ["Coding", "Automation"]
-        };
+    // Test creating a new user and wallet
+    it('should create a new user and wallet', async () => {
+        const response = await request(app)
+            .post('/users')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: 'user1',
+                username: 'TestUser',
+                password: 'password123',
+                email: 'testuser@example.com',
+            });
 
-        const htmlForm = getHTMLString({
-            isRequired: {
-                name: true,
-                email: true,
-                role: true,
-                fav_language: true,
-                interests: true
-            }
-        });
+        expect(response.status).toBe(201);
+        expect(response.body.user).toHaveProperty('userId', 'user1');
+        expect(response.body.wallet).toHaveProperty('id');
 
-        const response = await submitForm(driver, htmlForm, formValues);
-        expect(response.name).toBe(formValues.name);
-        expect(response.email).toBe(formValues.email);
-        expect(response.role).toBe(formValues.role);
-        expect(response.fav_language).toBe(formValues.fav_language);
-        expect(response.interests).toEqual(formValues.interests);
+        userId = response.body.user.userId;
+        walletId = response.body.wallet.id;
     });
 
-    test("should submit the form and return the API response if driver is not provided", async () => {
-        const formValues = {
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: "admin",
-            fav_language: "Python",
-            interests: ["Coding", "Automation"]
-        };
+    // Test creating a user with missing fields
+    it('should return 400 for missing user fields', async () => {
+        const response = await request(app)
+            .post('/users')
+            .set('x-api-key', API_KEY)
+            .send({
+                username: 'IncompleteUser',
+            });
 
-        const htmlForm = getHTMLString({
-            isRequired: {
-                name: true,
-                email: true,
-                role: true,
-                fav_language: true,
-                interests: true
-            }
-        });
-
-        const response = await submitForm(null, htmlForm, formValues);
-        expect(response.name).toBe(formValues.name);
-        expect(response.email).toBe(formValues.email);
-        expect(response.role).toBe(formValues.role);
-        expect(response.fav_language).toBe(formValues.fav_language);
-        expect(response.interests).toEqual(formValues.interests);
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBeDefined();
     });
 
-    // htmlContent is null
-    test("Invalid input should throw an error if htmlContent is null", async () => {
-        const formValues = {
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: "admin",
-            fav_language: "Python",
-            interests: ["Coding", "Automation"]
-        };
-        await expect(submitForm(driver, null, formValues)).rejects.toThrow(Error);
+    // Test creating a user that already exists
+    it('should return 400 for duplicate user', async () => {
+        const response = await request(app)
+            .post('/users')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: 'user1',
+                username: 'TestUser',
+                password: 'password123',
+                email: 'testuser@example.com',
+            });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('User already exists');
     });
 
-    // invalid inputs
-    test("Invalid input should throw an error if name field is required and name is empty or null or undefined", async () => {
-        const invalidFormValues = {
-            name: "",
-            email: "john.doe@example.com",
-            role: "admin",
-            fav_language: "Python",
-            interests: ["Coding", "Automation"]
-        };
-
-        const htmlForm = getHTMLString({
-            isRequired: {
-                name: true,
-                email: true,
-                role: true,
-                fav_language: true,
-                interests: true
-            }
-        });
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
-
-        invalidFormValues.name = null;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
-
-        delete invalidFormValues.name;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
+    // Test creating a user with invalid API key
+    it('should return 403 for invalid API key', async () => {
+        const response = await request(app)
+            .post('/users')
+            .set('x-api-key', INVALID_API_KEY)
+            .send({
+                userId: 'user1',
+                username: 'TestUser',
+                password: 'password123',
+                email: 'testuser@example.com',
+            });
+        expect(response.status).toBe(403);
     });
 
-    test("Invalid input should throw an error if email field is required and email is empty or null or undefined", async () => {
-        const invalidFormValues = {
-            name: "John Doe",
-            email: "",
-            role: "admin",
-            fav_language: "Python",
-            interests: ["Coding", "Automation"]
-        };
+    // Test retrieving all users
+    it('should retrieve all users', async () => {
+        const response = await request(app)
+            .get('/users')
+            .set('x-api-key', API_KEY);
 
-        const htmlForm = getHTMLString({
-            isRequired: {
-                name: true,
-                email: true,
-                role: true,
-                fav_language: true,
-                interests: true
-            }
-        });
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
+        expect(response.status).toBe(200);
+        expect(response.body.users).toBeInstanceOf(Array);
+        expect(response.body.users.length).toBeGreaterThan(0);
+        expect(response.body.users[0]).toHaveProperty('userId');
+    });
 
-        invalidFormValues.email = null;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
+    // Test retrieving a user by ID
+    it('should retrieve a user by ID', async () => {
+        const response = await request(app)
+            .get(`/users/${userId}`)
+            .set('x-api-key', API_KEY);
 
-        delete invalidFormValues.email;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
+        expect(response.status).toBe(200);
+        expect(response.body.user).toHaveProperty('userId', userId);
+        expect(response.body.wallet).toHaveProperty('id', walletId);
+    });
+
+    // Test retrieving a non-existent user
+    it('should return 404 for non-existent user', async () => {
+        const response = await request(app)
+            .get('/users/nonexistent')
+            .set('x-api-key', API_KEY);
+
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('User not found');
+    });
+
+    // Test retrieving a user with invalid API key
+    it('should return 403 for invalid API key', async () => {
+        const response = await request(app)
+            .get(`/users/${userId}`)
+            .set('x-api-key', INVALID_API_KEY);
+        expect(response.status).toBe(403);
     });
 
 
-    test("Invalid input should throw an error if role field is required and role is empty or null or undefined", async () => {
-        const invalidFormValues = {
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: "",
-            fav_language: "Python",
-            interests: ["Coding", "Automation"]
-        };
-    
-        const htmlForm = getHTMLString({
-            isRequired: {
-                name: true,
-                email: true,
-                role: true,
-                fav_language: true,
-                interests: true
-            }
-        });
-    
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
+    it('should credit funds to a user\'s wallet', async () => {
+        const response = await request(app)
+            .post('/wallets/credit')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: userId,
+                amount: 100,
+            });
 
-        invalidFormValues.role = null;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
-
-        delete invalidFormValues.role;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
-    });    
-
-
-    test("Invalid input should throw an error if fav_language field is required and fav_language is empty, null, or undefined", async () => {
-        const invalidFormValues = {
-            name: "John Doe",
-            email: "john.doe@example.com",
-            role: "admin",
-            fav_language: "",
-            interests: ["Coding", "Automation"]
-        };
-    
-        const htmlForm = getHTMLString({
-            isRequired: {
-                name: true,
-                email: true,
-                role: true,
-                fav_language: true,
-                interests: true
-            }
-        });
-    
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
-    
-        invalidFormValues.fav_language = null;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
-    
-        delete invalidFormValues.fav_language;
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
-
-        invalidFormValues.fav_language = "english";
-        await expect(submitForm(driver, htmlForm, invalidFormValues)).rejects.toThrow();
+        expect(response.status).toBe(200);
+        expect(response.body.message).toBe('Funds credited successfully');
+        expect(response.body.wallet).toHaveProperty('id', walletId);
+        expect(response.body.wallet).toHaveProperty('balance', 100);
     });
-            
- 
+
+    it('should return 400 for invalid input (negative amount)', async () => {
+        const response = await request(app)
+            .post('/wallets/credit')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: userId,
+                amount: -50,
+            });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Invalid input. User ID and positive amount are required.');
+    });
+
+    it('should return 400 for invalid input (missing amount)', async () => {
+        const response = await request(app)
+            .post('/wallets/credit')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: userId,
+            });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Invalid input. User ID and positive amount are required.');
+    });
+
+    it('should return 404 for non-existent user wallet', async () => {
+        const response = await request(app)
+            .post('/wallets/credit')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: 'nonexistentUser',
+                amount: 100,
+            });
+
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('Wallet not found for the specified user.');
+    });
+
+    it('should return 403 for invalid API key', async () => {
+        const response = await request(app)
+            .post('/wallets/credit')
+            .set('x-api-key', INVALID_API_KEY)
+            .send({
+                userId: userId,
+                amount: 100,
+            });
+
+        expect(response.status).toBe(403);
+        expect(response.body.error).toBe('Forbidden: Invalid API Key');
+    });
+
+
+    // Test creating a transaction
+    it('should create a transaction between users', async () => {
+        // Create a recipient user
+        const recipientResponse = await request(app)
+            .post('/users')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: 'user2',
+                username: 'RecipientUser',
+                password: 'password123',
+                email: 'recipient@example.com',
+            });
+
+        const recipientId = recipientResponse.body.user.userId;
+
+        // Fund the sender's wallet using the new API
+        const fundResponse = await request(app)
+            .post('/wallets/credit')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: userId,
+                amount: 100, // Add 100 to the sender's wallet balance
+            });
+
+        expect(fundResponse.status).toBe(200);
+        expect(fundResponse.body.message).toBe('Funds credited successfully');
+        expect(fundResponse.body.wallet).toHaveProperty('balance', 200);
+
+        // Create a transaction
+        const transactionResponse = await request(app)
+            .post('/transactions')
+            .set('x-api-key', API_KEY)
+            .send({
+                sender: userId,
+                recipient: recipientId,
+                amount: 50,
+            });
+
+        expect(transactionResponse.status).toBe(200);
+        expect(transactionResponse.body.message).toBe('Transaction completed');
+        expect(transactionResponse.body.transaction).toHaveProperty('amount', 50);
+    });
+
+    // Test creating a transaction with insufficient balance
+    it('should return 400 for insufficient balance', async () => {
+        const response = await request(app)
+            .post('/transactions')
+            .set('x-api-key', API_KEY)
+            .send({
+                sender: userId,
+                recipient: 'user2',
+                amount: 200,
+            });
+
+        expect(response.status).toBe(400);
+        expect(response.body.error).toBe('Insufficient balance');
+    });
+
+    // Test creating a transaction with invalid sender
+    it('should return 404 for invalid sender', async () => {
+        const response = await request(app)
+            .post('/transactions')
+            .set('x-api-key', API_KEY)
+            .send({
+                sender: 'nonexistent',
+                recipient: 'user2',
+                amount: 50,
+            });
+
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('Sender wallet not found');
+    });
+
+    // Test creating a transaction with invalid recipient
+    it('should return 404 for invalid recipient', async () => {
+        const response = await request(app)
+            .post('/transactions')
+            .set('x-api-key', API_KEY)
+            .send({
+                sender: userId,
+                recipient: 'nonexistent',
+                amount: 50,
+            });
+
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('Recipient wallet not found');
+    });
+
+    // Test creating a transaction with invalid amount
+    it('should return 400 for invalid amount', async () => {
+        const response = await request(app)
+            .post('/transactions')
+            .set('x-api-key', API_KEY)
+            .send({
+                sender: userId,
+                recipient: 'user2',
+                amount: -50,
+            });
+
+        expect(response.status).toBe(400);
+    }
+    );
+
+    // Test creating a transaction with missing fields 
+    it('should return 400 for missing fields', async () => {
+        const response = await request(app)
+            .post('/transactions')
+            .set('x-api-key', API_KEY)
+            .send({
+                sender: userId,
+                amount: 50,
+            });
+
+        expect(response.status).toBe(400);
+    });
+
+    // Test creating a transaction with invalid API key
+    test('should return 403 for invalid API key', async () => {
+        const response = await request(app)
+            .post('/transactions')
+            .set('x-api-key', INVALID_API_KEY)
+            .send({
+                sender: userId,
+                recipient: 'user2',
+                amount: 50,
+            });
+
+        expect(response.status).toBe(403);
+        expect(response.body.error).toBe('Forbidden: Invalid API Key');
+    }
+    );
+
+    // Test retrieving all wallets
+    it('should retrieve all wallets', async () => {
+        const response = await request(app)
+            .get('/wallets')
+            .set('x-api-key', API_KEY);
+
+        expect(response.status).toBe(200);
+        expect(response.body.wallets).toBeInstanceOf(Array);
+        expect(response.body.wallets.length).toBeGreaterThan(0);
+        expect(response.body.wallets[0]).toHaveProperty('id');
+    });
+
+    // Test retrieving all wallets with invalid API key
+    it('should return 403 for invlid API key', async () => {
+        const response = await request(app)
+            .get('/wallets')
+            .set('x-api-key', INVALID_API_KEY); // Set an invalid API key
+
+        expect(response.status).toBe(403);
+        expect(response.body.error).toBe('Forbidden: Invalid API Key');
+    });
+
+    // Test API key authentication
+    it('should return 403 for invalid API key', async () => {
+        const response = await request(app)
+            .get('/users')
+            .set('x-api-key', INVALID_API_KEY);
+
+        expect(response.status).toBe(403);
+        expect(response.body.error).toBe('Forbidden: Invalid API Key');
+    });
+
+    it('should delete a user and their wallet successfully', async () => {
+        // Create a new user to delete
+        const createResponse = await request(app)
+            .post('/users')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: 'userToDelete',
+                username: 'UserToDelete',
+                password: 'password123',
+                email: 'deleteuser@example.com',
+            });
+
+        expect(createResponse.status).toBe(201);
+        const userIdToDelete = createResponse.body.user.userId;
+
+        // Delete the user
+        const deleteResponse = await request(app)
+            .delete(`/users/${userIdToDelete}`)
+            .set('x-api-key', API_KEY);
+
+        expect(deleteResponse.status).toBe(200);
+        expect(deleteResponse.body.message).toBe('User and wallet deleted successfully');
+
+        // Verify the user is deleted
+        const getUserResponse = await request(app)
+            .get(`/users/${userIdToDelete}`)
+            .set('x-api-key', API_KEY);
+
+        expect(getUserResponse.status).toBe(404);
+        expect(getUserResponse.body.error).toBe('User not found');
+    });
+
+    it('should return 404 for deleting a non-existent user', async () => {
+        const response = await request(app)
+            .delete('/users/nonexistentUser')
+            .set('x-api-key', API_KEY);
+
+        expect(response.status).toBe(404);
+        expect(response.body.error).toBe('User not found');
+    });
+
+    it('should return 403 for invalid API key', async () => {
+        const response = await request(app)
+            .delete('/users/user1')
+            .set('x-api-key', INVALID_API_KEY);
+
+        expect(response.status).toBe(403);
+        expect(response.body.error).toBe('Forbidden: Invalid API Key');
+    });
+
+    it('should handle deleting a user without an associated wallet gracefully', async () => {
+        // Create a user without a wallet
+        const createResponse = await request(app)
+            .post('/users')
+            .set('x-api-key', API_KEY)
+            .send({
+                userId: 'userWithoutWallet',
+                username: 'UserWithoutWallet',
+                password: 'password123',
+                email: 'nowallet@example.com',
+            });
+
+        expect(createResponse.status).toBe(201);
+        const userIdWithoutWallet = createResponse.body.user.userId;
+
+        // Delete the user
+        const deleteResponse = await request(app)
+            .delete(`/users/${userIdWithoutWallet}`)
+            .set('x-api-key', API_KEY);
+
+        expect(deleteResponse.status).toBe(200);
+        expect(deleteResponse.body.message).toBe('User and wallet deleted successfully');
+    });
+
 });
