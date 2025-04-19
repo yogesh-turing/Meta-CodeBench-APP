@@ -1,5 +1,5 @@
 const { Builder } = require("selenium-webdriver");
-const { submitForm } = require("./base");
+const { submitForm } = require("./correct");
 jest.setTimeout(10000); // Set timeout to 10 seconds
 const getNameField = (isRequired = true) => {
     if (isRequired) {
@@ -63,30 +63,30 @@ const getInterestsField = () => {
             <label for="automation">Automation</label><br>`;
 }
 
-
-
-const getHTMLString = (fields) => {
+const getHTMLString = (fields, addForm=true, submitButton=true) => {
     return `<html>
     <body>
         <h2>User Form</h2>
-        <form id="mockForm">
-            ${getNameField(fields.isRequired.name)}
-            <br><br>
-            
-            ${getEmailField(fields.isRequired.email)}
-            <br><br>
+        ${addForm ? `
+            <form id="mockForm">
+                ${getNameField(fields.isRequired.name)}
+                <br><br>
+                
+                ${getEmailField(fields.isRequired.email)}
+                <br><br>
 
-            ${getRoleField(fields.isRequired.role)}
-            <br><br>
+                ${getRoleField(fields.isRequired.role)}
+                <br><br>
 
-            ${getFavLanguageField(fields.isRequired.fav_language)}
-            <br><br>
+                ${getFavLanguageField(fields.isRequired.fav_language)}
+                <br><br>
 
-            ${getInterestsField(fields.isRequired.interests)}
-            <br><br>
+                ${getInterestsField(fields.isRequired.interests)}
+                <br><br>
 
-            <button type="submit">Submit</button>
-        </form>
+                ${submitButton ? `<button type="submit">Submit</button>` : ''}
+            </form>`
+        : ''}
         <p id="status"></p>
         
         <script>
@@ -182,6 +182,38 @@ describe("submitForm", () => {
         expect(response.interests).toEqual(formValues.interests);
     });
 
+    test("should submit the form and return the API response if additional fields are added in formValues", async () => {
+        const formValues = {
+            name: "John Doe",
+            email: "john.doe@example.com",
+            role: "admin",
+            fav_language: "Python",
+            interests: ["Coding", "Automation"],
+            extraText: "Extra text",
+            extraNumber: 123,
+            extraBoolean: true,
+            extraArray: ["extra1", "extra2"],
+            extraObject: { key: "value" }
+        };
+
+        const htmlForm = getHTMLString({
+            isRequired: {
+                name: true,
+                email: true,
+                role: true,
+                fav_language: true,
+                interests: true
+            }
+        });
+
+        const response = await submitForm(null, htmlForm, formValues);
+        expect(response.name).toBe(formValues.name);
+        expect(response.email).toBe(formValues.email);
+        expect(response.role).toBe(formValues.role);
+        expect(response.fav_language).toBe(formValues.fav_language);
+        expect(response.interests).toEqual(formValues.interests);
+    });
+
     // htmlContent is null
     test("Invalid input should throw an error if htmlContent is null", async () => {
         const formValues = {
@@ -194,7 +226,118 @@ describe("submitForm", () => {
         await expect(submitForm(driver, null, formValues)).rejects.toThrow(Error);
     });
 
+    // htmlContent is empty string
+    test("Invalid input should throw an error if htmlContent is empty string", async () => {
+        const formValues = {
+            name: "John Doe",
+            email: "john.doe@example.com",
+            role: "admin",
+            fav_language: "Python",
+            interests: ["Coding", "Automation"]
+        };
+        await expect(submitForm(driver, "", formValues)).rejects.toThrow(Error);
+    });
+
+    // htmlContent is missing form tag
+    test("Invalid input should throw an error if htmlContent is missing form tag", async () => {
+        const formValues = {
+            name: "John Doe",
+            email: "john.doe@example.com",
+            role: "admin",
+            fav_language: "Python",
+            interests: ["Coding", "Automation"]
+        };
+        const htmlForm = getHTMLString({
+            isRequired: {
+                name: true,
+                email: true,
+                role: true,
+                fav_language: true,
+                interests: true
+            }
+        }, false);
+        await expect(submitForm(driver, htmlForm, formValues)).rejects.toThrow(Error);
+    });
+
+    // htmlContent is missing button tag
+    test("Invalid input should throw an error if htmlContent is missing button tag", async () => {
+        const formValues = {
+            name: "John Doe",
+            email: "john.doe@example.com",
+            role: "admin",
+            fav_language: "Python",
+            interests: ["Coding", "Automation"]
+        };
+        const htmlForm = getHTMLString({
+            isRequired: {
+                name: true,
+                email: true,
+                role: true,
+                fav_language: true,
+                interests: true
+            }
+        }, true, false);
+        await expect(submitForm(driver, htmlForm, formValues)).rejects.toThrow(Error);
+    });
+
     // invalid inputs
+    test("Invalid input should throw an error if formValues is undefined", async () => {
+        const htmlForm = getHTMLString({
+            isRequired: {
+                name: true,
+                email: true,
+                role: true,
+                fav_language: true,
+                interests: true
+            }
+        });
+        await expect(submitForm(driver, htmlForm, undefined)).rejects.toThrow(Error);
+        await expect(submitForm(driver, htmlForm)).rejects.toThrow(Error);
+    });
+
+    test("Invalid input should throw an error if formValues is null", async () => {
+        const htmlForm = getHTMLString({
+            isRequired: {
+                name: true,
+                email: true,
+                role: true,
+                fav_language: true,
+                interests: true
+            }
+        });
+        await expect(submitForm(driver, htmlForm, null)).rejects.toThrow(Error);
+    });
+
+    test("Invalid input should throw an error if formValues is not an object", async () => {
+        const htmlForm = getHTMLString({
+            isRequired: {
+                name: true,
+                email: true,
+                role: true,
+                fav_language: true,
+                interests: true
+            }
+        });
+        await expect(submitForm(driver, htmlForm, "string")).rejects.toThrow(Error);
+        await expect(submitForm(driver, htmlForm, 123)).rejects.toThrow(Error);
+        await expect(submitForm(driver, htmlForm, [])).rejects.toThrow(Error);
+        await expect(submitForm(driver, htmlForm, true)).rejects.toThrow(Error);
+    });
+
+    test("Invalid input should throw an error if formValues is an empty object", async () => {
+        const htmlForm = getHTMLString({
+            isRequired: {
+                name: true,
+                email: true,
+                role: true,
+                fav_language: true,
+                interests: true
+            }
+        });
+
+        await expect(submitForm(driver, htmlForm, {})).rejects.toThrow(Error);
+    });
+
     test("Invalid input should throw an error if name field is required and name is empty or null or undefined", async () => {
         const invalidFormValues = {
             name: "",
