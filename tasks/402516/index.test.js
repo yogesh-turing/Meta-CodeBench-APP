@@ -1,4 +1,4 @@
-const { ConcurrentMap } = require('./correct');
+const { ConcurrentMap } = require(process.env.TARGET_FILE);
 
 describe("ConcurrentMap", () => {
   test("should initialize with empty segments", () => {
