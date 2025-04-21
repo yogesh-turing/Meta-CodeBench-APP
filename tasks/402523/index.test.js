@@ -1,4 +1,6 @@
 const { validateData } = require(process.env.TARGET_FILE);
+const path = require('path'); 
+const fs = require('fs');
 
 describe('validateData', () => {
     it('should validate a correct email without plus addressing', async () => {
@@ -173,6 +175,12 @@ describe('validateData', () => {
         result = await validateData(data);
         expect(result.status).toBe('failed');
         expect(result.message.length).toBeGreaterThan(0);
+    });
+
+    it('should import yup module', () => {
+        const filePath = path.resolve(__dirname, process.env.TARGET_FILE);
+        const fileContent = fs.readFileSync(filePath, 'utf-8');
+        expect(fileContent).toMatch(/require\(['"]yup['"]\)/);
     });
 
 });
