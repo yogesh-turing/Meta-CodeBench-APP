@@ -1,45 +1,50 @@
-const yup = require("yup");
-const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
+class RideMatchingService {
+    #drivers;
 
-const isValidDomain = (domain) => {
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) return false;
-    return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
-};
-
-const emailSchema = yup.string().email()
-    .test("plus addressing", "Plus addressing is not allowed", (value) => !value.includes("+"))
-    .test("consecutive dots", "Email cannot contain consecutive dots", (value) => !value.includes(".."))
-    .test("length", "Email length must be less than 255 characters", (value) => value.length < 255)
-    .test("valid domain", "Invalid email domain format", (value) => isValidDomain(value.split("@")[1]))
-    .test("valid tld", "Email must have a valid top-level domain", (value) => validTlds.has(value.split("@")[1].split(".").pop()));
-
-const creditCardSchema = yup.string().matches(/^\d{4}-\d{4}-\d{4}-\d{4}$/, "Invalid creditCard format");
-
-const validateData = async (data, allowedDomains = null) => {
-    if (allowedDomains && (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string") || allowedDomains.length === 0)) {
-        return { status: "failed", message: "Invalid allowedDomains parameter" };
+    constructor() {
+        this.#drivers = {};
     }
 
-    try {
-        await creditCardSchema.validate(data.creditCard);
-    } catch (err) {
-        return { status: "failed", message: err.message };
+    registerDriver(driverId, location) {
+        if (!this.isValidLocation(location)) return "Invalid driver data";
+        if (!driverId) return "Invalid driver data";
+
+        this.#drivers[driverId] = location;
+        return "Driver registered";
     }
 
-    try {
-        await emailSchema.validate(data.email);
-    } catch (err) {
-        return { status: "failed", message: err.message };
-    }
+    findNearestDriver(riderLocation) {
+        if (!this.isValidLocation(riderLocation)) return "Invalid rider location";
 
-    if (allowedDomains?.length) {
-        const domain = data.email.split("@")[1];
-        if (!allowedDomains.includes(domain)) {
-            return { status: "failed", message: `Email domain must be one of: ${allowedDomains.join(", ")}` };
+        let nearestDriver = null;
+        let minDistance = Infinity;
+
+        for (let driverId in this.#drivers) {
+            let distance = this.calculateDistance(riderLocation, this.#drivers[driverId]);
+
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestDriver = driverId;
+            }
         }
+        return nearestDriver ? { driverId: nearestDriver, distance: minDistance } : "No drivers available";
     }
 
-    return { status: "success", data };
-};
+    completeRide(driverId) {
+        if (!this.#drivers[driverId]) return "Driver not found";
+        delete this.#drivers[driverId];
+        return "Ride completed, driver removed";
+    }
 
-module.exports = { validateData };
+    #calculateDistance(loc1, loc2) {
+        return Math.sqrt(
+            Math.pow(loc1.lat - loc2.lat, 2) + Math.pow(loc1.lng - loc2.lng, 2)
+        );
+    }
+
+    #isValidLocation(location) {
+        return location && location.lat && location.lng;
+    }
+}
+
+module.exports = { RideMatchingService };

@@ -1,65 +1,93 @@
-const yup = require('yup');
-
-const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
-
-const isValidEmailFormat = (email) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
-
-const isValidDomain = (domain) => {
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) return false;
-    return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
-};
-
-const customEmailValidator = (email) => {
-    if (!isValidEmailFormat(email)) return false;
-    if (email.includes("+")) return false;
-    if (email.includes("..")) return false;
-    if (email.length > 254) return false;
-    const domain = email.split("@")[1];
-    if (!isValidDomain(domain)) return false;
-    const tld = domain.split(".").pop();
-    if (!validTlds.has(tld)) return false;
-    return true;
-};
-
-const validateData = async (data, allowedDomains = null) => {
-    try {
-        // Validate allowedDomains parameter if provided
-        if (allowedDomains !== null) {
-            await yup.array()
-                .of(yup.string())
-                .min(1)
-                .required()
-                .validate(allowedDomains)
-                .catch(() => {
-                    throw new Error("Invalid allowedDomains parameter");
-                });
+class Location {
+    constructor(lat, lng) {
+        if (!this.#isValidCoordinate(lat) || !this.#isValidCoordinate(lng)) {
+            throw new Error("Invalid coordinates");
         }
-
-        // Create dynamic schema based on allowedDomains
-        const emailSchema = yup.string()
-            .required()
-            .test('custom-email', 'Invalid email format', customEmailValidator)
-            .test('allowed-domain', `Email domain must be one of: ${allowedDomains?.join(", ")}`,
-                function (email) {
-                    if (!allowedDomains?.length) return true;
-                    const domain = email.split("@")[1];
-                    return allowedDomains.includes(domain);
-                });
-
-        const schema = yup.object().shape({
-            email: emailSchema,
-            creditCard: yup.string()
-                .matches(/^\d{4}-\d{4}-\d{4}-\d{4}$/, 'Invalid creditCard format')
-                .optional(),
-        });
-
-        // Validate the data
-        const validatedData = await schema.validate(data);
-        return { status: "success", data: validatedData };
-
-    } catch (error) {
-        return { status: "failed", message: error.message };
+        this.lat = lat;
+        this.lng = lng;
     }
-};
 
-module.exports = { validateData };
+    #isValidCoordinate(coord) {
+        return typeof coord === 'number' && !isNaN(coord);
+    }
+
+    distanceTo(otherLocation) {
+        return Math.sqrt(
+            Math.pow(this.lat - otherLocation.lat, 2) + 
+            Math.pow(this.lng - otherLocation.lng, 2)
+        );
+    }
+}
+
+class Driver {
+    constructor(id, location) {
+        if (!id || typeof id !== 'string') {
+            throw new Error("Invalid driver ID");
+        }
+        this.id = id;
+        this.location = location;
+    }
+}
+
+class RideMatchingService {
+    #drivers = new Map();
+
+    registerDriver(driverId, location) {
+        try {
+            if (!driverId || !location) {
+                throw new Error("Invalid driver data");
+            }
+
+            const driverLocation = new Location(location.lat, location.lng);
+            const driver = new Driver(driverId, driverLocation);
+            this.#drivers.set(driverId, driver);
+            
+            return "Driver registered";
+        } catch (error) {
+            return "Invalid driver data";
+        }
+    }
+
+    findNearestDriver(riderLocation) {
+        try {
+            if (!riderLocation) {
+                throw new Error("Invalid rider location");
+            }
+
+            const riderLoc = new Location(riderLocation.lat, riderLocation.lng);
+
+            if (this.#drivers.size === 0) {
+                return "No drivers available";
+            }
+
+            let nearestDriver = null;
+            let minDistance = Infinity;
+
+            this.#drivers.forEach((driver) => {
+                const distance = driver.location.distanceTo(riderLoc);
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestDriver = driver;
+                }
+            });
+
+            return nearestDriver 
+                ? { driverId: nearestDriver.id, distance: minDistance }
+                : "No drivers available";
+
+        } catch (error) {
+            return "Invalid rider location";
+        }
+    }
+
+    completeRide(driverId) {
+        if (!this.#drivers.has(driverId)) {
+            return "Driver not found";
+        }
+        
+        this.#drivers.delete(driverId);
+        return "Ride completed, driver removed";
+    }
+}
+
+module.exports = { RideMatchingService };

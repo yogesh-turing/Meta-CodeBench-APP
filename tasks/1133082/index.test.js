@@ -1,178 +1,86 @@
-const { validateData } = require(process.env.TARGET_FILE);
+const { RideMatchingService } = require(process.env.TARGET_FILE);
 
-describe('validateData', () => {
-    it('should validate a correct email without plus addressing', async () => {
-        const data = { email: 'test@example.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('success');
-        expect(result.data).toEqual(data);
-    });
+// Unit test
 
-    it('should fail validation for email with plus addressing', async () => {
-        const data = { email: 'test+alias@example.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+describe("Real-Time Cab Booking System", () => {
+  let rideService;
 
-    it('should fail validation for invalid email format', async () => {
-        const data = { email: 'invalid-email' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+  beforeEach(() => {
+    rideService = new RideMatchingService();
+  });
 
-    it('should validate a correct email with allowed domain', async () => {
-        const data = { email: 'test@allowed.com' };
-        const allowedDomains = ['allowed.com'];
-        const result = await validateData(data, allowedDomains);
-        expect(result.status).toBe('success');
-        expect(result.data).toEqual(data);
-    });
+  test("Should register drivers successfully", () => {
+    expect(
+      rideService.registerDriver("driver1", { lat: 12.9716, lng: 77.5946 })
+    ).toBe("Driver registered");
+    expect(
+      rideService.registerDriver("driver2", { lat: 12.2958, lng: 76.6394 })
+    ).toBe("Driver registered");
+  });
 
-    it('should fail validation for email with disallowed domain', async () => {
-        const data = { email: 'test@disallowed.com' };
-        const allowedDomains = ['allowed.com'];
-        const result = await validateData(data, allowedDomains);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+  test("Should return error for invalid driver data", () => {
+    expect(rideService.registerDriver(null, { lat: 12, lng: 77 })).toBe(
+      "Invalid driver data"
+    );
+    expect(rideService.registerDriver("driver3", null)).toBe(
+      "Invalid driver data"
+    );
+    expect(rideService.registerDriver("driver4", {})).toBe(
+      "Invalid driver data"
+    );
+  });
 
-    it('should fail validation for email with allowed domain is empty', async () => {
-        const data = { email: 'test@allowed.com' };
-        const allowedDomains = [];
-        const result = await validateData(data, allowedDomains);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+  test("Should find the nearest driver correctly", () => {
+    rideService.registerDriver("driver1", { lat: 12.9716, lng: 77.5946 });
+    rideService.registerDriver("driver2", { lat: 12.2958, lng: 76.6394 });
 
-    it('should fail validation if allowedDomains array contains non-string values', async () => {
-        const data = { email: 'test@allowed.com' };
-        const allowedDomains = ['allowed.com', 123];
-        const result = await validateData(data, allowedDomains);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+    let result = rideService.findNearestDriver({ lat: 12.9, lng: 77.5 });
+    expect(result).toHaveProperty("driverId");
+    expect(result).toHaveProperty("distance");
+  });
 
-    it('should validate a correct email without domain restrictions', async () => {
-        const data = { email: 'test@anydomain.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('success');
-        expect(result.data).toEqual(data);
-    });
+  test("Should return no drivers available when none are registered", () => {
+    expect(rideService.findNearestDriver({ lat: 12, lng: 77 })).toBe(
+      "No drivers available"
+    );
+  });
 
-    it('should fail validation for missing email field', async () => {
-        const data = {};
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+  test("Should return error for invalid rider location", () => {
+    expect(rideService.findNearestDriver(null)).toBe("Invalid rider location");
+    expect(rideService.findNearestDriver({})).toBe("Invalid rider location");
+  });
 
-    it('should fail validation for empty email field', async () => {
-        const data = { email: '' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+  test("Should remove driver on ride completion", () => {
+    rideService.registerDriver("driver1", { lat: 12.9716, lng: 77.5946 });
+    expect(rideService.completeRide("driver1")).toBe(
+      "Ride completed, driver removed"
+    );
+    expect(rideService.completeRide("driver1")).toBe("Driver not found");
+  });
 
-    it('should fail validation for email with invalid domain', async () => {
-        const data = { email: 'test@invalid_domain.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+  test("Should return error for removing non-existent driver", () => {
+    expect(rideService.completeRide("driverX")).toBe("Driver not found");
+  });
+});
 
-    it('should fail validation for invalid allowedDomains parameter', async () => {
-        const data = { email: 'test@invalid_domain.com' };
-        const allowedDomains = 'invalid';
-        const result = await validateData(data, allowedDomains);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+describe("Object-Oriented Programming Check", () => {
+  test("Should verify the use of classes and methods", () => {
+    const RideMatchingServiceClass = RideMatchingService.prototype.constructor;
 
-    it('should fail validation for email with length more than 256', async () => {
-        const data = { email: 'a'.repeat(257) + '@example.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
+    // Check if RideMatchingService is a class
+    expect(RideMatchingServiceClass.toString().startsWith("class")).toBe(true);
 
-    it('should fail validation for email with consecutive dots', async () => {
-        const data = { email: 'test..t@example.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
-
-    it('should fail validation for email with invalid TLD', async () => {
-        const data = { email: 'test@test.test' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
-
-    it('should fail validation for email with special characters', async () => {
-        const data = { email: 'test@ex!ample.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
-
-    it('should validate a correct email with subdomain', async () => {
-        const data = { email: 'test@mail.example.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('success');
-        expect(result.data).toEqual(data);
-    });
-
-    it('should fail validation for email with spaces', async () => {
-        const data = { email: 'test @example.com' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
-
-
-    // credit card tests
-    it('should validate a correct credit card', async () => {
-        const data = { email: 'test@example.com', creditCard: '1234-5678-1234-5678' };
-        const result = await validateData(data);
-        expect(result.status).toBe('success');
-        expect(result.data).toEqual(data);
-    });
-
-    it('should fail validation for invalid credit card format', async () => {
-        const data = { email: 'test@example.com', creditCard: '1234-5678-1234' };
-        const result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
-
-    it('should fail validation for invalid credit card format', async () => {
-        let data = { email: 'test@example.com', creditCard: '1234-5678-1234' };
-        let result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-
-        data = { email: 'test@example.com', creditCard: '1234-5678-1234-5678-1234' };
-        result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-
-        data = { email: 'test@example.com', creditCard: '1234-5678-1234-5678-1234-5678' };
-        result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-
-        data = { email: 'test@example.com', creditCard: '' };
-        result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-
-        data = { email: 'test@example.com', creditCard: 'abcd-pqrs-abcd' };
-        result = await validateData(data);
-        expect(result.status).toBe('failed');
-        expect(result.message.length).toBeGreaterThan(0);
-    });
-
+    // registerDriver should be a method of the class
+    expect(
+      typeof RideMatchingServiceClass.prototype.registerDriver
+    ).toBe("function");
+    // findNearestDriver should be a method of the class
+    expect(
+      typeof RideMatchingServiceClass.prototype.findNearestDriver
+    ).toBe("function");
+    // completeRide should be a method of the class
+    expect(
+      typeof RideMatchingServiceClass.prototype.completeRide
+    ).toBe("function");
+  });
 });

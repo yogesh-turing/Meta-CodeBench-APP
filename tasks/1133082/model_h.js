@@ -1,48 +1,85 @@
-const yup = require('yup');
-
-const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
-
-const emailSchema = yup.string()
-    .email()
-    .test('plus addressing', 'Plus addressing is not allowed', (value) => !value.includes('+'))
-    .test('consecutive dots', 'Email cannot contain consecutive dots', (value) => !value.includes('..'))
-    .test('length', 'Email length must be less than 255 characters', (value) => value.length < 255)
-    .test('domain', 'Invalid email domain format', (value) => {
-        const domain = value.split('@')[1];
-        return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
-    })
-    .test('tld', 'Email must have a valid top-level domain', (value) => {
-        const domain = value.split('@')[1];
-        const tld = domain.split('.').pop();
-        return validTlds.has(tld);
-    });
-
-const creditCardSchema = yup.string().matches(/^\d{4}-\d{4}-\d{4}-\d{4}$/, 'Invalid creditCard format');
-
-const validateData = async (data, allowedDomains) => {
-    if (allowedDomains && (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string") || allowedDomains.length === 0)) {
-        return { status: "failed", message: "Invalid allowedDomains parameter" };
+class RideMatchingService {
+    /**
+     * Initialize the RideMatchingService instance.
+     */
+    constructor() {
+      this.drivers = {};
     }
-
-    try {
-        const schema = yup.object({
-            email: emailSchema,
-            creditCard: creditCardSchema,
-        });
-
-        await schema.validate(data);
-
-        if (allowedDomains?.length) {
-            const domain = data.email.split('@')[1];
-            if (!allowedDomains.includes(domain)) {
-                return { status: "failed", message: `Email domain must be one of: ${allowedDomains.join(', ')}` };
-            }
+  
+    /**
+     * Register a driver with their location.
+     * 
+     * @param {string} driverId - Unique ID of the driver.
+     * @param {object} location - Location of the driver with lat and lng properties.
+     * @returns {string} - Success message or error message if driver data is invalid.
+     */
+    registerDriver(driverId, location) {
+      if (!this.isValidLocation(location)) {
+        return "Invalid driver data";
+      }
+      this.drivers[driverId] = location;
+      return "Driver registered";
+    }
+  
+    /**
+     * Find the nearest driver to the rider's location.
+     * 
+     * @param {object} riderLocation - Location of the rider with lat and lng properties.
+     * @returns {object|string} - Nearest driver's ID and distance or error message if no drivers are available.
+     */
+    findNearestDriver(riderLocation) {
+      if (!this.isValidLocation(riderLocation)) {
+        return "Invalid rider location";
+      }
+  
+      let nearestDriver = null;
+      let minDistance = Infinity;
+  
+      for (const driverId in this.drivers) {
+        const distance = this.calculateDistance(riderLocation, this.drivers[driverId]);
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestDriver = driverId;
         }
-
-        return { status: "success", data };
-    } catch (error) {
-        return { status: "failed", message: error.message };
+      }
+  
+      return nearestDriver ? { driverId: nearestDriver, distance: minDistance } : "No drivers available";
     }
-};
-
-module.exports = { validateData };
+  
+    /**
+     * Complete the ride and remove the driver from the list.
+     * 
+     * @param {string} driverId - Unique ID of the driver.
+     * @returns {string} - Success message or error message if driver is not found.
+     */
+    completeRide(driverId) {
+      if (!this.drivers[driverId]) {
+        return "Driver not found";
+      }
+      delete this.drivers[driverId];
+      return "Ride completed, driver removed";
+    }
+  
+    /**
+     * Check if the location object has valid lat and lng properties.
+     * 
+     * @param {object} location - Location object with lat and lng properties.
+     * @returns {boolean} - True if location is valid, false otherwise.
+     */
+    isValidLocation(location) {
+      return location && typeof location.lat === 'number' && typeof location.lng === 'number';
+    }
+  
+    /**
+     * Calculate the Euclidean distance between two points.
+     * 
+     * @param {object} point1 - First point with lat and lng properties.
+     * @param {object} point2 - Second point with lat and lng properties.
+     * @returns {number} - Euclidean distance between the two points.
+     */
+    calculateDistance(point1, point2) {
+      return Math.sqrt(Math.pow(point1.lat - point2.lat, 2) + Math.pow(point1.lng - point2.lng, 2));
+    }
+  }
+  
+  module.exports = { RideMatchingService };

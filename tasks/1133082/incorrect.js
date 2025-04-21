@@ -1,34 +1,56 @@
-const yup = require("yup");
-const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
-
-const emailSchema = yup.string().required().email().test("plus addressing", "Plus addressing is not allowed", (value) => !value.includes("+"))
-    .test("consecutive dots", "Email cannot contain consecutive dots", (value) => !value.includes(".."))
-    .test("length", "Email length must be less than 255 characters", (value) => value.length <= 254)
-    .test("domain", "Invalid email domain format", (value) => /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value.split("@")[1]))
-    .test("tld", "Email must have a valid top-level domain", (value) => validTlds.has(value.split(".").pop()));
-
-const creditCardSchema = yup.string().required().test("format", "Invalid creditCard format", (value) => /^\d{4}-\d{4}-\d{4}-\d{4}$/.test(value));
-
-const validateData = async (data, allowedDomains = null) => {
-    if (allowedDomains && (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string") || allowedDomains.length === 0)) {
-        return { status: "failed", message: "Invalid allowedDomains parameter" };
+class RideMatchingService {
+    #drivers;
+  
+    constructor() {
+      this.#drivers = {};
     }
-
-    try {
-        await emailSchema.validate(data.email);
-        await creditCardSchema.validate(data.creditCard);
-
-        if (allowedDomains?.length) {
-            const domain = data.email.split("@")[1];
-            if (!allowedDomains.includes(domain)) {
-                return { status: "failed", message: `Email domain must be one of: ${allowedDomains.join(", ")}` };
-            }
+  
+    registerDriver(driverId, location) {
+      if (!this.isValidLocation(location)) return "Invalid driver data";
+      if (!driverId) return "Invalid driver data";
+  
+      this.#drivers[driverId] = location;
+      return "Driver registered";
+    }
+  
+    findNearestDriver(riderLocation) {
+      if (!this.isValidLocation(riderLocation)) return "Invalid rider location";
+  
+      let nearestDriver = null;
+      let minDistance = Infinity;
+  
+      for (let driverId in this.#drivers) {
+        let distance = this.calculateDistance(
+          riderLocation,
+          this.#drivers[driverId]
+        );
+  
+        if (distance < minDistance) {
+          minDistance = distance;
+          nearestDriver = driverId;
         }
-    } catch (error) {
-        return { status: "failed", message: error.message };
+      }
+      return nearestDriver
+        ? { driverId: nearestDriver, distance: minDistance }
+        : "No drivers available";
     }
-
-    return { status: "success", data };
-};
-
-module.exports = { validateData };
+  
+    completeRide(driverId) {
+      if (!this.#drivers[driverId]) return "Driver not found";
+      delete this.#drivers[driverId];
+      return "Ride completed, driver removed";
+    }
+  
+    #calculateDistance(loc1, loc2) {
+      return Math.sqrt(
+        Math.pow(loc1.lat - loc2.lat, 2) + Math.pow(loc1.lng - loc2.lng, 2)
+      );
+    }
+  
+    #isValidLocation(location) {
+      return location && location.lat && location.lng;
+    }
+  }
+  
+  module.exports = { RideMatchingService };
+  

@@ -1,75 +1,81 @@
-const yup = require('yup');
+class Driver {
+    constructor(id, location) {
+        this.id = id;
+        this.location = location;
+    }
+}
 
-const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
+class RideMatchingService {
+    constructor() {
+        this.drivers = new Map();
+    }
 
-const isValidDomain = (domain) => {
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) return false;
-    return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
-};
+    #validateLocation(location) {
+        return location && 
+               typeof location.lat === 'number' && 
+               typeof location.lng === 'number';
+    }
 
-const baseSchema = yup.object().shape({
-    email: yup
-        .string()
-        .required()
-        .max(254, "Email length must be less than 255 characters")
-        .test('valid-format', 'Invalid email format', 
-            value => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(value))
-        .test('no-plus-addressing', 'Plus addressing is not allowed',
-            value => !value.includes('+'))
-        .test('no-consecutive-dots', 'Email cannot contain consecutive dots',
-            value => !value.includes('..'))
-        .test('valid-domain', 'Invalid email domain format',
-            value => {
-                const domain = value.split('@')[1];
-                return isValidDomain(domain);
-            })
-        .test('valid-tld', 'Email must have a valid top-level domain',
-            value => {
-                const tld = value.split('@')[1].split('.').pop();
-                return validTlds.has(tld);
-            }),
-    creditCard: yup
-        .string()
-        .nullable()
-        .test('valid-format', 'Invalid creditCard format',
-            value => !value || /^\d{4}-\d{4}-\d{4}-\d{4}$/.test(value))
-});
+    #validateDriverId(driverId) {
+        return driverId && typeof driverId === 'string';
+    }
 
-const validateData = async (data, allowedDomains = null) => {
-    try {
-        // Validate allowedDomains parameter
-        if (allowedDomains) {
-            if (!Array.isArray(allowedDomains) || 
-                !allowedDomains.every(domain => typeof domain === 'string') || 
-                allowedDomains.length === 0) {
-                return { 
-                    status: 'failed', 
-                    message: 'Invalid allowedDomains parameter' 
-                };
+    #calculateDistance(point1, point2) {
+        return Math.sqrt(
+            Math.pow(point1.lat - point2.lat, 2) + 
+            Math.pow(point1.lng - point2.lng, 2)
+        );
+    }
+
+    registerDriver(driverId, location) {
+        if (!this.#validateDriverId(driverId)) {
+            return "Invalid driver ID";
+        }
+        
+        if (!this.#validateLocation(location)) {
+            return "Invalid location data";
+        }
+
+        const driver = new Driver(driverId, location);
+        this.drivers.set(driverId, driver);
+        return "Driver registered";
+    }
+
+    findNearestDriver(riderLocation) {
+        if (!this.#validateLocation(riderLocation)) {
+            return "Invalid rider location";
+        }
+
+        if (this.drivers.size === 0) {
+            return "No drivers available";
+        }
+
+        let nearestDriver = null;
+        let minDistance = Infinity;
+
+        for (const [driverId, driver] of this.drivers) {
+            const distance = this.#calculateDistance(riderLocation, driver.location);
+            
+            if (distance < minDistance) {
+                minDistance = distance;
+                nearestDriver = driverId;
             }
         }
 
-        // Create schema based on allowedDomains
-        let schema = baseSchema;
-        if (allowedDomains?.length) {
-            schema = schema.shape({
-                email: baseSchema.fields.email.test(
-                    'allowed-domain',
-                    `Email domain must be one of: ${allowedDomains.join(', ')}`,
-                    value => {
-                        const domain = value.split('@')[1];
-                        return allowedDomains.includes(domain);
-                    }
-                )
-            });
+        return {
+            driverId: nearestDriver,
+            distance: minDistance
+        };
+    }
+
+    completeRide(driverId) {
+        if (!this.drivers.has(driverId)) {
+            return "Driver not found";
         }
 
-        // Validate data against schema
-        const validatedData = await schema.validate(data);
-        return { status: 'success', data: validatedData };
-    } catch (error) {
-        return { status: 'failed', message: error.message };
+        this.drivers.delete(driverId);
+        return "Ride completed, driver removed";
     }
-};
+}
 
-module.exports = { validateData };
+module.exports = { RideMatchingService };

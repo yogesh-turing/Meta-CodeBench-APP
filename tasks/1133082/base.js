@@ -1,50 +1,39 @@
-const validTlds = new Set(["com", "org", "net", "edu", "gov"]);
+function RideMatchingService() {
+    let drivers = {};
 
-const isValidEmailFormat = (email) => /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(email);
+    return {
+        registerDriver: function (driverId, location) {
+            if (!driverId || !location || !location.lat || !location.lng) return "Invalid driver data";
+            drivers[driverId] = location;
+            return "Driver registered";
+        },
 
-const isValidDomain = (domain) => {
-    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(domain)) return false;
-    return /^[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/.test(domain);
-};
+        findNearestDriver: function (riderLocation) {
+            if (!riderLocation || !riderLocation.lat || !riderLocation.lng) return "Invalid rider location";
 
-const validateEmail = (email) => {
-    if (!isValidEmailFormat(email)) return "Invalid email format";
-    if (email.includes("+")) return "Plus addressing is not allowed";
-    if (email.includes("..")) return "Email cannot contain consecutive dots";
-    if (email.length > 254) return "Email length must be less than 255 characters";
-    const domain = email.split("@")[1];
-    if (!isValidDomain(domain)) return "Invalid email domain format";
-    const tld = domain.split(".").pop();
-    if (!validTlds.has(tld)) return "Email must have a valid top-level domain";
-    return null;
-};
+            let nearestDriver = null;
+            let minDistance = Infinity;
 
-const validateData = (data, allowedDomains = null) => {
-    if (allowedDomains && (!Array.isArray(allowedDomains) || !allowedDomains.every((domain) => typeof domain === "string") || allowedDomains.length === 0)) {
-        return { status: "failed", message: "Invalid allowedDomains parameter" };
-    }
+            for (let driverId in drivers) {
+                let d = drivers[driverId];
+                let distance = Math.sqrt(
+                    Math.pow(riderLocation.lat - d.lat, 2) + Math.pow(riderLocation.lng - d.lng, 2)
+                );
 
-    const creditCard = data.creditCard;
-    if (typeof creditCard === "string") {
-        if (!/^\d{4}-\d{4}-\d{4}-\d{4}$/.test(creditCard)) {
-            return { status: "failed", message: "Invalid creditCard format" };
+                if (distance < minDistance) {
+                    minDistance = distance;
+                    nearestDriver = driverId;
+                }
+            }
+            return nearestDriver ? { driverId: nearestDriver, distance: minDistance } : "No drivers available";
+        },
+
+        completeRide: function (driverId) {
+            if (!drivers[driverId]) return "Driver not found";
+            delete drivers[driverId];
+            return "Ride completed, driver removed";
         }
-    }
+    };
+}
 
-    const email = data.email;
-    const errorMessage = validateEmail(email);
-    if (errorMessage) return { status: "failed", message: errorMessage };
-
-
-
-    if (allowedDomains?.length) {
-        const domain = email.split("@")[1];
-        if (!allowedDomains.includes(domain)) {
-            return { status: "failed", message: `Email domain must be one of: ${allowedDomains.join(", ")}` };
-        }
-    }
-
-    return { status: "success", data };
-};
-
-module.exports = { validateData };
+module.exports = { RideMatchingService };
